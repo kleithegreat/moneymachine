@@ -1155,3 +1155,68 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The engine:** still calls glibc's `exp` and `log`. Under the human's decision of 2026-11-16 23:33 UTC (18:33 EST), the next build's B4 follows round 3's D185.
   - **What is left before step 4 merges into `kernel2-build`:** the flake checks run by the advisor once calibration frees the remote builders. The rate tests failed only under calibration's load, and passed on an isolated core.
   - **Also:** prodesk5's six-shard run of the same build was stopped at about 46%, with no divergence in N1 or in N2 so far, to free the host (the human, 2026-11-17).
+- 2026-11-17 09:01 UTC (04:01 EST), advisor: **the architect's round 4 answers GPT's nine disputes on round 3** (`rearchitecture` `ba9ffd5` to `3f911d1`, pushed; report `data/builder/architect-last-pass-r4-report.md`; ledger D189 to D193). Three were answered by re-derivation.
+  - **D189, a day is read once:** the first attempt of a replay that reaches a day records each file's length and hash, and every later replay reads that day so. The last midnight a replay reaches is 31 days or more before it starts.
+  - **D190, CS2.1:** a dated revision beneath CS2.1's shared definitions, drafted in the report. It is to be reviewed, then committed alone.
+  - **D191:** a judged launch is trusted. The re-execution removes what an honest launch carries.
+  - **D192:** `exp` and `log` are formulas the law writes out. They are NaN where a 256-bit cap does not decide, which the published worst cases put no nearer than about 2⁻¹²⁰, except possibly `exp`'s subnormal results.
+  - **D193:** B4's reference computes the human's `exp` and `log`, and every item is compared.
+  - **Next:**
+    - the next read on a model other than GPT: Argon (web) or a fresh Opus session, labelled as such;
+    - the criteria revision reviewed by a fresh Claude session and GPT;
+    - the advisor certifies the worst-case citation;
+    - the advisor runs and stores B4's new reference.
+- 2026-11-17 09:29 UTC (04:29 EST), advisor: **study 1's calibration is complete** (run `cal-3`, carried from `cal-2`, on `study1-build` `f125937`, kernel `e6df2244…`; it ended successfully at 2026-11-17 09:28 UTC, 04:28 EST).
+  - **Strength:** 0.0021875.
+  - **Walls:** every wall passes.
+    - Wall 2: 570,000 of 570,000.
+    - Wall 3: 0 of 200.
+    - Wall 4: G100 earned on 1,491 of 10,000 confirmation markets (0.149, against a target of 0.15).
+    - Wall 5: 0 of 200.
+  - **The result:** `calibration.json` (sha256 `3d1e4833…`) is committed unchanged as `audit/control-1/calibration.json` on `study1-build` (`107daf2`), where the manifest hashes it.
+  - **The hunt's fixes:** `study1-build` was fast-forwarded over them first (`952296f`, accepted 2026-11-16 18:10 UTC, 13:10 EST). Branch `s1-hunt-fixes` is deleted.
+  - **Scratch:** calibration's 9.9 GB of temporary files are deleted. Its logs and `/srv/moneymachine/results/cal-3` stay.
+  - **Next for study 1:**
+    1. the manifest's commit, with the advisor's last review of what it freezes;
+    2. G100 on the study markets;
+    3. the first sessions, on Cornell and TAMU.
+- 2026-11-17 15:11 UTC (10:11 EST), advisor: **study 1's manifest is committed alone** (`study1-build` `c5d95db`, `audit/control-1/manifest.json`, sha256 `ba27609d…`), after the advisor's last review of what it freezes. The human said to proceed.
+  - **The seed** is the sha256 of the committed `calibration.json` (`3d1e4833…`). Brief 1 gives no rule for it, and a seed someone picks could be shopped for one that weakens G100. A rule leaves no one a choice.
+  - **The review, item by item:**
+    - **Kernel:** `e6df2244…`, the binary `cal-3` ran on. The arms use a copy at `~/.cache/mm-study1/k` through `CARGO_TARGET_DIR`. The worktree's own rebuild, `fedad8b4…`, would have been wrong.
+    - **Harness:** `6a335714…`, the stage 3 harness CS1.1 names. The model is `claude-opus-5-5`.
+    - **`flake.lock`:** `415c302c…`, unmoved since study 1 began.
+    - **Constants:** as `constants.py` at calibration.
+    - **Strength:** 0.0021875.
+    - **The 100 study markets:** `control-1-m000` to `m099`.
+    - **Hashed files:** 61.
+    - **Judged-path changes since calibration's `f125937`:** only the calibration result and the hunt's fixes to `campaigns.py`, `manifest.py` and `runner.py`. None is on G100's path, so G100 computes as calibration measured it.
+  - **Next:** G100's arm, from a worktree of its own at `c5d95db`.
+- 2026-11-17 15:25 UTC (10:25 EST), advisor: **kernel version 2's step 4 is merged into `kernel2-build`** (fast-forward to `1f9632d`). Branch `kernel2-step4-wip` is deleted.
+  - **B4:** passed in full (3,120 streams, decisions earlier today).
+  - **Checks:** `engine-proofs`, `engine-proofs-fixtures`, `mm2` and `mm2-tests` pass.
+  - **The speed tests:** brief 3 step 3's two wall-clock tests leave the flake check, the human's decision of today. Run on whichever remote builder Nix picked, they measured the host and not the code: they failed on gmktec (Ryzen 5 3500U, load 5.3) and passed on this desktop's isolated core. They now run locally on this desktop (`kernel2/tests/speed-local.sh`, called by `fast-readings.sh`), their code and limits unchanged (Sonnet, `1f9632d`). Measured: 324.3 s of 470 and 13.7 s of 22.
+  - **Owed:** the script's exit status was not captured on that run, so the advisor reruns it once G100's arm frees this PC.
+- 2026-11-17 15:28 UTC (10:28 EST), advisor: **the drafted dated revision beneath study 2's criteria (round 4's D190) is not committed** (reviews `audit/reviews/2026-11-17-gpt-cs21-revision.md` and `2026-11-17-opus-cs21-revision.md`).
+  - **GPT: do not commit.** Two fatal constructions:
+    - The 31-day lag lets a missing settlement arrive before the engine meets it. That avoids the early end the committed text requires, and a lucky crossing becomes "earned" where the committed text says "not confirmed": an added false discovery.
+    - When the first attempt runs fixes which late-flushed print a day's cut holds, so launch timing can flip a crossing.
+    - Also: CS2.3's verdict can change on an honest record, and "first of a key" changes the judged input.
+  - **Opus (fresh, maximum effort): commit with named text changes.** One is required: a replay also stops at the record's last quote, or a stopped recorder adds false verdicts. Three more are text.
+  - **The rule:** a revision may never increase false discoveries, and GPT shows a construction in which this one does. It goes back to the architect.
+  - **The pattern:** this is the fourth round on the record's closure (D175, D180, D189, D190), and the findings keep landing there. The architect re-derives it from first principles rather than patching (`CLAUDE.md` §1). The committed criteria stand as written meanwhile.
+- 2026-11-17 15:43 UTC (10:43 EST), advisor: **study 1's G100 arm is complete** (`audit/control-1/searcher.jsonl`, sha256 `b5cc9396…`, committed on `study1-build` `51e0e4c`; the human said to proceed).
+  - **The run:** user unit `mm-g100`, from the worktree `../mm-s1-arms` at the manifest's commit `c5d95db`, with the frozen kernel through `CARGO_TARGET_DIR`. `verify()` passed before and after. 2026-11-17 15:12 to 15:43 UTC (10:12 to 10:43 EST).
+  - **The result:** 100 study markets in the manifest's order, each with its seed derived from the manifest's seed and 100 evaluations spent. G100's pick earns from the plant on 15 of 100 markets, calibration's target of 0.15.
+  - **Next:** the agent's sessions on Cornell and TAMU, one per market in order, never rerun. The human decides when they start and how they are paced. The advisor proposes measuring the first session's usage before setting the pace.
+- 2026-11-17 16:01 UTC (11:01 EST), advisor: **study 1's runner is started on TAMU alone, for the first session** (the human: "start the first study 1 agent session on tamu"). User unit `mm-study1`, from `../mm-s1-arms` at the manifest's commit, with only TAMU's token.
+  - **Usage windows read by the runner's own probe:**
+    - TAMU: 5-hour 41%; weekly 61%, resetting 2026-11-21 04:00 UTC (11-20 23:00 EST).
+    - Cornell: 5-hour 36%; weekly 81%, resetting 11-22 05:00 UTC (00:00 EST).
+  - **When the session can start:** the frozen pacing rule (`campaigns.py`, hashed by the manifest: every window plus the 0.5 assumed for an unmeasured session within 0.8) lets a session start only at 30% or under. So it waits, by its own rule, until TAMU's weekly reset.
+  - **After the first result** a watcher stops the runner, so the human can set the pace from a measured session.
+  - **TAMU carries no other Claude work until then:** its weekly share is study 1's. Architect and builder sessions meanwhile run on the personal account, whose weekly window resets 2026-11-17 20:00 UTC (15:00 EST).
+- 2026-11-17 16:10 UTC (11:10 EST), advisor: **correction to the entry above:** TAMU is not reserved until its weekly reset.
+  - The weekly window resets to zero on 2026-11-21 04:00 UTC (11-20 23:00 EST) however much TAMU is used before then.
+  - Only the 5-hour window at the start matters. Heavy TAMU use in the five hours before the reset can delay the first session by a few hours.
+  - TAMU may be used freely until about 2026-11-20 23:00 UTC (18:00 EST).
