@@ -127,6 +127,7 @@
           });
           tests = pkgs.stdenv.mkDerivation (common // {
             pname = "mm2-tests";
+            buildInputs = common.buildInputs ++ [ pkgs.mpfr.dev pkgs.mpfr ];
             buildPhase = build + ''
               (cd kernel2/ocaml && dune build --root . @runtest)
               sh kernel2/tests/flake-lock.sh
@@ -136,7 +137,7 @@
           style = pkgs.stdenv.mkDerivation (common // {
             pname = "mm2-style";
             nativeBuildInputs = common.nativeBuildInputs ++ [ o.ocamlformat o.ppx_js_style ];
-            buildInputs = common.buildInputs ++ [ o.ppx_js_style ];
+            buildInputs = common.buildInputs ++ [ o.ppx_js_style pkgs.mpfr.dev pkgs.mpfr ];
             buildPhase = build + ''
               (cd kernel2/ocaml && dune build --root . @fmt @check @lint)
             '';
