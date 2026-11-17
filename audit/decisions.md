@@ -1238,3 +1238,16 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **One law,** `price_grid_characterization`, has a hypothesis its proof never uses, now an anonymous binder. Dropping it would change the statement, which is its writer's call.
   - **Not done:** `.mli` files, a design task, and the same gates for `recorder/`, on `main`.
   - **`CLAUDE.md` §2:** now names these checks beside Python's.
+- 2026-11-17 20:40 UTC (15:40 EST), advisor: **the architect's round 5 re-derives the record from the criteria and answers Argon on rounds 3 and 4** (`rearchitecture` `516bf25` to `a0f5c06`, pushed; report `data/builder/architect-last-pass-r5-report.md`; ledger D194 to D199). TAMU, 2026-11-17 20:01 to 20:39 UTC (15:01 to 15:39 EST).
+  - **D194, the record as it is:**
+    - A replay reads the record as it is and publishes only what reproduces what was already published. There is no lag, no cut and no key chosen.
+    - Replays start at a fixed time: 12:00 UTC (07:00 EST) on the first of each month from February 2027, after a collector pull begun after that time.
+    - A late item that changes a published day ends the test early, which can only remove a discovery.
+    - **No criteria revision is needed.** The drafted D190 is withdrawn.
+  - **D196 and D197, X4:**
+    - It states the engine's least deciding count and binds `bitsOps.exp` and `bitsOps.log` to it.
+    - The MXCSR check reads the control bits only.
+    - The re-execution runs once.
+  - **D198, B4's MPFR stub:** subnormalizes. Test 13 prints, argument by argument, where glibc differs from MPFR.
+  - **The architect:** no dispute that would change step 5, and no new choice for the human.
+  - **Next:** GPT reads round 5, D194 first.
