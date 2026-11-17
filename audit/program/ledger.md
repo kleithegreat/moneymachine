@@ -2018,4 +2018,4 @@ None new.
 
 ### Convergence
 
-**Answered by derivation, and not yet read.** The design changed in D189 (the record), D192 (X4) and D193 (B4), each a re-derivation of a part on its third fix. So the next round is due. Argon has not read D180's or X4's earlier forms closely, and GPT has read them twice. Before step 5's build, no open dispute would change what it builds once its tests carry this round's list.
+**Answered by derivation, and not yet read.** The design changed in D189 (the record), D192 (X4) and D193 (B4), each a re-derivation of a part on its third fix. So the next round is due, on another model than GPT, which found them: Argon, once its quota returns, or a fresh Opus session labeled as such if it does not. No open dispute would change what step 5 builds once its tests carry this round's list.
