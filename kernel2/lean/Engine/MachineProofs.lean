@@ -90,11 +90,23 @@ theorem go_append (a b : List Event) : ∀ s : State,
     rw [ih]
     simp [Rows.append_assoc]
 
+theorem goAcc_eq_go (es : List Event) : ∀ (s : State) (acc : Rows),
+    goAcc s es acc = ((go s es).1, acc ++ (go s es).2) := by
+  induction es with
+  | nil => intro s acc; simp [goAcc, go, Rows.append_empty]
+  | cons e es ih =>
+    intro s acc
+    simp only [goAcc, go]
+    rw [ih]
+    simp [Rows.append_assoc]
+
 theorem feed_eq_go (s : State) (c : Chunk) (events : List Event)
     (h : decodeChunk s c = .ok events) : feed s c = go s events := by
   unfold feed
   cases hr : s.rejected with
-  | none => simp [h]
+  | none =>
+    simp only [h]
+    rw [goAcc_eq_go, Rows.empty_append]
   | some f => simp [go_rejected s f hr]
 
 theorem decode_cfg (s t : State) (hc : t.cfg = s.cfg) (c : Chunk) : decodeChunk t c = decodeChunk s c := by
