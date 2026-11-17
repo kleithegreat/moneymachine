@@ -1216,3 +1216,7 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **When the session can start:** the frozen pacing rule (`campaigns.py`, hashed by the manifest: every window plus the 0.5 assumed for an unmeasured session within 0.8) lets a session start only at 30% or under. So it waits, by its own rule, until TAMU's weekly reset.
   - **After the first result** a watcher stops the runner, so the human can set the pace from a measured session.
   - **TAMU carries no other Claude work until then:** its weekly share is study 1's. Architect and builder sessions meanwhile run on the personal account, whose weekly window resets 2026-11-17 20:00 UTC (15:00 EST).
+- 2026-11-17 16:10 UTC (11:10 EST), advisor: **correction to the entry above:** TAMU is not reserved until its weekly reset.
+  - The weekly window resets to zero on 2026-11-21 04:00 UTC (11-20 23:00 EST) however much TAMU is used before then.
+  - Only the 5-hour window at the start matters. Heavy TAMU use in the five hours before the reset can delay the first session by a few hours.
+  - TAMU may be used freely until about 2026-11-20 23:00 UTC (18:00 EST).
