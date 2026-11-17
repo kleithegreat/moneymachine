@@ -221,6 +221,21 @@ let raw_hours root coin day =
 
 let ints text = String.concat "," (List.map string_of_int text)
 
+let ( let* ) = Result.bind
+
+(* The table's `source_hours` metadata is a JSON list of integers; absent or malformed is an error, since the table cannot then be verified. *)
+let source_hours ~coin ~day recorded =
+  let fail why = Error (Printf.sprintf "%s %s: snapshot table source_hours metadata %s" coin day why) in
+  if recorded = "" then fail "is missing"
+  else
+    match Yojson.Basic.from_string recorded with
+    | exception Yojson.Json_error _ -> fail "is not valid JSON"
+    | `List items ->
+      let hour = function `Int h -> Some h | _ -> None in
+      let hours = List.filter_map hour items in
+      if List.length hours = List.length items then Ok hours else fail "has a non-integer element"
+    | _ -> fail "is not a list"
+
 (* A coin-day's table against its raw files: the hours recorded in the table are the hours on disk. *)
 let manifest root coin day =
   let table = Printf.sprintf "%s/snapshots/%s/%s.parquet" root coin day in
@@ -234,10 +249,7 @@ let manifest root coin day =
         (Printf.sprintf
            "SELECT decode(value) FROM parquet_kv_metadata('%s') WHERE decode(key) = 'source_hours'" table)
     in
-    let hours =
-      try Yojson.Basic.Util.(Yojson.Basic.from_string recorded |> to_list |> List.map to_int)
-      with _ -> []
-    in
+    let* hours = source_hours ~coin ~day recorded in
     if hours = raw then Ok (Some table)
     else
       let short = List.length hours < List.length raw in
@@ -254,8 +266,6 @@ let refuse_protected days =
   match List.find_opt (fun d -> d >= protected_day) days with
   | Some d -> Error (Printf.sprintf "day %s is in the protected window" d)
   | None -> Ok ()
-
-let ( let* ) = Result.bind
 
 let day_start day =
   match parse_day day with Some z -> z * day_ms | None -> 0
