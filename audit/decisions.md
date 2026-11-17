@@ -1180,3 +1180,15 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     1. the manifest's commit, with the advisor's last review of what it freezes;
     2. G100 on the study markets;
     3. the first sessions, on Cornell and TAMU.
+- 2026-11-17 15:11 UTC (10:11 EST), advisor: **study 1's manifest is committed alone** (`study1-build` `c5d95db`, `audit/control-1/manifest.json`, sha256 `ba27609d…`), after the advisor's last review of what it freezes. The human said to proceed.
+  - **The seed** is the sha256 of the committed `calibration.json` (`3d1e4833…`). Brief 1 gives no rule for it, and a seed someone picks could be shopped for one that weakens G100. A rule leaves no one a choice.
+  - **The review, item by item:**
+    - **Kernel:** `e6df2244…`, the binary `cal-3` ran on. The arms use a copy at `~/.cache/mm-study1/k` through `CARGO_TARGET_DIR`. The worktree's own rebuild, `fedad8b4…`, would have been wrong.
+    - **Harness:** `6a335714…`, the stage 3 harness CS1.1 names. The model is `claude-opus-5-5`.
+    - **`flake.lock`:** `415c302c…`, unmoved since study 1 began.
+    - **Constants:** as `constants.py` at calibration.
+    - **Strength:** 0.0021875.
+    - **The 100 study markets:** `control-1-m000` to `m099`.
+    - **Hashed files:** 61.
+    - **Judged-path changes since calibration's `f125937`:** only the calibration result and the hunt's fixes to `campaigns.py`, `manifest.py` and `runner.py`. None is on G100's path, so G100 computes as calibration measured it.
+  - **Next:** G100's arm, from a worktree of its own at `c5d95db`.
