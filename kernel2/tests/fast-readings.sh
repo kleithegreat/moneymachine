@@ -21,6 +21,7 @@ dune exec --root kernel2/ocaml test/archive_local.exe -- "$archive" "$repo" >"$o
 dune exec --root kernel2/ocaml test/b4_local.exe -- "$reference" "$audit" >"$out/b4.log" 2>&1
 # Also hold the literal archived day, not only the sandbox's day-shaped load.
 dune exec --root kernel2/ocaml test/scale_local.exe -- --day "$archive" "$repo" "$out/day.json" >"$out/day.log" 2>&1
+sh kernel2/tests/speed-local.sh "$repo" >"$out/speed.log" 2>&1
 sh kernel2/lean/check-proofs.sh "$repo/kernel2/lean" >"$out/axioms.log" 2>&1
 for law in X2 C1 C2 X3_readBits X3_onGrid; do
   grep -F "Engine.Laws.$law:" "$out/axioms.log"

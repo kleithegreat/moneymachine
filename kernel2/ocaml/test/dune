@@ -95,12 +95,12 @@
  (modules readings_test)
  (libraries events_support mm2_lean yojson))
 
-(test
+(executable
  (name scale_test)
  (modules scale_test)
  (libraries events_support scale_test_support))
 
-(test
+(executable
  (name strings_scale_test)
  (modules strings_scale_test)
  (libraries events_support scale_test_support))
@@ -113,7 +113,8 @@
 
 ; Step 3 test 7: the original step-1, step-3 and step-4 sandbox tests run
 ; unedited against the same engine, alongside the new reading regressions.
-; tests/fast-readings.sh adds archive_local and the whole B4 corpus locally;
+; tests/fast-readings.sh adds archive_local, the whole B4 corpus and the wall-clock
+; speed tests (tests/speed-local.sh: their limits hold on this desktop only) locally;
 ; tests/engine-proofs.sh holds the X3/X2/C1/C2 axiom listing.
 (alias
  (name step3-fast-readings)
