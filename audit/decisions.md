@@ -1251,3 +1251,22 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **D198, B4's MPFR stub:** subnormalizes. Test 13 prints, argument by argument, where glibc differs from MPFR.
   - **The architect:** no dispute that would change step 5, and no new choice for the human.
   - **Next:** GPT reads round 5, D194 first.
+- 2026-11-17 21:08 UTC (16:08 EST), advisor: **the architect's round 6 answers GPT's five points on round 5** (`rearchitecture` `52536d2` to `57ce8b9`, pushed; report `data/builder/architect-last-pass-r6-report.md`; ledger D200 to D204). TAMU, 20:50 to 21:08 UTC (15:50 to 16:08 EST).
+  - **A killed attempt produces nothing.** The retry reads the record as it is, so the last remnant of a cut is gone.
+  - **The capture is specified:** a timer's pull, then the attempt. An honest late row ending the test early is named as a cost.
+  - **Each attempt runs on two hosts.** Where no two agree, nothing is published.
+  - **X5, `nearestBits` is IEEE's round-to-nearest-even at every rational:** proved, not tested. Writing the proof found a defect: `nearestBits` gave +0 for a negative rational rounding to zero.
+  - **One vault fill is one item.** A second version rejects the vault's replay, leaving CS2.3 "not judged".
+  - **For step 5:** none open. Its tests add X5 and the −0 case.
+  - **The architect recommends** a dated note in CS2.1's "fails while the claim holds", that an honest late row can end the test. It could only remove a discovery. To be reviewed before any commit.
+  - **Next:** Argon (web) reads rounds 5 and 6, since this round changed the design.
+- 2026-11-17 21:34 UTC (16:34 EST), advisor: **Argon on rounds 5 and 6: step 5 has converged, and steps 6 and 7 need their specifications pinned** (`audit/reviews/2026-11-17-argon-web-last-pass-r5r6.md`).
+  - **Agreed:** D195 to D200, and X5 with the −0 fix. One clause is added for step 5: `bitsOps.ofExact` and `bitsOps.toExact` are bound in X4's theorem, as `exp` and `log` are.
+  - **Disputed as specification, not principle, all of it for steps 6 and 7:**
+    - **D201's capture:** the horizon is capped at the earlier of the pull's start and the recorder's last quote; funding's `known` is set independently of the pull; and a trailing partial zstd frame at a cut is handled.
+    - **D202's two hosts:** they compare everything a verdict rests on (the vault's files, `finish`'s summary, `confirm`/`held`, CS2.3's matching). A third host or a same-identity retry covers a crash, and the truncated rerun after an agreed abort runs on two hosts.
+    - **D204's key:** coin, `tid` and `oid`, on parsed fields.
+  - **CS2.1's note** on an honest late row is agreed as safe and recommended.
+  - **Next:**
+    - GPT updates step 5's tests with every round's list. A Sonnet builder then builds step 5, while the architect's round 7 pins steps 6 and 7.
+    - The CS2.1 note waits for its two reviews.
