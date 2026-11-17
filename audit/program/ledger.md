@@ -2100,3 +2100,72 @@ None new.
 ### Convergence
 
 **Answered by derivation, and not yet read.** The record is re-derived from the criteria, not patched a fifth time. Its design changed, so the next round is due on another model. No open dispute would change what step 5 builds once its tests carry this round's list.
+
+## The last pass, round 6: GPT's read of round 5, answered
+
+Appended 2026-11-17 21:07 UTC (16:07 EST) by the Opus 5.5 architect, session "architect: the last pass, round 6". Review answered: `audit/reviews/2026-11-17-gpt-last-pass-r5.md`. Commits `52536d2` to the one that appends this. No market data read. Report: `data/builder/architect-last-pass-r6-report.md`, which holds the derivations, X5's statement and the test writers' lists.
+
+### In plain words
+
+- **A killed replay now counts for nothing,** and the next one reads the record as it then is. Round 5 had it reread the killed one's file lengths, the last piece of the deleted cut, and GPT showed that could name a crossing the committed text does not.
+- **A late row from an honest venue can end the test early.** That cost stays, and is now said plainly. What a replay reads is fixed mechanically: an hourly timer from the first of the month, a pull of settled funding, then the attempt, reading the files as they are at that moment.
+- **Every replay runs on two machines, and publishes only what both compute.** One faulty machine could otherwise have named a final verdict that nothing later could withdraw.
+- **The rounding every `exp` and `log` result rests on is now proved correct for every input, not tested on samples** (law X5). Writing it found that the rounding gave +0 where IEEE gives −0, which the round-5 test would have failed on; the fix deletes a special case.
+- **Two different versions of one vault fill now make CS2.3 "not judged",** as intended. The position chain alone let them through.
+- **Nothing needs a second clock, a deferred count or a stake that moves without a fill.** No criterion is edited, and the human has no new choice.
+
+### Who has seen what
+
+- GPT read round 5 at `a0f5c06`. Nobody has read this section or its commits.
+- GPT's step 5 tests (`kernel2-step5`, `b1689bc`) predate rounds 1 to 6. The report lists this round's two changes to them.
+
+### Agreed
+
+- **GPT's acceptances of round 5:** the cash grid's removal, L1 and the midnight slice, the build identity, B4's full comparison, D198, D199, reading the record with no lag and no revision, and conservative stopping on a changed published prefix.
+- **GPT's five points,** each conceded at its cause (D200 to D204).
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D200 | A killed attempt's reading (GPT 1) | **It produced nothing** (A13: nothing published before its result row), so the next attempt reads the files as they are when it starts, as the committed text at the same attempt times does. **Deleted:** the inheritance of the first attempt's lengths (round 5's remnant of the cut), the pilot sentence arguing for fixing what a run read, and L1's "the record's and the runner's to make so". Test 10's round-4 case no longer has a later replay abort on a row it holds | **Yes** (brief 4, step 7: wall 3, test 10; part B's L1 text) |
+| D201 | Late honest data, and the capture (GPT 2) | **The early end is a cost an honest record can incur:** a row the venue served late, with every writer to its specification, ends the test before its day. The 887 s bounds no serving time. **The capture:** a timer fires at 12:00 UTC (07:00 EST) on the first and then hourly until the month's replay publishes or ends the test. Each firing pulls the settled funding (complete when every page is stored, the last under the cap, as `mmvault`'s); if the pull completed on the UTC day it began, the firing starts an attempt at once, whose row records the bytes it reads. The check is not narrowed: a late row of a coin not held moves the guard's funding too | **Yes** (brief 4, step 7: builds, wall 3, test 10; brief 3, the recorders) |
+| D202 | A faulty host (GPT 3) | **Validate, not assume.** Every attempt runs on two hosts from one identity, and its rows are those both give. A disagreement is resolved on the same identity by the next host of a fixed list; where none agree, nothing is published and the runs go to the architect. A host fault is a wrong computation of a reading the comparator made, so it gets no new reading; a kill computed nothing, so it does. Round 5's "second host when the rows differ" is deleted. **Assumed:** two hosts that err alike. **Cost:** twice each replay's core-hours, and a second host reading the recorder's volume | **Yes** (brief 4, step 7: builds, wall 3, test 10; architecture 6.6) |
+| D203 | X4's reliance on `nearestBits` (GPT 4) | **X5, a universal law:** `nearestBits` is IEEE 754's roundTiesToEven at every rational, stated over `Exact.decode` (nearest finite, ties to an even last bit, overflow at `(2 − 2⁻⁵³) 2¹⁰²³`, the sign `q`'s). X4 and X5 prove that the engine computes the stated function and rounds as IEEE does. On paper: each interval holds the true value. **Found:** `nearestBits` gave `+0` for a negative rational that rounds to zero, where IEEE and MPFR give `−0`, so round 5's test 12 would have failed. The case is deleted. Test 12's order sample is deleted, since X5 implies it | **Yes** (step 5: X5 in Laws.lean, its proof, `nearestBits`, test 12) |
+| D204 | Two versions of one vault event (GPT 5) | **One fill, one item.** The reader merges identical lines, and the replay of given fills rejects a fill whose trade and order ids an earlier fill holds, as admission rejects a repeated print id (C2). CS2.3 is then "not judged": its fills fail their replay, as committed. No version is preferred | **Yes** (A13; brief 3, step 2, test 5; brief 4, step 1, wall 1, and step 7, wall 3, test 5) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O22 | The recorder's reader inside 22,500 a second | Open, unchanged: step 6's test 11 | Step 6's reader |
+| O24 | The replica's own trace at a second's tick | Open, unchanged | The trace's `tick` rows, if a wall |
+| O26 | `exp` and `log` at B5's walls | Open, unchanged: B5's rates at step 6 | A twin, if a rate is missed |
+
+### What the next read should attack first
+
+1. **D202:** a run on which resolving a host disagreement on the same identity names a crossing that the committed text, computed right at the same attempt times, does not; any lever in the host list.
+2. **D201:** a lever left in the hourly firings, the same-day rule, or an outage repaired by hand.
+3. **D203:** a binary64 rounding IEEE 754 forbids that X5 allows, or the reverse, at the subnormals, the overflow threshold and the sign of zero.
+4. **D204:** two versions of one vault event that share no trade and order id and still both reach the chain.
+
+### Committed criteria: reported, not edited
+
+- **CS2.1's "Fails while the claim holds"** does not list the honest early end of D201. It can only remove a discovery. The report gives a sentence; the advisor's to pin, and I recommend it.
+- **CS2.1 to CS2.3's "Passes while the claim is false"** do not list a computation two hosts got wrong alike (D202). It is the premise every judged number shares, as the build's sandbox is, and I recommend no revision.
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the test writer (GPT):** X5's statement in Laws.lean, and test 12's `−0` case with its order sample deleted (the report, item 4), beyond rounds 1, 3, 4 and 5.
+- **By step 2's writer:** test 5's case of one fill's two versions, before its fix.
+- **By step 7's writer:** test 10's killed attempt, capture and two-host cases, and test 5's case of two versions.
+- **By the advisor:** this section read on a model other than GPT, D202 and D203 first; a list of at least two hosts that can read the recorder's volume; and the settled-funding collector, still owed, now run by the replay's timer as well as daily.
+- **By the next architect:** O22, O24 and O26 when their measurements come.
+
+### Convergence
+
+**Answered at the causes, and not yet read.** Each of GPT's five points is conceded and answered at its cause, not patched. D202 and D203 change the design, so the next round is due on another model. No open dispute would change what step 5 builds once its tests carry this round's two items.
