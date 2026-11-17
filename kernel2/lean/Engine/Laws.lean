@@ -1447,6 +1447,7 @@ def firstDeciding (lo hi : Nat → Rat) (first last : Nat) : UInt64 :=
   | some n => Engine.Exact.nearestBits (lo n)
   | none => nanBits
 
+set_option maxHeartbeats 4000000 in
 /-- B3 X4 ★: the least-deciding series function, its IEEE special cases,
 nonconstant witnesses, and the evaluator's four bindings. -/
 theorem X4 :
@@ -1474,7 +1475,21 @@ theorem X4 :
     Engine.Lang.bitsOps.log = Engine.Exact.log ∧
     Engine.Lang.bitsOps.ofExact = Engine.Exact.nearestBits ∧
     Engine.Lang.bitsOps.toExact = Engine.Exact.decode := by
-  sorry
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, rfl, rfl, rfl, rfl⟩
+  · intro bits x h
+    simp only [Engine.Exact.exp, h]
+    rfl
+  · intro bits y h
+    simp only [Engine.Exact.log, h]
+    rfl
+  · intro bits h
+    simp only [Engine.Exact.exp, Engine.Exact.log, h, nanBits, Engine.Exact.nanBits]
+    exact ⟨trivial, trivial⟩
+  · decide +kernel
+  · decide +kernel
+  · decide +kernel
+  · decide +kernel
+  · decide +kernel
 
 /-- B3 X5: `nearestBits` is IEEE 754's roundTiesToEven in binary64 at every rational. -/
 theorem X5 :
