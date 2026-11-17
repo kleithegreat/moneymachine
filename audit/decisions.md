@@ -1192,3 +1192,8 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - **Hashed files:** 61.
     - **Judged-path changes since calibration's `f125937`:** only the calibration result and the hunt's fixes to `campaigns.py`, `manifest.py` and `runner.py`. None is on G100's path, so G100 computes as calibration measured it.
   - **Next:** G100's arm, from a worktree of its own at `c5d95db`.
+- 2026-11-17 15:25 UTC (10:25 EST), advisor: **kernel version 2's step 4 is merged into `kernel2-build`** (fast-forward to `1f9632d`). Branch `kernel2-step4-wip` is deleted.
+  - **B4:** passed in full (3,120 streams, decisions earlier today).
+  - **Checks:** `engine-proofs`, `engine-proofs-fixtures`, `mm2` and `mm2-tests` pass.
+  - **The speed tests:** brief 3 step 3's two wall-clock tests leave the flake check, the human's decision of today. Run on whichever remote builder Nix picked, they measured the host and not the code: they failed on gmktec (Ryzen 5 3500U, load 5.3) and passed on this desktop's isolated core. They now run locally on this desktop (`kernel2/tests/speed-local.sh`, called by `fast-readings.sh`), their code and limits unchanged (Sonnet, `1f9632d`). Measured: 324.3 s of 470 and 13.7 s of 22.
+  - **Owed:** the script's exit status was not captured on that run, so the advisor reruns it once G100's arm frees this PC.
