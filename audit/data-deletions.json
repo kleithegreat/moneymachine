@@ -122,6 +122,33 @@
    "what": "reproduction dumps of audit/stage7/refmm-performance-2026-10-31.md (N1-N3 at 550 days, before and after the admission fix)",
    "rebuild": "rerun the record's commands at baseline 781d3d8 and the fix; markets from reference.differential.null_market, seed 20261024",
    "deleted": "2026-11-08, the human's go"
+  },
+  {
+   "path": "data/campaigns/round1/",
+   "sha256": "898ef374f23aded649d3f1c9105b64b1943ecf546500f8e3bda4dec65eb0fd56",
+   "bytes": 18381093897,
+   "what": "stage 2's superseded first round (kept ledgers and spent records of its sweeps, fanout) and the paused partial mixed run set aside unjudged (decisions 2026-10-27); 3,444 files",
+   "rebuild": "deterministic from each campaign's id with the pilot's frozen kernel and gate at their commits (cross-machine runs reproduced them exactly, audit/crossmachine/freeze.md); after Python and Rust leave main, from the archived tag; the rerun's evidence is what was judged (audit/stage2)",
+   "manifest": "audit/data-deletions/2026-11-17-campaigns/round1.SHA256SUMS (the directory's sha256 is this file's)",
+   "deleted": "2026-11-17 03:35 UTC (22:35 EST), by the advisor at the human's decision of that hour (disk at 90%)"
+  },
+  {
+   "path": "data/campaigns/null/",
+   "sha256": "509899a60e4037eddf4c147bb41429bbd2e756450d9acf0da75f15f0a54c07c6",
+   "bytes": 12986499672,
+   "what": "stage 2's 2,700 null campaigns: each one's ledger.sqlite.xz (cited by audit/crossmachine/freeze.md)",
+   "rebuild": "deterministic from each campaign's id with the pilot's frozen kernel and gate at their commits (cross-machine runs reproduced them exactly, audit/crossmachine/freeze.md); after Python and Rust leave main, from the archived tag",
+   "manifest": "audit/data-deletions/2026-11-17-campaigns/null.SHA256SUMS (the directory's sha256 is this file's)",
+   "deleted": "2026-11-17 03:35 UTC (22:35 EST): MOVED, not lost, to prodesk5:/srv/moneymachine-archive/campaigns/null/ (192.168.8.229), every file checked there against the manifest; the human's decision of that hour (disk at 90%). The summaries data/campaigns/null.jsonl and null.hosts.json stay."
+  },
+  {
+   "path": "data/campaigns/mixed/",
+   "sha256": "a749c424d6c6e091776d8efec86720ea7150ee96c52ce428fd7df6bac1fa4285",
+   "bytes": 5838989576,
+   "what": "stage 2's 700 mixed campaigns behind C2.6's power figures: ledgers and spent records (992 files)",
+   "rebuild": "deterministic from each campaign's id with the pilot's frozen kernel and gate at their commits (cross-machine runs reproduced them exactly, audit/crossmachine/freeze.md); after Python and Rust leave main, from the archived tag",
+   "manifest": "audit/data-deletions/2026-11-17-campaigns/mixed.SHA256SUMS (the directory's sha256 is this file's)",
+   "deleted": "2026-11-17 03:35 UTC (22:35 EST): MOVED, not lost, to prodesk5:/srv/moneymachine-archive/campaigns/mixed/, every file checked there against the manifest; the human's decision of that hour. The summaries data/campaigns/mixed.jsonl and mixed.hosts.json stay."
   }
  ]
 }
