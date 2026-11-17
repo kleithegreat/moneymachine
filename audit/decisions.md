@@ -1197,3 +1197,11 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Checks:** `engine-proofs`, `engine-proofs-fixtures`, `mm2` and `mm2-tests` pass.
   - **The speed tests:** brief 3 step 3's two wall-clock tests leave the flake check, the human's decision of today. Run on whichever remote builder Nix picked, they measured the host and not the code: they failed on gmktec (Ryzen 5 3500U, load 5.3) and passed on this desktop's isolated core. They now run locally on this desktop (`kernel2/tests/speed-local.sh`, called by `fast-readings.sh`), their code and limits unchanged (Sonnet, `1f9632d`). Measured: 324.3 s of 470 and 13.7 s of 22.
   - **Owed:** the script's exit status was not captured on that run, so the advisor reruns it once G100's arm frees this PC.
+- 2026-11-17 15:28 UTC (10:28 EST), advisor: **the drafted dated revision beneath study 2's criteria (round 4's D190) is not committed** (reviews `audit/reviews/2026-11-17-gpt-cs21-revision.md` and `2026-11-17-opus-cs21-revision.md`).
+  - **GPT: do not commit.** Two fatal constructions:
+    - The 31-day lag lets a missing settlement arrive before the engine meets it. That avoids the early end the committed text requires, and a lucky crossing becomes "earned" where the committed text says "not confirmed": an added false discovery.
+    - When the first attempt runs fixes which late-flushed print a day's cut holds, so launch timing can flip a crossing.
+    - Also: CS2.3's verdict can change on an honest record, and "first of a key" changes the judged input.
+  - **Opus (fresh, maximum effort): commit with named text changes.** One is required: a replay also stops at the record's last quote, or a stopped recorder adds false verdicts. Three more are text.
+  - **The rule:** a revision may never increase false discoveries, and GPT shows a construction in which this one does. It goes back to the architect.
+  - **The pattern:** this is the fourth round on the record's closure (D175, D180, D189, D190), and the findings keep landing there. The architect re-derives it from first principles rather than patching (`CLAUDE.md` §1). The committed criteria stand as written meanwhile.
