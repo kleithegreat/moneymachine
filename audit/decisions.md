@@ -1166,3 +1166,17 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - the criteria revision reviewed by a fresh Claude session and GPT;
     - the advisor certifies the worst-case citation;
     - the advisor runs and stores B4's new reference.
+- 2026-11-17 09:29 UTC (04:29 EST), advisor: **study 1's calibration is complete** (run `cal-3`, carried from `cal-2`, on `study1-build` `f125937`, kernel `e6df2244…`; it ended successfully at 2026-11-17 09:28 UTC, 04:28 EST).
+  - **Strength:** 0.0021875.
+  - **Walls:** every wall passes.
+    - Wall 2: 570,000 of 570,000.
+    - Wall 3: 0 of 200.
+    - Wall 4: G100 earned on 1,491 of 10,000 confirmation markets (0.149, against a target of 0.15).
+    - Wall 5: 0 of 200.
+  - **The result:** `calibration.json` (sha256 `3d1e4833…`) is committed unchanged as `audit/control-1/calibration.json` on `study1-build` (`107daf2`), where the manifest hashes it.
+  - **The hunt's fixes:** `study1-build` was fast-forwarded over them first (`952296f`, accepted 2026-11-16 18:10 UTC, 13:10 EST). Branch `s1-hunt-fixes` is deleted.
+  - **Scratch:** calibration's 9.9 GB of temporary files are deleted. Its logs and `/srv/moneymachine/results/cal-3` stay.
+  - **Next for study 1:**
+    1. the manifest's commit, with the advisor's last review of what it freezes;
+    2. G100 on the study markets;
+    3. the first sessions, on Cornell and TAMU.
