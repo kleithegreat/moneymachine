@@ -1223,3 +1223,4 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
 - 2026-11-17 16:14 UTC (11:14 EST), the human: **the paper's academic rewrite is deferred until the human says to start it.**
   - **When it runs:** an Opus session writes it.
   - **The review** checks correctness and accuracy only, not prose. This replaces the referee-style review planned on 2026-11-16 23:14 UTC (18:14 EST).
+- 2026-11-17 16:31 UTC (11:31 EST), advisor: **the archive reader's manifest check no longer swallows an unreadable `source_hours`** (`kernel2-build` `de8b618`, `9bcc66b`). Before, a missing or malformed value read as no hours: a misleading "short of" error, or a table admitted unverified when no raw file existed. GPT's three tests came first, and two of them failed for exactly that reason. Sonnet's fix parses the value explicitly and fails with an error naming it. `@runtest` and `mm2-tests`, `engine-proofs` and `mm2` pass.
