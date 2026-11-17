@@ -786,7 +786,8 @@ def decode (bits : UInt64) : Option Rat :=
   let mag := v % 2 ^ 63
   if infBits ≤ mag then none else some (if 2 ^ 63 ≤ v then -magValue mag else magValue mag)
 
-/-- The nearest binary64 to `q`, ties to even, as bits; zero is positive zero. -/
+/-- The nearest binary64 to `q`, ties to even, as bits; a nonzero `q` that rounds to zero keeps its sign (IEEE 754),
+and zero is positive zero. -/
 def nearestBits (q : Rat) : UInt64 :=
   if q = 0 then 0
   else
@@ -794,7 +795,7 @@ def nearestBits (q : Rat) : UInt64 :=
     let e := max (ilog 2 a) (-1022)
     let m := roundHalfEven (a / (2 : Rat) ^ (e - 52))
     let mag := min ((e + 1022).toNat * 2 ^ 52 + m) infBits
-    if mag = 0 then 0 else UInt64.ofNat ((if q < 0 then 2 ^ 63 else 0) + mag)
+    UInt64.ofNat ((if q < 0 then 2 ^ 63 else 0) + mag)
 
 /-- The scaled integer `n` at scale `d` that a double's bits read as, if any (A2). -/
 def readBits (d : Nat) (bits : UInt64) : Option Int :=
@@ -942,7 +943,7 @@ theorem nearest_spec {q : Rat} (hq : q ≠ 0)
     unfold nearestBits
     rw [ite_eq_right hq]
     dsimp only
-    rw [← ha, ← he, hmax, ← hs, ← ht, ← hm, hmag, ite_eq_right hmag0]
+    rw [← ha, ← he, hmax, ← hs, ← ht, ← hm, hmag]
   have d1 := hm1
   refine ⟨if q < 0 then -magValue ((e + 1022).toNat * 2 ^ 52 + m)
       else magValue ((e + 1022).toNat * 2 ^ 52 + m), ?_, ?_, ?_⟩
@@ -1165,7 +1166,7 @@ def nearestBitsAt (pw : Nat) (n : Int) : UInt64 :=
     let e' := max e (-1022)
     let m := roundDiv (A * 2 ^ (52 - e').toNat) pw
     let mag := min ((e' + 1022).toNat * 2 ^ 52 + m) infBits
-    if mag = 0 then 0 else UInt64.ofNat ((if n < 0 then 2 ^ 63 else 0) + mag)
+    UInt64.ofNat ((if n < 0 then 2 ^ 63 else 0) + mag)
 
 /-- A double's magnitude as a mantissa and an exponent of two. -/
 def parts (mag : Nat) : Nat × Int :=
@@ -1477,5 +1478,93 @@ theorem readBitsFast_eq (d : Nat) (bits : UInt64) : readBitsFast d bits = readBi
 @[csimp] theorem readBits_eq_readBitsFast : @readBits = @readBitsFast := by
   funext d bits
   exact (readBitsFast_eq d bits).symm
+
+/-! ### `exp` and `log` (X4)
+
+The engine's own, from the rational a double is: a textbook series and the bound of what it omits give an interval at
+each count of terms, and the result is the nearest binary64 of both ends at the least count at which they have one.
+`Engine.Laws` states the same formulas as the law (X4). -/
+
+def absQ (x : Rat) : Rat := if x < 0 then -x else x
+
+def factorial (n : Nat) : Nat :=
+  (List.range n).foldl (fun product k => product * (k + 1)) 1
+
+def expSum (a : Rat) (n : Nat) : Rat :=
+  (List.range (n + 1)).foldl (fun s k => s + a ^ k / (factorial k : Rat)) 0
+
+def expTail (a : Rat) (n : Nat) : Rat :=
+  2 * a ^ (n + 1) / (factorial (n + 1) : Rat)
+
+def expLoAt (x : Rat) (n : Nat) : Rat :=
+  let s := expSum (absQ x) n
+  let t := expTail (absQ x) n
+  if 0 ≤ x then s - t else 1 / (s + t)
+
+def expHiAt (x : Rat) (n : Nat) : Rat :=
+  let s := expSum (absQ x) n
+  let t := expTail (absQ x) n
+  if 0 ≤ x then s + t else 1 / (s - t)
+
+def expStart (x : Rat) : Nat :=
+  let a := 2 * absQ x
+  ((a.num + (a.den : Int) - 1) / (a.den : Int)).toNat
+
+def expTerms (x : Rat) : Nat := expStart x + 260
+
+/-- For `y > 0`, the split `y = 2^e m` with `3/4 ≤ m < 3/2`. -/
+def logSplit (y : Rat) : Int × Rat :=
+  if y ≤ 0 then (0, 1) else
+    let guess : Int := (Nat.log2 y.num.natAbs : Int) - (Nat.log2 y.den : Int)
+    let e := if (2 : Rat) ^ guess ≤ y then guess else guess - 1
+    let m := y / (2 : Rat) ^ e
+    if m < 3 / 2 then (e, m) else (e + 1, m / 2)
+
+def atanhSum (w : Rat) (n : Nat) : Rat :=
+  2 * (List.range (n + 1)).foldl
+    (fun s j => s + w ^ (2 * j + 1) / ((2 * j + 1 : Nat) : Rat)) 0
+
+def atanhTail (w : Rat) (n : Nat) : Rat :=
+  2 * absQ w ^ (2 * n + 3) / (((2 * n + 3 : Nat) : Rat) * (1 - w ^ 2))
+
+def logLoAt (y : Rat) (n : Nat) : Rat :=
+  let (e, m) := logSplit y
+  let z := (m - 1) / (m + 1)
+  (e : Rat) * atanhSum (1 / 3) n + atanhSum z n -
+    (absQ (e : Rat) * atanhTail (1 / 3) n + atanhTail z n)
+
+def logHiAt (y : Rat) (n : Nat) : Rat :=
+  let (e, m) := logSplit y
+  let z := (m - 1) / (m + 1)
+  (e : Rat) * atanhSum (1 / 3) n + atanhSum z n +
+    (absQ (e : Rat) * atanhTail (1 / 3) n + atanhTail z n)
+
+def logTerms : Nat := 90
+
+def nanBits : UInt64 := 0x7FF8000000000000
+
+/-- The nearest binary64 of both ends at the least count in `[first, last]` at which they have one; a NaN when
+none has. -/
+def firstDeciding (lo hi : Nat → Rat) (first last : Nat) : UInt64 :=
+  match ((List.range (last + 1)).filter (fun n => decide (first ≤ n))).find?
+      (fun n => nearestBits (lo n) == nearestBits (hi n)) with
+  | some n => nearestBits (lo n)
+  | none => nanBits
+
+def exp (bits : UInt64) : UInt64 :=
+  match decode bits with
+  | some x =>
+    if 710 ≤ x then infBits.toUInt64
+    else if x ≤ -746 then 0
+    else firstDeciding (expLoAt x) (expHiAt x) (expStart x) (expTerms x)
+  | none => if bits = 0x7FF0000000000000 then 0x7FF0000000000000 else if bits = 0xFFF0000000000000 then 0 else nanBits
+
+def log (bits : UInt64) : UInt64 :=
+  match decode bits with
+  | some y =>
+    if y < 0 then nanBits
+    else if y = 0 then 0xFFF0000000000000
+    else firstDeciding (logLoAt y) (logHiAt y) 0 logTerms
+  | none => if bits = 0x7FF0000000000000 then 0x7FF0000000000000 else nanBits
 
 end Engine.Exact
