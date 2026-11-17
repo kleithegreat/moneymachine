@@ -106,11 +106,11 @@ Every expression is a JSON object of one of these forms.
 
 - **Exact operators** are the first three rows on exact arguments, and `exact`. Each is the rational operation. A division by zero is undefined, and so is any operator with an undefined argument. There is no exact `if`: a choice between two prices is two slots.
 - **The crossings** are A2's. `float(e)` is the nearest binary64, ties to even, and undefined when that is not finite. `exact(f)` is the rational `f` is, and changes no value.
-- **Float operators** are `reference/SEMANTICS.md` §1, §4, §5 and §6 to the bit, with three restatements, since stage 6 named the hour and version 2 counts ticks:
+- **Float operators** are `reference/SEMANTICS.md` §1, §4, §5 and §6 to the bit but for `exp` and `log`, which are correctly rounded (`kernel-v2.md` X4) where stage 6 took the C library's and so differ from it where glibc's is not the nearest binary64 (B4). There are three restatements more, since stage 6 named the hour and version 2 counts ticks:
   1. **A window's length is `ticks`,** where stage 6 wrote `hours`: a whole number from 1. The `ticks` of a program's window operators, each counted once as written, sum to at most 1,048,576, or it is `E_WINDOW`. That is a choice, made for B5: a float and its mark for each of 17 coins is then under 0.2 GB of the 2 GB, and one window reaches 12 days at a tick of a second and 728 days at a minute.
   2. **`ticks_since`** is stage 6's `hours_since` with the count of ticks for the count of hours: the ticks since the last one at which the condition held, zero at that tick.
   3. **A coin is in view** at a tick unless the end of its listing is known by then. That is stage 6's listing mask: outside it every node is undefined and no window is pushed, and the `xs` operators range over the coins in view whose argument is defined, in the market's coin order.
-- At a tick of one hour these are stage 6's operators, which is B4. Its corpus reads `hours_since(c)` as `mul(ticks_since(c), const 1 [h/tick])`, which multiplies by one.
+- At a tick of one hour these are stage 6's operators but for those `exp` and `log` results, which is B4. Its corpus reads `hours_since(c)` as `mul(ticks_since(c), const 1 [h/tick])`, which multiplies by one.
 - **Bools** are computed as stage 6 computes them. A comparison of two exact numbers compares rationals.
 
 ### Slots

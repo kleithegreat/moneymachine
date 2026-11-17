@@ -1797,6 +1797,100 @@ def last_pass_r2(vault_directory: Path | None) -> None:
     print("    last place, between glibc's own choice of path and its path without FMA; on a CPU without FMA both are that path")
 
 
+def last_pass_r3() -> None:
+    """The last pass's round 3 (kernel-v2.md A12, A13, X4; briefs/3-kernel-v2.md, step 5, wall 11, and step 10, test 13;
+    briefs/4-study-2.md, steps 1 and 5). How often glibc's exp and log are not the nearest binary64, against Python's decimal
+    module, whose exp and ln are correctly rounded at its precision (60 digits, against worst cases near 2^-120, so the second
+    rounding to binary64 is decided, which the code checks). Then the sizes exact rationals reach in held's variance, on a
+    bootstrap path and on step 10's simulated null, against the growth of the test ledger's denominators over two years."""
+    import decimal
+    import random
+    import struct
+    import time
+
+    decimal.getcontext().prec = 60
+
+    def nearest(value: decimal.Decimal) -> float:
+        rounded = float(value)
+        exact = Fraction(value)
+        below = (Fraction(rounded) + Fraction(math.nextafter(rounded, -math.inf))) / 2
+        above = (Fraction(rounded) + Fraction(math.nextafter(rounded, math.inf))) / 2
+        slack = abs(exact) / 10**58
+        assert exact - below > slack and above - exact > slack, "a 60-digit result too near a midpoint to decide"
+        return rounded
+
+    def bits(x: float) -> int:
+        return int(struct.unpack("<q", struct.pack("<d", x))[0])
+
+    draw = random.Random(5)
+    count = 200_000
+    wrong = [0, 0]
+    widest = 0
+    for _ in range(count):
+        x = draw.uniform(-700.0, 700.0)
+        y = math.ldexp(1.0 + draw.random(), draw.randrange(-995, 995))
+        for index, (libm, correct) in enumerate(((math.exp(x), nearest(decimal.Decimal(x).exp())), (math.log(y), nearest(decimal.Decimal(y).ln())))):
+            if libm != correct:
+                wrong[index] += 1
+                widest = max(widest, abs(bits(libm) - bits(correct)))
+    print(f"  this host's glibc against the nearest binary64, {count:,} arguments each (round 2's draws): exp is not the nearest at")
+    print(f"    {wrong[0]} ({wrong[0] / count * 1e6:.0f} a million) and log at {wrong[1]}, by at most {widest} unit in the last place")
+
+    grid_bits = (2 * 10**50).bit_length()
+    vault_fills, vault_added, vault_days = 46, 381 - grid_bits, 212
+    two_years = round(vault_fills * 730 / vault_days)
+    most_lots = 10_000 * 10**6
+    print(f"  the test ledger's denominator over two years: {two_years} fills of several prices at the vault's rate ({vault_fills} in {vault_days} days);")
+    print(f"    at its {vault_added / vault_fills:.1f} bits a fill, {grid_bits + round(vault_added * 730 / vault_days)} bits; at most {most_lots.bit_length()} a fill (an order under the cap of 10,000 USD,")
+    print(f"    at the grid's least price, takes at most 10^10 lots), {grid_bits + two_years * most_lots.bit_length()}. A sum's denominator is the lcm of its terms'")
+
+    def wealths(days: int, size: int, seed: int) -> list[Fraction]:
+        walk = random.Random(seed)
+        denominator = 2 * 10**50 * walk.getrandbits(size - grid_bits) | 1
+        out = [Fraction(denominator + walk.getrandbits(40), denominator)]
+        for _ in range(days):
+            out.append(Fraction(int(out[-1] * denominator * (1 + walk.gauss(0, 0.01))) | 1, denominator))
+        return out
+
+    for size in (381, 900):
+        began = time.process_time()
+        w = wealths(212, size, 7)
+        returns = [w[i] / w[i - 1] - 1 for i in range(1, len(w))]
+        mean = sum(returns, Fraction(0)) / len(returns)
+        variance = sum(((r - mean) ** 2 for r in returns), Fraction(0)) / len(returns)
+        held_seconds = time.process_time() - began
+        factors = [w[i] / w[i - 1] for i in range(1, len(w))]
+        began = time.process_time()
+        largest = 0
+        for path in range(20):
+            x = Fraction(1)
+            for block in range(53):
+                digest = hashlib.blake2b(f"study2 bootstrap {path} {block}".encode(), digest_size=32).digest()
+                first = int.from_bytes(digest, "big") % 212
+                for day in range(14 if block < 52 else 2):
+                    x *= factors[(first + day) % 212]
+            largest = max(largest, x.numerator.bit_length(), x.denominator.bit_length())
+        path_seconds = (time.process_time() - began) / 20
+        print(f"  a W of {size} bits over 212 days: held's variance has {variance.denominator.bit_length():,} bits, {held_seconds:.0f} s in Python's own integers;")
+        print(f"    a bootstrap path's W {largest:,} bits, since a block's days telescope, {path_seconds * 1000:.0f} ms a path, {path_seconds * 300_000 / 3600:.1f} h for 30 pairs of 10,000")
+
+    walk = random.Random(11)
+    events = 730 * 24
+    farthest: list[int] = []
+    for _ in range(200):
+        power = low = high = 0
+        for _ in range(events):
+            spread = walk.gauss(0, 1) / max(abs(walk.gauss(0, 1)), 1e-9) ** 0.5
+            power += max(-8, min(8, round(spread)))
+            low, high = min(low, power), max(high, power)
+        farthest.append(max(-low, high))
+    top = max(farthest)
+    up = (100 * Fraction(5, 4) ** top).denominator.bit_length()
+    down = (100 * Fraction(4, 5) ** top).denominator.bit_length()
+    print(f"  step 10's null on the lattice of 5/4, {events:,} events a path, a fat-tailed power of at most 8 an event: the farthest power of")
+    print(f"    200 paths is {top}, a price's denominator {up} bits up and {down} down, and the ledger's cash, an lcm of powers of 2 and 5, at most {up + down}")
+
+
 if __name__ == "__main__":
     print("The yardstick (section 2.1)")
     yardstick()
@@ -1828,6 +1922,8 @@ if __name__ == "__main__":
     layer1_read()
     print("The last pass, round 2: the test ledger's denominators and the host's libm (kernel-v2.md A12, A13)")
     last_pass_r2(Path(sys.argv[1]) if len(sys.argv) > 1 else None)
+    print("The last pass, round 3: correctly rounded exp and log, and the sizes of exact rationals (kernel-v2.md A12, A13)")
+    last_pass_r3()
     print("Study 1 (section 5)")
     study1()
     print("Argon's findings on the paper, rechecked")
