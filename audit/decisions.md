@@ -1209,3 +1209,10 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The run:** user unit `mm-g100`, from the worktree `../mm-s1-arms` at the manifest's commit `c5d95db`, with the frozen kernel through `CARGO_TARGET_DIR`. `verify()` passed before and after. 2026-11-17 15:12 to 15:43 UTC (10:12 to 10:43 EST).
   - **The result:** 100 study markets in the manifest's order, each with its seed derived from the manifest's seed and 100 evaluations spent. G100's pick earns from the plant on 15 of 100 markets, calibration's target of 0.15.
   - **Next:** the agent's sessions on Cornell and TAMU, one per market in order, never rerun. The human decides when they start and how they are paced. The advisor proposes measuring the first session's usage before setting the pace.
+- 2026-11-17 16:01 UTC (11:01 EST), advisor: **study 1's runner is started on TAMU alone, for the first session** (the human: "start the first study 1 agent session on tamu"). User unit `mm-study1`, from `../mm-s1-arms` at the manifest's commit, with only TAMU's token.
+  - **Usage windows read by the runner's own probe:**
+    - TAMU: 5-hour 41%; weekly 61%, resetting 2026-11-21 04:00 UTC (11-20 23:00 EST).
+    - Cornell: 5-hour 36%; weekly 81%, resetting 11-22 05:00 UTC (00:00 EST).
+  - **When the session can start:** the frozen pacing rule (`campaigns.py`, hashed by the manifest: every window plus the 0.5 assumed for an unmeasured session within 0.8) lets a session start only at 30% or under. So it waits, by its own rule, until TAMU's weekly reset.
+  - **After the first result** a watcher stops the runner, so the human can set the pace from a measured session.
+  - **TAMU carries no other Claude work until then:** its weekly share is study 1's. Architect and builder sessions meanwhile run on the personal account, whose weekly window resets 2026-11-17 20:00 UTC (15:00 EST).
