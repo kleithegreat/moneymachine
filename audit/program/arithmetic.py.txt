@@ -1891,6 +1891,121 @@ def last_pass_r3() -> None:
     print(f"    200 paths is {top}, a price's denominator {up} bits up and {down} down, and the ledger's cash, an lcm of powers of 2 and 5, at most {up + down}")
 
 
+def last_pass_r4() -> None:
+    """The last pass's round 4 (kernel-v2.md X4; briefs/3-kernel-v2.md, step 5, wall 11 and test 12). X4's two formulas on
+    the rational a double is, against Python's decimal module at 80 digits, whose exp and ln are correctly rounded: exp's
+    series at |x| to N = ceil(2|x|) + 260 terms with the tail bound 2|x|^(N+1)/(N+1)!, its reciprocal below zero; log's
+    split y = 2^e m with 3/4 <= m < 3/2 and artanh's series at 1/3 and at (m - 1)/(m + 1) to 90 terms with their tail
+    bounds. For each, the widest interval at the cap over its lower end, that both ends round alike and to decimal's result,
+    and how many decide already at ceil(2|x|) + 64 terms (exp) or 24 (log). Then the two clauses of exp's range."""
+    import decimal
+    import random
+    import time
+
+    decimal.getcontext().prec = 80
+    overflow = Fraction(2**1024 - 2**970)
+
+    def nearest(q: Fraction) -> float:
+        if q >= overflow:
+            return math.inf
+        return q.numerator / q.denominator if q else 0.0
+
+    def correct(value: decimal.Decimal) -> float:
+        exact = Fraction(value)
+        rounded = nearest(exact)
+        if math.isinf(rounded) or rounded == 0.0:
+            return rounded
+        below = (Fraction(rounded) + Fraction(math.nextafter(rounded, -math.inf))) / 2
+        above = (Fraction(rounded) + Fraction(math.nextafter(rounded, math.inf))) / 2
+        slack = abs(exact) / 10**78
+        assert exact - below > slack and above - exact > slack, "an 80-digit result too near a midpoint to decide"
+        return rounded
+
+    def exp_interval(x: Fraction, extra: int) -> tuple[Fraction, Fraction]:
+        a = abs(x)
+        terms = math.ceil(2 * a) + extra
+        p, q = a.numerator, a.denominator
+        n, d = 1, 1
+        for k in range(terms, 0, -1):
+            n, d = k * q * d + p * n, k * q * d
+        s = Fraction(n, d)
+        t = Fraction(2 * p ** (terms + 1), q ** (terms + 1) * math.factorial(terms + 1))
+        return (s - t, s + t) if x >= 0 else (1 / (s + t), 1 / (s - t))
+
+    def atanh2(w: Fraction, terms: int) -> tuple[Fraction, Fraction]:
+        total, power, square = Fraction(0), w, w * w
+        for j in range(terms + 1):
+            total += power / (2 * j + 1)
+            power *= square
+        tail = 2 * abs(w) ** (2 * terms + 3) / ((2 * terms + 3) * (1 - square))
+        return 2 * total, tail
+
+    third = {n: atanh2(Fraction(1, 3), n) for n in (24, 90)}
+
+    def log_interval(y: Fraction, terms: int) -> tuple[Fraction, Fraction]:
+        e = y.numerator.bit_length() - y.denominator.bit_length()
+        m = y / Fraction(2) ** e
+        while m >= Fraction(3, 2):
+            e, m = e + 1, m / 2
+        while m < Fraction(3, 4):
+            e, m = e - 1, m * 2
+        z = (m - 1) / (m + 1)
+        a3, b3 = third[terms]
+        az, bz = atanh2(z, terms)
+        centre, radius = e * a3 + az, abs(e) * b3 + bz
+        return centre - radius, centre + radius
+
+    def width(lo: Fraction, hi: Fraction) -> float:
+        if lo == hi:
+            return -math.inf
+        ratio = (hi - lo) / min(abs(lo), abs(hi))
+        return ratio.numerator.bit_length() - ratio.denominator.bit_length()
+
+    draw = random.Random(17)
+    began = time.process_time()
+    widest, early, count = -math.inf, 0, 0
+    xs = [draw.uniform(-745.9, 709.9) for _ in range(150)] + [math.ldexp(draw.uniform(-1, 1), draw.randrange(-60, 3)) for _ in range(250)]
+    ln_b = Fraction(decimal.Decimal(int(overflow)).ln())
+    edge = float(ln_b)
+    xs += [edge, math.nextafter(edge, math.inf), math.nextafter(edge, -math.inf), 709.9, -745.9, math.ldexp(1, -1074)]
+    for x in xs:
+        lo, hi = exp_interval(Fraction(x), 260)
+        widest = max(widest, width(lo, hi))
+        r = nearest(lo)
+        assert r == nearest(hi), f"exp undecided at the cap at {x!r}"
+        assert r == correct(decimal.Decimal(x).exp()), f"exp wrong at {x!r}"
+        lo0, hi0 = exp_interval(Fraction(x), 64)
+        early += nearest(lo0) == nearest(hi0)
+        count += 1
+    exp_seconds = (time.process_time() - began) / count
+    print(f"  exp at {count} arguments (150 across (-746, 710), 250 of magnitude under 8, the overflow edge and the extremes): at")
+    print(f"    ceil(2|x|) + 260 terms every interval is at most 2^{widest:.1f} of its lower end wide, its two ends round alike, and to decimal's")
+    print(f"    correctly rounded result; at ceil(2|x|) + 64 terms {early} of {count} decide already ({exp_seconds * 1000:.0f} ms an argument in Python)")
+
+    began = time.process_time()
+    widest, early, count = -math.inf, 0, 0
+    ys = [math.ldexp(1.0 + draw.random(), draw.randrange(-1074, 1023)) for _ in range(300)]
+    ys += [math.ldexp(1.0 + draw.uniform(-2**-20, 2**-20), 0) for _ in range(100)] + [5e-324, 1.7976931348623157e308, 1.0, math.nextafter(1.0, 2), math.nextafter(1.0, 0)]
+    for y in ys:
+        lo, hi = log_interval(Fraction(y), 90)
+        widest = max(widest, width(lo, hi))
+        r = nearest(lo)
+        assert r == nearest(hi), f"log undecided at the cap at {y!r}"
+        assert r == correct(decimal.Decimal(y).ln()), f"log wrong at {y!r}"
+        lo0, hi0 = log_interval(Fraction(y), 24)
+        early += nearest(lo0) == nearest(hi0)
+        count += 1
+    log_seconds = (time.process_time() - began) / count
+    print(f"  log at {count} arguments (300 across the binary64s, 100 within 2^-20 of 1, the extremes): at 90 terms every interval is at")
+    print(f"    most 2^{widest:.1f} of its lower end wide, rounds alike and to decimal's; at 24 terms {early} of {count} decide ({log_seconds * 1000:.0f} ms an argument)")
+
+    ln2 = decimal.Decimal(2).ln()
+    print(f"  the clauses: 1024 ln 2 = {1024 * ln2:.4f} < 710, so e^x > 2^1024 for x >= 710; 1075 ln 2 = {1075 * ln2:.4f} < 746, so e^x < 2^-1075 for")
+    below = nearest(exp_interval(Fraction(edge), 260)[1])
+    above = nearest(exp_interval(Fraction(math.nextafter(edge, math.inf)), 260)[0])
+    print(f"    x <= -746. At the binary64 nearest ln((2 - 2^-53) 2^1023), {edge!r}, the formula gives {below!r}, and at the next one up {above}")
+
+
 if __name__ == "__main__":
     print("The yardstick (section 2.1)")
     yardstick()
@@ -1924,6 +2039,8 @@ if __name__ == "__main__":
     last_pass_r2(Path(sys.argv[1]) if len(sys.argv) > 1 else None)
     print("The last pass, round 3: correctly rounded exp and log, and the sizes of exact rationals (kernel-v2.md A12, A13)")
     last_pass_r3()
+    print("The last pass, round 4: X4's formulas for exp and log (kernel-v2.md X4)")
+    last_pass_r4()
     print("Study 1 (section 5)")
     study1()
     print("Argon's findings on the paper, rechecked")
