@@ -9,41 +9,47 @@ let whole decimals text =
   let scaled = Q.mul (Q.decimal text) (Q.make (Z.pow10 decimals) "1") in
   if scaled.d <> "1" then invalid_arg ("not whole at field scale: " ^ text);
   int_of_string scaled.n
+;;
 
 let product a b = int_of_string (Z.mul (string_of_int a) (string_of_int b))
 
 let double n =
-  if n < -9007199254740992 || n > 9007199254740992 then
-    invalid_arg "whole number is not certified exactly representable as a double";
+  if n < -9007199254740992 || n > 9007199254740992
+  then invalid_arg "whole number is not certified exactly representable as a double";
   Float.of_int n
+;;
 
 let ratio numerator denominator = double numerator /. double denominator
-
 let rate (r : Q.t) = ratio (int_of_string r.n) (int_of_string r.d)
-
 let cut n factor = Float.to_int (Float.of_int n *. factor)
-
 let fee notional r = cut notional (rate r)
 
 let close entry lots closed price =
-  if lots <= 0 || closed <= 0 || closed > lots || entry < 0 then
-    invalid_arg "venue close is not a reduction of a long";
-  let printed = product closed (price - entry / lots) in
+  if lots <= 0 || closed <= 0 || closed > lots || entry < 0
+  then invalid_arg "venue close is not a reduction of a long";
+  let printed = product closed (price - (entry / lots)) in
   let left = lots - closed in
   printed, if left = 0 then 0 else cut entry (ratio left lots)
+;;
 
 let floor_scaled entry left lots =
-  let quotient, _ = Z.divmod_abs
-    (Z.mul (string_of_int entry) (string_of_int left)) (string_of_int lots) in
+  let quotient, _ =
+    Z.divmod_abs (Z.mul (string_of_int entry) (string_of_int left)) (string_of_int lots)
+  in
   int_of_string quotient
+;;
 
 (* Compatibility only: neither predicate characterizes an exact ledger. All
    monetary arguments here are in millionths, without rounding a rational. *)
 let fee_compatible printed fee =
   Q.le (Q.integer printed) fee && Q.le fee (Q.integer (printed + 1))
+;;
 
 let cost_compatible entry partials cost =
   let e = Q.integer entry in
-  if partials = 0 then Q.equal e cost
-  else Q.lt (Q.sub cost (Q.integer (2 * partials))) e
+  if partials = 0
+  then Q.equal e cost
+  else
+    Q.lt (Q.sub cost (Q.integer (2 * partials))) e
     && Q.lt e (Q.add cost (Q.integer partials))
+;;
