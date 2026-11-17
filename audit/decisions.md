@@ -1148,3 +1148,10 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Committed criteria:** CS2.1 to CS2.3 are read as committed, with nothing edited.
   - **For the human:** forward results lag a month. A shorter window for the recorder and funding would cut the lag. It needs a number nothing derives, and it cannot add a false discovery, so it is the human's to choose if speed matters. A coin held when its listing ends between two hourly copies ends the test early.
   - **Next:** GPT reads D180 to D188, then the test writer's list for `kernel2-step5`.
+- 2026-11-17 06:45 UTC (01:45 EST), advisor: **step 4's B4 passes in full: every stream of the frozen C6.4 corpus is bit-identical to the Lean reference's** (brief 3 step 4 test 1).
+  - **The run:** `b4_local.exe` at `kernel2-step4-wip` `0515b91` (sha256 `cc089513…`), as 14 shards on the human's laptop (i7-12700H), 2026-11-17 00:52 to 06:44 UTC (19:52 to 01:44 EST).
+  - **The result:** 3,120 streams (1,040 programs on each of N1, N2 and N3), bit-identical over 41,174,640 ticks, with none refused.
+  - **The inputs:** the stored reference (`SHA256SUMS` sha256 `1d5456ed…`, decisions 2026-11-16 11:20 UTC, 06:20 EST) and the corpus (`93ae6d8b…`). Each shard checked both before comparing.
+  - **The engine:** still calls glibc's `exp` and `log`. Under the human's decision of 2026-11-16 23:33 UTC (18:33 EST), the next build's B4 follows round 3's D185.
+  - **What is left before step 4 merges into `kernel2-build`:** the flake checks run by the advisor once calibration frees the remote builders. The rate tests failed only under calibration's load, and passed on an isolated core.
+  - **Also:** prodesk5's six-shard run of the same build was stopped at about 46%, with no divergence in N1 or in N2 so far, to free the host (the human, 2026-11-17).
