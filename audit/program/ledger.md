@@ -1936,3 +1936,86 @@ None new.
 ### Convergence
 
 **Answered by derivation, and not yet read.** The design changed in D180 (the record), D183 (the environment) and D184 (the human's `exp` and `log`), so the next round is due, on GPT, since Argon read these points' earlier forms. No open dispute would change what step 5 builds once its tests carry this round's list.
+
+## The last pass, round 4: GPT's read of round 3, answered
+
+Appended 2026-11-17 08:58 UTC (03:58 EST) by the Opus 5.5 architect, session "architect: the last pass, round 4". Review: `audit/reviews/2026-11-17-gpt-last-pass-r3.md` (GPT, read-only, on round 3 at `428e9e2`), not converged on D180's availability, specification and scope, the criteria's reconciliation, the loader, X4's enclosure and ceiling, and B4's reach. Commits `ba9ffd5` to the one that appends this. No market data read; `arithmetic.py.txt`'s new `last_pass_r4` checks X4's formulas against Python's decimal module. Report: `data/builder/architect-last-pass-r4-report.md`, which holds the dated revision's draft text and the test writer's list.
+
+### In plain words
+
+- **D180 and B4's reach were each on their third fix, so both were re-derived, not patched.**
+- **The record.** Rounds 2 and 3 made a day's record stable by something its writers did: being complete, or being on disk by a deadline they stamped. No reader can see either. What the runner controls is what it reads. So **a day is read once**: the first replay to reach it records every file's length and hash before it runs, and every later replay reads the day within those bytes. A suspended recorder, a slow disk or a stepped clock can no longer change a day already read.
+- **`exp` and `log`.** The law now writes each function out: a textbook series, a bound on what it leaves out, a fixed number of terms. The result is the nearest binary64 when both ends of that interval agree, and NaN when they do not.
+  - The true value is inside the interval by textbook math, so no branch can round wrong.
+  - The published worst cases put the NaN far out of reach.
+  - Round 3 instead let the engine supply its own bounds and, at 256 bits, guessed.
+- **B4.** The reference now computes what version 2 must compute: stage 6's evaluator with correctly rounded `exp` and `log` (MPFR's). Every item is compared, and the exemption rule is gone.
+- **The rest is text.**
+  - The criteria get a dated revision beneath their definitions, drafted, which cannot add a false discovery.
+  - The re-execution protects against an honest launch's leftovers, not against injected code, so the launch is trusted.
+- **Nothing needs a second clock, a deferred count or a stake that moves without a fill.**
+
+### Who has seen what
+
+- GPT read round 3 at `428e9e2`. Nobody has read this section or its commits.
+- GPT's step 5 tests (`kernel2-step5`, `b1689bc`) predate rounds 1 to 4. This round's report lists what changes in them beyond rounds 1 and 3.
+
+### Agreed
+
+- **GPT's acceptances, standing:** first-observation record semantics; no source-completeness requirement; D181's slice; the derivation-based identity with explicit premises; trusted-entry floating-point checks; engine-owned `exp` and `log`; the grid's deletion; A6's exemption; the zero-remainder rule; D187.
+- **GPT's nine disputes, each answered at its cause:**
+  - conceded and re-derived: 1.1 to 1.3, 3.1, 3.2, 4.1 and 4.2;
+  - conceded as text: 2, and the criteria's reconciliation.
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D189 | What a replay reads of a day (GPT 1.1 to 1.3) | **A day is read once.** Before the engine starts, an attempt records in its attempt row every file's length and the hash of those bytes, its cut. A day's record is its items within the cut of the first attempt whose horizon reached it; a killed attempt binds too. Every later replay reads the day so, and an item outside is late, counted and never read. **Keys:** a settlement's coin and hour; a print's coin, time and id; a vault fill's coin, trade id and order id. **The record's order:** by writer, then the file's path, then place in the file, with the copy of the vault's fills before 2026-11-01 first. **Writers:** every forward writer writes about a day only within its 30 days. The 31-day lag and the first of a key stay. **Why re-derived:** round 2 asked sources to be complete and round 3 asked items to be on disk by a stamped deadline. Both rested on writers, which no reader sees, so D180's eligibility by writing time is deleted. The historical chain is read whole, since no deadline exists | **Yes** (brief 4, step 7, builds, wall 3, tests 5 and 10; step 1, wall 1; brief 3, the recorders; architecture 6.6; A13's identity) |
+| D190 | The committed criteria (GPT's reconciliation) | **A dated revision beneath the shared definitions** (draft in the report). It defines what the committed words left open, the record once it grows and the last midnight a replay runs to, and restates why a day's end stands. **It cannot add a false discovery:** it is fixed before any judged day, reads no outcome, and removes the one way two replays could name different days. No threshold moves, so it is the advisor's to commit after review, not the human's | The criteria's text, after review |
+| D191 | The loader (GPT 2) | **The re-execution removes what an honest launch carries,** and resets the control register. It does not remove preloaded code, which runs before `main` and which no process contains. **So the launch is trusted,** as the recordings and the build are. Two hosts' builds are evidence for an assumed premise. The design is unchanged and the claim is narrowed | Text (A13, D1; brief 3, step 9, wall 5, test 8) |
+| D192 | X4 (GPT 3.1, 3.2) | **The law writes each function out:** the series, the bound of what it omits, the terms (`⌈2a⌉ + 260` for `exp`, 90 for `log`), `log`'s split, and `exp`'s range clauses at 710 and −746. **The result** is the nearest of both ends when they agree, and the quiet NaN otherwise. Also stated: each interval is at most `2⁻²⁵⁶` of its end wide, and the intervals nest, so the engine may stop early. **On paper:** textbook remainders put the true value inside, so no branch rounds wrong. **Cited:** the NaN is never the result, since the worst cases come no nearer than about `2⁻¹²⁰`; `exp`'s subnormal results may be uncovered, and are uncertified there. **Measured:** the widest intervals at the cap are `2⁻⁴⁷⁷` (`exp`) and `2⁻²⁹⁴` (`log`) on 811 arguments, all correctly rounded. **Deleted:** round 3's precisions, its bounds functions and its fallback | **Yes** (X4, A2; brief 3, step 5, wall 11, test 12; `arithmetic.py.txt`, `last_pass_r4`) |
+| D193 | B4's reach (GPT 4.1, 4.2) | **The reference computes the human's function:** stage 6's evaluator with MPFR's `exp` and `log` and nothing else changed, its streams stored under a hash. Every item is compared, with no exception. Stage 6's streams stand as its record, and their difference is counted once. **The reach rule is deleted:** it came of comparing two functions | **Yes** (B4; brief 3, step 4, test 1; step 5, test 13, wall 4; `KERNEL.md` A17) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O22 | The recorder's reader inside 22,500 a second | Open, unchanged: step 6's test 11 | Step 6's reader |
+| O24 | The replica's own trace at a second's tick | Open, unchanged: step 6's test 11 and the first whole day's bytes | The trace's `tick` rows, if a wall |
+| O26 | `exp` and `log` at B5's walls | Open until step 5's build measures them. In Python, X4's formulas take 26 ms an `exp` (most at `|x|` near 700) and 10 ms a `log`. Lean's GMP is faster, and an integer twin proved equal is X3's pattern | A twin, if a rate is missed |
+
+### What the next read should attack first
+
+1. **D189:** a way two replays read one day differently despite the cut (a prefix that reads two ways, a reader that reads past its cut, a cut recorded after reading starts); a lever an honest operator's timing still has; the keys (a print resent across a reconnect, a fill restated); whether first or last within a cut can move a judged number now.
+2. **D192:** an engine that is wrong and passes X4 as written; an error in the law's own formulas (the tail's condition, `log`'s split, the two clauses); a NaN reachable at the overflow threshold or at a subnormal midpoint.
+3. **D193:** a way the evaluator is wrong and passes B4 (a fault shared by test 12's stub and the reference; a reference build that is not stage 6's evaluator).
+4. **D190:** a run that the revision judges otherwise than the committed words; a way it adds a false discovery.
+5. **D191:** anything of an honest launch that still reaches a judged number.
+
+### Committed criteria: a dated revision, drafted
+
+- **Beneath the definitions the three criteria share** ("The days run"): the draft is in this round's report. It defines the record a replay reads of a day (read once, within the first attempt's cut, the first of each key) and the last midnight it runs to (31 days or more before it starts). It says why a day's end stands: L1 and the one reading of each day.
+- **It cannot add a false discovery,** and it moves no threshold, judged day or engine rule. So no human choice is needed.
+- **The advisor has it reviewed, as a criterion is, and commits it alone.**
+- CS2.2's and CS2.3's "first replay after" the 212th or 61st day is run is the first whose horizon reaches it, as GPT read it, and needs no revision.
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the test writer (GPT):** the changes to `b1689bc` this round's report lists, beyond rounds 1 and 3.
+- **By the advisor:**
+  - the criteria revision, reviewed and committed alone (D190);
+  - `mmvault`'s pulls reaching back at most 30 days before the last midnight, where its daily re-read now reaches 30 days behind its watermark (D189; `recorder/VAULT.md`);
+  - the settled-funding collector stored as `mmvault` stores its pulls;
+  - the worst-case lead certified: Lefèvre and Muller's tables and the ranges they cover, `exp`'s subnormal results and the overflow threshold among them, and the hardest arguments for test 12 (D192);
+  - B4's new reference streams, run on a host and stored under a hash (D193);
+  - this section read, on Argon once its quota returns, D189 and D192 first.
+- **By the next architect:** O22, O24 and O26 when their measurements come.
+
+### Convergence
+
+**Answered by derivation, and not yet read.** The design changed in D189 (the record), D192 (X4) and D193 (B4), each a re-derivation of a part on its third fix. So the next round is due. Argon has not read D180's or X4's earlier forms closely, and GPT has read them twice. Before step 5's build, no open dispute would change what it builds once its tests carry this round's list.
