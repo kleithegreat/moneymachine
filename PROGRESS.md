@@ -47,9 +47,10 @@ Roles: the architect designs, Opus orchestrates, Sonnet builds; GPT and Argon re
 
 ### Next, in order
 
-1. **Kernel version 2, step 4** (`kernel2-step4-wip`, `../mm-k2`): built, L1a proved, B5 settled (D125 to D130, GPT converged); rates met on an isolated core (strings 8.7 s of 22, doubles 313 s of 470). Running: B4's full C6.4 comparison, six shards on prodesk5 (`/var/tmp/mm-b4/shard-*.log`, started 18:22 UTC, 13:22 EST). Then merge into `kernel2-build`, then step 5; then the OCaml and Lean style gates (ocamlformat `janestreet`, `@fmt @check @lint`, warnings as errors, `.mli` for exposed modules; the archive reader's catch-all becomes an explicit error).
+1. **Kernel version 2, step 4** (`kernel2-step4-wip`, `../mm-k2`): built, L1a proved, B5 settled (D125 to D130, GPT converged); rates met on an isolated core (strings 8.7 s of 22, doubles 313 s of 470). Running: B4's full C6.4 comparison on prodesk5 (six shards, about 20 h) and, from about 01:00 UTC (20:00 EST), on the laptop (`nixos-laptop`, 14 shards, about 2 h); either full pass decides, both under `/var/tmp/mm-b4`. Then merge into `kernel2-build`, then step 5; then the OCaml and Lean style gates (`janestreet` ocamlformat, `@fmt @check @lint`, warnings as errors).
 2. **When calibration ends:** merge `s1-hunt-fixes` (accepted, decisions 2026-11-16 18:10 UTC, 13:10 EST) into `study1-build`; run step 4's whole-window batch on one idle core here; then study 1's manifest, G100, sessions.
-3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
+3. **The paper, free-standing and academic** (the human, 2026-11-16), after the kernel's review round.
+4. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. Stage 7 parked; stages 8 and 9 superseded.
 
 ### Finished
 

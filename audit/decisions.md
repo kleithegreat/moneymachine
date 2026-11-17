@@ -1106,3 +1106,35 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The next read is GPT's** (Argon is out until about 2026-11-20 22:40 UTC, 17:40 EST), starting with D161, D163, D162, D167 and D171.
   - **What waits on that read:** the test writer's changes to `kernel2-step5` `b1689bc`, and then step 5's build.
   - **The architect's note for the human:** from the freeze, a defect found in `study2` or in `mm2`'s readers ends study 2, as one in the engine does. The bug hunt before the freeze covers all three.
+- 2026-11-16 23:14 UTC (18:14 EST), the human: **the paper is a free-standing work, to read like a conference or journal paper.**
+  - **What it leaves out:** references to repository files, internal labels (criterion, decision and finding ids), and cluster operations.
+  - **Findings:** synthesized as an argument, never a regurgitation of `audit/`.
+  - **Measured today:** the paper has 93 `\record{}` citations of files and about 108 internal ids, and its sections follow the project's design documents.
+  - **`CLAUDE.md`, "Where information lives":** says so. `docs/findings.md` becomes the only bridge between the paper's sections and the audit record.
+  - **The revision:**
+    - The architect sets the argument and structure.
+    - An Opus session writes the prose, which matters more here than in code.
+    - GPT referees it as a venue's reviewer would.
+    - It is scheduled after the kernel's review round converges, so it does not compete with that round for the account.
+- 2026-11-16 23:27 UTC (18:27 EST), advisor: **the architect's round 2 answers GPT's four points** (`rearchitecture` `635f748` to `d7a9ba2`, pushed; report `data/builder/architect-last-pass-r2-report.md`; ledger D174 to D179).
+  - **The cash grid (D174):** deleted, not repaired. The ledger is exact on no fixed grid, and the bootstrap reports its largest factor's size.
+  - **The prefix (D175, D176):**
+    - A replay reads the earliest pull's row for each hour and counts any later different row as a revision.
+    - It runs only through days every source has closed.
+    - It must reproduce every day already run byte for byte, or it publishes nothing.
+  - **The build (D177, D178):**
+    - The build is Nix's derivation hash, replacing `gen.ml`'s list.
+    - The executables refuse at start a host whose `exp` and `log` bits differ from B4's (`E_HOST`). On this pin's glibc, FMA changes `exp`'s last bit on 2,446 of 4 million arguments.
+  - **D172:** the decision stands, and its derivation is corrected (D179).
+  - **No change to step 5's tests** beyond round 1's list. CS2.1 to CS2.3 are read as committed, and no human choice is needed.
+  - **What the human may want to know:**
+    - Judged runs now run only on hosts whose `exp` and `log` match B4's host.
+    - A forward replay that cannot reproduce a day it already published ends the test at the day before.
+  - **Next:** Argon's read of rounds 1 and 2, from a self-contained bundle in the web UI.
+- 2026-11-16 23:33 UTC (18:33 EST), the human: **kernel version 2 computes `exp` and `log` itself, correctly rounded, in Lean.** It no longer depends on the C library's.
+  - **Why:** glibc's `exp` and `log` are within an ulp but not correctly rounded, so their bits depend on the CPU's path. With FMA, `exp` differs in the last bit on 2,446 of 4 million arguments (D178).
+  - **The two functions:** computed on rationals, refined until the rounding is decided, with a law that the result is the nearest binary64.
+  - **The other operations** (`+ − × ÷`, `sqrt`) are correctly rounded by IEEE 754 already.
+  - **D178's host check and `E_HOST` go.** The architect re-derives it, with Argon's findings on rounds 1 and 2.
+  - **B4's stored reference** used glibc. The architect states how B4 treats any item where glibc mis-rounded an argument the corpus uses.
+  - **Nothing frozen changes:** not study 1's Rust kernel, not stage 6's judged results, not the stored reference streams.
