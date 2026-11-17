@@ -1251,3 +1251,12 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **D198, B4's MPFR stub:** subnormalizes. Test 13 prints, argument by argument, where glibc differs from MPFR.
   - **The architect:** no dispute that would change step 5, and no new choice for the human.
   - **Next:** GPT reads round 5, D194 first.
+- 2026-11-17 21:08 UTC (16:08 EST), advisor: **the architect's round 6 answers GPT's five points on round 5** (`rearchitecture` `52536d2` to `57ce8b9`, pushed; report `data/builder/architect-last-pass-r6-report.md`; ledger D200 to D204). TAMU, 20:50 to 21:08 UTC (15:50 to 16:08 EST).
+  - **A killed attempt produces nothing.** The retry reads the record as it is, so the last remnant of a cut is gone.
+  - **The capture is specified:** a timer's pull, then the attempt. An honest late row ending the test early is named as a cost.
+  - **Each attempt runs on two hosts.** Where no two agree, nothing is published.
+  - **X5, `nearestBits` is IEEE's round-to-nearest-even at every rational:** proved, not tested. Writing the proof found a defect: `nearestBits` gave +0 for a negative rational rounding to zero.
+  - **One vault fill is one item.** A second version rejects the vault's replay, leaving CS2.3 "not judged".
+  - **For step 5:** none open. Its tests add X5 and the −0 case.
+  - **The architect recommends** a dated note in CS2.1's "fails while the claim holds", that an honest late row can end the test. It could only remove a discovery. To be reviewed before any commit.
+  - **Next:** Argon (web) reads rounds 5 and 6, since this round changed the design.
