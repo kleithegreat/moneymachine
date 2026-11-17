@@ -1220,3 +1220,6 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - The weekly window resets to zero on 2026-11-21 04:00 UTC (11-20 23:00 EST) however much TAMU is used before then.
   - Only the 5-hour window at the start matters. Heavy TAMU use in the five hours before the reset can delay the first session by a few hours.
   - TAMU may be used freely until about 2026-11-20 23:00 UTC (18:00 EST).
+- 2026-11-17 16:14 UTC (11:14 EST), the human: **the paper's academic rewrite is deferred until the human says to start it.**
+  - **When it runs:** an Opus session writes it.
+  - **The review** checks correctness and accuracy only, not prose. This replaces the referee-style review planned on 2026-11-16 23:14 UTC (18:14 EST).

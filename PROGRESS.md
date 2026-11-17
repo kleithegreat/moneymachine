@@ -24,14 +24,12 @@ Roles: the architect designs, Opus orchestrates, Sonnet builds; GPT and Argon re
 
 1. **The program** (`audit/program/` on `rearchitecture`; revision 4 approved by the human 2026-11-11; `ledger.md` lists what is agreed and disputed). The project is academic: no live trading, no stage 11.
    - **Study 1, the positive control of search:** does the agent find a planted edge more often than G100? At most 100 markets, on Cornell and TAMU.
-     - **Steps 1 to 6 are built** (`c46c786`; 212 tests).
      - **Converged and committed:** CS1.1 is in `audit/criteria.md` (`criteria: study 1`, `10fedc5`), with definitions at `rearchitecture` `ce7ff38`.
        - Each market has one session, never rerun; a session with no pick, or not answered by Opus 5.5 or 4.8, is the agent's miss.
        - The subject is the agent as served (H8, approved by the human).
        - Wall 5 is 14 of 200.
-     - **Built** on `study1-build` (`a3fc471`): 310 tests pass, plus one slow test over the 600 s timeout.
-     - **Calibration is running** as `cal-3` (`ops/jobs.py calibrate`, unit `mm-calibrate`, log `~/.cache/mm-calibration/cal-3.log`, image `sha256:1199aa3d…`, `study1-build` `f125937`), carried from `cal-2`'s 4,714 lines on kernel `e6df2244…`. Shares follow each host's rate measured under load (Fable `1530f21`): 263, 164 and 64 markets an hour on this PC, prodesk7 and gmktec, about 3.2 h a strength, 64 h at most. The PC stays on: the batch's inputs are NFS from it. Worktree test runs never share the main checkout's `kernel/target` (decisions, 2026-11-15).
-     - **Then:** G100 on the study markets, the first sessions (Cornell and TAMU).
+     - **Calibration done** (`cal-3`, strength 0.0021875, all walls pass); **manifest** committed (`c5d95db`, seed by rule); **G100's arm** done, 15 of 100 earn (`51e0e4c`). Arms run from `../mm-s1-arms` with the frozen kernel via `CARGO_TARGET_DIR=~/.cache/mm-study1/k`.
+     - **Now:** runner `mm-study1` (TAMU only) waits for room; first session after TAMU's weekly reset, 2026-11-21 04:00 UTC (11-20 23:00 EST); a watcher stops it after one result, to pace from a measurement.
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
      - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years). Criteria committed (`criteria: study 2`, `a324059`; CS2.1 revised `a903317`).
      - **Kernel version 2** (`audit/program/kernel-v2.md`, brief 3; branch `kernel2-build`, worktree `../mm-k2`): steps 0 to 3 built and proved (Lean laws with only the three standard axioms); layer 1 clean on all 5,806 vault fills under the venue's printed arithmetic. Step 4: below.
@@ -47,9 +45,9 @@ Roles: the architect designs, Opus orchestrates, Sonnet builds; GPT and Argon re
 
 ### Next, in order
 
-1. **Kernel version 2, step 4** (`kernel2-step4-wip`, `../mm-k2`): built, L1a proved, B5 settled (D125 to D130, GPT converged); rates met on an isolated core (strings 8.7 s of 22, doubles 313 s of 470). Running: B4's full C6.4 comparison on prodesk5 (six shards, about 20 h) and, from about 01:00 UTC (20:00 EST), on the laptop (`nixos-laptop`, 14 shards, about 2 h); either full pass decides, both under `/var/tmp/mm-b4`. Then merge into `kernel2-build`, then step 5; then the OCaml and Lean style gates (`janestreet` ocamlformat, `@fmt @check @lint`, warnings as errors).
-2. **When calibration ends:** merge `s1-hunt-fixes` (accepted, decisions 2026-11-16 18:10 UTC, 13:10 EST) into `study1-build`; run step 4's whole-window batch on one idle core here; then study 1's manifest, G100, sessions.
-3. **The paper, free-standing and academic** (the human, 2026-11-16), after the kernel's review round.
+1. **Kernel version 2:** step 4 merged into `kernel2-build` (`1f9632d`; B4 in full, all checks). Running: architect round 5 on TAMU (re-deriving the record rule after four rounds; Argon's and both criteria reviews), builders on Cornell (B4's speed `../mm-k2-speed`; the archive reader's catch-all `../mm-k2-archive`), then the style gates. Step 5 waits for round 5's convergence.
+2. **Study 1:** after the first session, the human sets the pace from its measured usage.
+3. **The paper, free-standing and academic** (the human, 2026-11-16): deferred until the human says; written by Opus, reviewed for accuracy only.
 4. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. Stage 7 parked; stages 8 and 9 superseded.
 
 ### Finished
