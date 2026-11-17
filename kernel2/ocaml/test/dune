@@ -54,6 +54,11 @@
  (libraries events_support mm2_archive))
 
 (test
+ (name archive_manifest_test)
+ (modules archive_manifest_test)
+ (libraries events_support mm2_archive))
+
+(test
  (name protected_test)
  (modules protected_test)
  (libraries events_support mm2_identity)
