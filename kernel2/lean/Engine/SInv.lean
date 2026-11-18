@@ -39,7 +39,7 @@ structure SInv (c : Core) : Prop where
   mono : ∀ l, c.log = some l → ∀ st ∈ l.steps, ∀ k, st.after.cycle k ≤ c.acct.cycles.getD k 0
   chain : ∀ l, c.log = some l → l.steps.Pairwise fun a b => ∀ k ∈ a.ended, a.before.cycle k < b.before.cycle k
   times : ∀ l, c.log = some l → l.steps.Pairwise fun a b => a.ended ≠ [] → b.ended ≠ [] → a.time ≤ b.time
-  prevTime : ∀ l, c.log = some l → ∀ st ∈ l.steps, st.ended ≠ [] → ∀ e, c.previous = some e → st.time ≤ e.time
+  prevTime : ∀ l, c.log = some l → ∀ st ∈ l.steps, st.ended ≠ [] → ∃ e, c.previous = some e ∧ st.time ≤ e.time
   exist : ∀ l, c.log = some l → ∀ k < c.cfg.names.length, ∀ K, 1 ≤ K → K < c.acct.cycles.getD k 0 →
     ∃ st ∈ l.steps, k ∈ st.ended ∧ st.before.cycle k = K
   placedIdx : ∀ l, c.log = some l → ∀ p ∈ l.placed, ∀ (j : Nat) st, l.steps[j]? = some st → j < p.step →
@@ -47,6 +47,7 @@ structure SInv (c : Core) : Prop where
   placedOwn : ∀ l, c.log = some l → ∀ p ∈ l.placed, ∃ st, l.steps[p.step]? = some st ∧ st.ended = []
   fillsIdx : ∀ l, c.log = some l → ∀ f ∈ l.fills, ∀ (j : Nat) st, l.steps[j]? = some st → j < f.step →
     st.after.cycle f.order.coin ≤ f.order.cycle
+  fillsOwn : ∀ l, c.log = some l → ∀ f ∈ l.fills, f.step < l.steps.length
   fillsGood : ∀ l, c.log = some l → ∀ f ∈ l.fills, FillGood f
 
 theorem sInv_congr {c c' : Core} (h : SInv c) (hn : c'.cfg.names.length = c.cfg.names.length)
@@ -61,7 +62,7 @@ theorem sInv_congr {c c' : Core} (h : SInv c) (hn : c'.cfg.names.length = c.cfg.
       rw [hc] at hl
       simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hl
       exact ⟨l, rfl, hl.1, hl.2.1, hl.2.2⟩
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro l' hl'; obtain ⟨l, hlc, e1, _⟩ := key l' hl'; rw [e1]; exact h.steps l hlc
   · intro l' hl'; obtain ⟨l, hlc, e1, _⟩ := key l' hl'; rw [e1, hcy]; exact h.mono l hlc
   · intro l' hl'; obtain ⟨l, hlc, e1, _⟩ := key l' hl'; rw [e1]; exact h.chain l hlc
@@ -71,6 +72,7 @@ theorem sInv_congr {c c' : Core} (h : SInv c) (hn : c'.cfg.names.length = c.cfg.
   · intro l' hl'; obtain ⟨l, hlc, e1, e2, _⟩ := key l' hl'; rw [e1, e2]; exact h.placedIdx l hlc
   · intro l' hl'; obtain ⟨l, hlc, e1, e2, _⟩ := key l' hl'; rw [e1, e2]; exact h.placedOwn l hlc
   · intro l' hl'; obtain ⟨l, hlc, e1, _, e3⟩ := key l' hl'; rw [e1, e3]; exact h.fillsIdx l hlc
+  · intro l' hl'; obtain ⟨l, hlc, e1, _, e3⟩ := key l' hl'; rw [e1, e3]; exact h.fillsOwn l hlc
   · intro l' hl'; obtain ⟨l, hlc, _, _, e3⟩ := key l' hl'; rw [e3]; exact h.fillsGood l hlc
 
 end Engine.Machine
