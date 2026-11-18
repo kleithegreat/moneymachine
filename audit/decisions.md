@@ -1328,3 +1328,17 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - **D208:** a block-boundary cut can split two hosts' `mmrec cat`.
   - **Sizing:** read only the channels a replay uses. Read the 17 coins from an extract made once for each closed file, by a frozen extractor inside the registered build and verified byte for byte by two hosts. Neon gives the five invariants such an extract must prove.
   - **Next:** the architect's round 8, after TAMU's weekly reset on 2026-11-21 04:00 UTC (11-20 23:00 EST) and after study 1's first session has started.
+- 2026-11-18 23:44 UTC (18:44 EST), advisor: **the efficiency audits** (the human: find code provably equivalent to something much faster or simpler, branch by branch). Neon runs one pass per area, in clean worktrees. Findings are leads, filed under `audit/reviews/`.
+  - **Kernel v2's pass** (`audit/reviews/2026-11-18-neon-efficiency-kernel2.md`): nine findings.
+    - **Confirmed against the code:**
+      - rolling windows copy the whole window every tick;
+      - one coin's mark is looked up by recomputing every coin's;
+      - pending events are inserted by a linear scan.
+    - **Overstated:** a "guaranteed" out-of-memory, though B4 replayed in full.
+  - **Accepted as a step:** after step 5 merges, the architect turns the confirmed findings into one build step, each fix landing only if:
+    - B4 stays bit-identical;
+    - the laws' statements are unchanged;
+    - the speedup is measured.
+  - **`exp`/`log`:** a fast version needs its own proof of agreement with X4's, so it goes to the architect as a separate question.
+  - **Reversal:** none needed; nothing is built yet.
+  - **Next passes, one at a time:** the recorder and `mmvault` on `main`, `rearchitecture`'s designs, then the frozen study 1 code, as notes only.
