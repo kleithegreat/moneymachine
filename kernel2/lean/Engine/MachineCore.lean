@@ -1254,9 +1254,8 @@ def walk (scale : Nat) : Rat → List (Nat × Rat) → Rat × Rat
 bankruptcy. An offer the ledger would refuse takes nothing. -/
 def fillAccepted (fees : List Engine.Ledger.Tier) (ledger : Engine.Ledger.State) (time : Int) (coin : Nat)
     (units price : Rat) : Bool :=
-  match Engine.Ledger.step fees ledger (.fill time coin units price .taker) with
-  | .ok _ => true
-  | .error _ => false
+  !ledger.bankrupt && decide (coin < ledger.positions.length ∧ units ≠ 0 ∧ 0 < price) &&
+    (Engine.Ledger.active fees time).isSome
 
 /-- What an offer takes: the live order, what of it remained, the time (the last fed event's), the units (signed) and the
 price of its one fill, and whether that fill ends the cycle. -/
