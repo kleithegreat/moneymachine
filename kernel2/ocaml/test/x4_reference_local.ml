@@ -58,7 +58,7 @@ let () =
   check
     "frozen corpus hash"
     (sha corpus_path = string (member "corpus_sha256" corpus_manifest));
-  let corpus = List.map J.from_string (lines (read corpus_path)) in
+  let corpus = List.map (fun line -> J.from_string line) (lines (read corpus_path)) in
   List.iter
     (fun market ->
        let old_out = path (path old_dir "out") market in
