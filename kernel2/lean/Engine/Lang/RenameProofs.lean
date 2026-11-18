@@ -12,15 +12,26 @@ namespace Engine.Lang
 variable {α : Type} (N : NumOps α)
 
 theorem nodeFull_tick (t t' : Tick α) (n : Node) (hv : t'.inView = t.inView)
-    (he : ∀ c f, evalNode N t' c n f = evalNode N t c n f) (count coins : Nat)
-    (argRows : Nat → Array (Option α)) (ns : Array (NS α)) :
-    nodeFull N t' n count coins argRows ns = nodeFull N t n count coins argRows ns := by
-  have hp : ∀ c, pointVal N t' n argRows c = pointVal N t n argRows c := by
+    (he : ∀ c f fE, evalNode N t' c n f fE = evalNode N t c n f fE) (count coins : Nat)
+    (argRows : Nat → Array (Option α)) (argExact : Nat → Array (Option Rat)) (ns : Array (NS α)) :
+    nodeFull N t' n count coins argRows argExact ns = nodeFull N t n count coins argRows argExact ns := by
+  have hp : ∀ c, pointVal N t' n argRows argExact c = pointVal N t n argRows argExact c := by
     intro c
     unfold pointVal
     rw [hv, he]
   unfold nodeFull finalize nodeCore
   split <;> simp [hv, hp]
+
+theorem exactRow_tick (t t' : Tick α) (n' n : Node) (hv : t'.inView = t.inView)
+    (he : ∀ c f fE, evalExactNode N t' c n' f fE = evalExactNode N t c n f fE) (coins : Nat)
+    (argRows : Nat → Array (Option α)) (argExact : Nat → Array (Option Rat)) :
+    exactRow N t' n' coins argRows argExact = exactRow N t n coins argRows argExact := by
+  have hp : ∀ c, pointExact N t' n' argRows argExact c = pointExact N t n argRows argExact c := by
+    intro c
+    unfold pointExact
+    rw [hv, he]
+  unfold exactRow
+  simp only [hp]
 
 theorem rename_nodes_size (ρ : String → String) (p : Program) : (p.rename ρ).nodes.size = p.nodes.size := by
   simp [Program.rename]
@@ -30,6 +41,7 @@ theorem rename_nodes_get (ρ : String → String) (p : Program) {k : Nat} (hk : 
   simp [Program.rename, getElem!_pos, hk]
 
 theorem build_rename (ρ : String → String) (p : Program) (t t' : Tick α) (hv : t'.inView = t.inView)
+    (hx : t'.exactInput = t.exactInput)
     (hin : ∀ name u, Node.source name u ∈ p.nodes.toList → ∀ c, t'.input c (ρ name) = t.input c name)
     (m : Mach α) {k : Nat} (hk : k ≤ p.nodes.size) :
     build N (p.rename ρ) t' m k = build N p t m k := by
@@ -40,33 +52,57 @@ theorem build_rename (ρ : String → String) (p : Program) (t t' : Tick α) (hv
     have ih := ih (by omega)
     simp only [build]
     rw [ih, rename_nodes_get ρ p hk']
-    have hcore : ∀ (vs : Array (Array (Option α))) (ns : Array (NS α)),
-        nodeStep N t' ((p.nodes[k]!).rename ρ) m.count m.coins vs ns = nodeStep N t (p.nodes[k]!) m.count m.coins vs ns := by
-      intro vs ns
+    have hcore : ∀ (vs : Array (Array (Option α))) (es : Array (Array (Option Rat))) (ns : Array (NS α)),
+        nodeStep N t' ((p.nodes[k]!).rename ρ) m.count m.coins vs es ns =
+          nodeStep N t (p.nodes[k]!) m.count m.coins vs es ns := by
+      intro vs es ns
       have hmem : p.nodes[k]! ∈ p.nodes.toList := by
         simp [getElem!_pos, hk']
       unfold nodeStep
+      have hxe : ∀ (n : Node) c f fE, evalExactNode N t' c n f fE = evalExactNode N t c n f fE := by
+        intro n c f fE
+        cases n <;> simp [evalExactNode, hx]
       cases hn : p.nodes[k]! with
       | source name u =>
         rw [hn] at hmem
         have hs := hin name u hmem
         simp only [Node.rename, Node.args]
-        have hp : ∀ c argRows, pointVal N t' (Node.source (ρ name) u) argRows c =
-            pointVal N t (Node.source name u) argRows c := by
-          intro c argRows
+        have hp : ∀ c R E, pointVal N t' (Node.source (ρ name) u) R E c =
+            pointVal N t (Node.source name u) R E c := by
+          intro c R E
           simp [pointVal, hv, evalNode, hs c]
+        refine Prod.ext ?_ (exactRow_tick N t t' _ _ hv (fun c f fE => by simp [evalExactNode]) _ _ _)
+        simp only []
         unfold nodeFull finalize nodeCore
         simp [hp, hv]
-      | builtin n => simp only [Node.rename]; exact nodeFull_tick N t t' _ hv (fun c f => by simp [evalNode]) _ _ _ _
-      | const b u => simp only [Node.rename]; exact nodeFull_tick N t t' _ hv (fun c f => by simp [evalNode]) _ _ _ _
-      | op o args => simp only [Node.rename]; exact nodeFull_tick N t t' _ hv (fun c f => by simp [evalNode]) _ _ _ _
+      | builtin n =>
+        simp only [Node.rename]
+        exact Prod.ext (nodeFull_tick N t t' _ hv (fun c f fE => by simp [evalNode]) _ _ _ _ _)
+          (exactRow_tick N t t' _ _ hv (hxe _) _ _ _)
+      | slotIn n s =>
+        simp only [Node.rename]
+        exact Prod.ext (nodeFull_tick N t t' _ hv (fun c f fE => by simp [evalNode]) _ _ _ _ _)
+          (exactRow_tick N t t' _ _ hv (hxe _) _ _ _)
+      | const b u =>
+        simp only [Node.rename]
+        exact Prod.ext (nodeFull_tick N t t' _ hv (fun c f fE => by simp [evalNode]) _ _ _ _ _)
+          (exactRow_tick N t t' _ _ hv (hxe _) _ _ _)
+      | exactConst q u =>
+        simp only [Node.rename]
+        exact Prod.ext (nodeFull_tick N t t' _ hv (fun c f fE => by simp [evalNode]) _ _ _ _ _)
+          (exactRow_tick N t t' _ _ hv (hxe _) _ _ _)
+      | op o args =>
+        simp only [Node.rename]
+        exact Prod.ext (nodeFull_tick N t t' _ hv (fun c f fE => by simp [evalNode]) _ _ _ _ _)
+          (exactRow_tick N t t' _ _ hv (hxe _) _ _ _)
     rw [hcore]
 
 theorem step_rename (ρ : String → String) (p : Program) (t t' : Tick α) (hv : t'.inView = t.inView)
+    (hx : t'.exactInput = t.exactInput)
     (hin : ∀ name u, Node.source name u ∈ p.nodes.toList → ∀ c, t'.input c (ρ name) = t.input c name)
     (m : Mach α) : Mach.step N (p.rename ρ) t' m = Mach.step N p t m := by
   unfold Mach.step
-  rw [rename_nodes_size, build_rename N ρ p t t' hv hin m (Nat.le_refl _)]
+  rw [rename_nodes_size, build_rename N ρ p t t' hv hx hin m (Nat.le_refl _)]
 
 theorem init_rename (ρ : String → String) (p : Program) (coins : Nat) :
     Mach.init N (p.rename ρ) coins = Mach.init N p coins := by
@@ -80,6 +116,7 @@ theorem init_rename (ρ : String → String) (p : Program) (coins : Nat) :
 theorem run_rename_aux (ρ : String → String) (p : Program) :
     ∀ (ts ts' : List (Tick α)), ts'.length = ts.length →
       (∀ (i : Nat) (t t' : Tick α), ts[i]? = some t → ts'[i]? = some t' → t'.inView = t.inView ∧
+        t'.exactInput = t.exactInput ∧
         ∀ name u, Node.source name u ∈ p.nodes.toList → ∀ c, t'.input c (ρ name) = t.input c name) →
       ∀ m : Mach α, ts'.foldl (fun m t => Mach.step N (p.rename ρ) t m) m = ts.foldl (fun m t => Mach.step N p t m) m := by
   intro ts
@@ -94,8 +131,8 @@ theorem run_rename_aux (ρ : String → String) (p : Program) :
     cases ts' with
     | nil => simp at hlen
     | cons t' ts' =>
-      obtain ⟨hv, hs⟩ := hrel 0 t t' rfl rfl
-      have h1 : Mach.step N (p.rename ρ) t' m = Mach.step N p t m := step_rename N ρ p t t' hv hs m
+      obtain ⟨hv, hx, hs⟩ := hrel 0 t t' rfl rfl
+      have h1 : Mach.step N (p.rename ρ) t' m = Mach.step N p t m := step_rename N ρ p t t' hv hx hs m
       have h2 := ih ts' (Nat.succ.inj hlen) (fun i a b ha hb => hrel (i + 1) a b ha hb) (Mach.step N p t m)
       rw [List.foldl_cons, List.foldl_cons, h1]
       exact h2
@@ -103,6 +140,7 @@ theorem run_rename_aux (ρ : String → String) (p : Program) :
 theorem run_rename (ρ : String → String) (p : Program) (coins : Nat) (ts ts' : List (Tick α))
     (hlen : ts'.length = ts.length)
     (hrel : ∀ (i : Nat) (t t' : Tick α), ts[i]? = some t → ts'[i]? = some t' → t'.inView = t.inView ∧
+        t'.exactInput = t.exactInput ∧
         ∀ name u, Node.source name u ∈ p.nodes.toList → ∀ c, t'.input c (ρ name) = t.input c name) :
     Mach.run N (p.rename ρ) coins ts' = Mach.run N p coins ts := by
   unfold Mach.run
@@ -113,11 +151,12 @@ theorem nodeOkb_rename (ρ : String → String) (p : Program) {i : Nat} (hi : i 
     (p.rename ρ).nodeOkb i = p.nodeOkb i := by
   unfold Program.nodeOkb
   rw [rename_nodes_get ρ p hi]
-  cases hn : p.nodes[i]! <;> simp [Node.rename, Program.rename]
+  cases hn : p.nodes[i]! <;> simp [Node.rename, Program.rename] <;> rfl
 
 theorem wf_rename (ρ : String → String) {p : Program} (h : p.WF) : (p.rename ρ).WF := by
-  obtain ⟨h1, h2, h3⟩ := wf_iff.1 h
-  refine wf_iff.2 ⟨by simpa [Program.rename] using h1, by simpa [Program.rename] using h2, ?_⟩
+  obtain ⟨h1, h2, h3, h4⟩ := wf_iff.1 h
+  refine wf_iff.2 ⟨by simpa [Program.rename] using h1, by simpa [Program.rename] using h2, ?_,
+    by simpa [Program.rename, Program.slotOkb] using h4⟩
   intro i hi
   rw [rename_nodes_size] at hi
   rw [nodeOkb_rename ρ p hi]

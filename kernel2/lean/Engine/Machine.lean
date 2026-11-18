@@ -544,7 +544,8 @@ def tickAt (s : State) (time : Int) : State × String × TickRecord :=
   let s := release s time
   let marks := s.coins.map (tickCoin s.cfg time)
   let inView (c : Nat) : Bool := match s.view[c]? with | some v => !v.ended | none => false
-  let tick : Engine.Lang.Tick UInt64 := ⟨inView, sourceValue s, time⟩
+  let tick : Engine.Lang.Tick UInt64 :=
+    { inView := inView, input := sourceValue s, time := time, exactInput := fun _ _ _ => none }
   let mach := match s.prog with
     | some p => Engine.Lang.Mach.step Engine.Lang.bitsOps p tick s.mach
     | none => s.mach

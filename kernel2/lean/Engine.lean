@@ -20,6 +20,7 @@ import Engine.Lang.RewriteProofs
 import Engine.Lang.RewriteTypes
 import Engine.Lang.RewriteLaw
 import Engine.StartProofs
+import Engine.Lang.StepFiveProofs
 import Engine.Policy
 import Engine.Machine
 import Engine.Start

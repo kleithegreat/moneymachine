@@ -1,11 +1,12 @@
 import Engine.Json
+import Engine.Orders.Value
 
 /-!
 # The program: units, types, the checked DAG and its verdict (KERNEL.md A17)
 
 `parseAt` reads a program's text and returns the checked program or the first fault's code and where it is.
-The nodes are hash-consed into a DAG whose arguments precede their users. Step 4 reads the float half of A17
-and the built-in inputs, which are exact; the exact operators and the slots are step 5's.
+The nodes are hash-consed into a DAG whose arguments precede their users. An operator named for both sorts is
+resolved when its first argument is typed: on exact arguments it is the exact operator (`eadd`, ..., `ele`).
 -/
 
 namespace Engine.Lang
@@ -104,6 +105,8 @@ inductive Window where
 inductive Op where
   | add | sub | mul | div | min | max | neg | abs | sign | log | exp | sqrt | clip
   | gt | ge | lt | le | and | or | not | ite
+  | eadd | esub | emul | ediv | emin | emax | eneg | egt | ege | elt | ele
+  | toExact | toFloat
   | convert (factor : UInt64) (to : Dim)
   | window (w : Window) (ticks : Nat)
   | xsMean | xsDemean | xsRank | ticksSince
@@ -118,14 +121,33 @@ inductive Ty where
 
 inductive Node where
   | builtin (name : String)
+  | slotIn (name : String) (slot : Nat)
   | source (name : String) (u : Dim)
   | const (bits : UInt64) (u : Dim)
+  | exactConst (q : Rat) (u : Dim)
   | op (o : Op) (args : List Nat)
   deriving DecidableEq, Repr, Inhabited
 
 inductive Leverage where
   | all (n : Nat)
   | byCoin (entries : List (String × Nat))
+  deriving DecidableEq, Repr, Inhabited
+
+/-- A slot's size: `close`, or a target at a node of unit `coin` (a size) or `usd` (a notional). -/
+inductive SlotSize where
+  | close
+  | target (node : Nat)
+  deriving DecidableEq, Repr, Inhabited
+
+/-- A slot of A17; `when`, `price` and a target are nodes. -/
+structure Slot where
+  name : String
+  side : Engine.Orders.Side
+  when : Nat
+  price : Nat
+  size : SlotSize
+  tif : Engine.Orders.Tif
+  reduceOnly : Bool
   deriving DecidableEq, Repr, Inhabited
 
 /-- A checked program: nodes in an order where arguments precede users, each with its type. -/
@@ -137,6 +159,7 @@ structure Program where
   nodes : Array Node
   types : Array Ty
   probeNodes : Array Nat
+  slots : Array Slot := #[]
   deriving DecidableEq, Repr, Inhabited
 
 def priceUnit : Dim := ⟨[1, -1, 0, 0, 0, 0, 0]⟩
@@ -173,7 +196,23 @@ def ops : List (String × Op × Nat) :=
    ("or", .or, 2), ("not", .not, 1), ("if", .ite, 3), ("convert", .convert 0 Dim.one, 1),
    ("lag", .window .lag 0, 1), ("mean", .window .mean 0, 1), ("sum", .window .sum 0, 1), ("std", .window .std 0, 1),
    ("min_over", .window .minOver 0, 1), ("max_over", .window .maxOver 0, 1), ("ema", .window .ema 0, 1),
-   ("xs_mean", .xsMean, 1), ("xs_demean", .xsDemean, 1), ("xs_rank", .xsRank, 1), ("ticks_since", .ticksSince, 1)]
+   ("xs_mean", .xsMean, 1), ("xs_demean", .xsDemean, 1), ("xs_rank", .xsRank, 1), ("ticks_since", .ticksSince, 1),
+   ("exact", .toExact, 1), ("float", .toFloat, 1)]
+
+/-- The exact operator an operator named for both sorts is on exact arguments. -/
+def Op.exactTwin : Op → Option Op
+  | .add => some .eadd
+  | .sub => some .esub
+  | .mul => some .emul
+  | .div => some .ediv
+  | .min => some .emin
+  | .max => some .emax
+  | .neg => some .eneg
+  | .gt => some .egt
+  | .ge => some .ege
+  | .lt => some .elt
+  | .le => some .ele
+  | _ => none
 
 def maxNodes := 4096
 def maxDepth := 64
@@ -184,6 +223,8 @@ def maxWindowTicks := 1048576
 def sameDim (a b : Dim) : Except String Dim := if a == b then .ok a else .error "E_UNIT"
 
 def numOf (x : Except String Dim) : Except String Ty := x.map Ty.num
+
+def exactOf (x : Except String Dim) : Except String Ty := x.map Ty.exact
 
 def boolOf (x : Except String Unit) : Except String Ty := x.map fun _ => Ty.bool
 
@@ -198,6 +239,9 @@ def iteTy (a b : Option Ty) : Except String Ty :=
 def opTyE (o : Op) (ts : List Ty) : Except String Ty :=
   let num (k : Nat) : Except String Dim := match ts[k]? with
     | some (.num u) => .ok u
+    | _ => .error "E_TYPE"
+  let exact (k : Nat) : Except String Dim := match ts[k]? with
+    | some (.exact u) => .ok u
     | _ => .error "E_TYPE"
   let boolean (k : Nat) : Except String Unit := match ts[k]? with
     | some .bool => .ok ()
@@ -229,6 +273,13 @@ def opTyE (o : Op) (ts : List Ty) : Except String Ty :=
   | .xsMean | .xsDemean => numOf (num 0)
   | .xsRank => numOf (do one (← num 0))
   | .ticksSince => numOf (do boolean 0; pure tickUnit)
+  | .eadd | .esub | .emin | .emax => exactOf (do let a ← exact 0; let b ← exact 1; same a b)
+  | .emul => exactOf (do let a ← exact 0; let b ← exact 1; opt (Dim.mul a b))
+  | .ediv => exactOf (do let a ← exact 0; let b ← exact 1; opt (Dim.div a b))
+  | .eneg => exactOf (exact 0)
+  | .egt | .ege | .elt | .ele => boolOf (do let a ← exact 0; let b ← exact 1; let _ ← same a b; pure ())
+  | .toExact => exactOf (num 0)
+  | .toFloat => numOf (exact 0)
 
 def opTy (o : Op) (ts : List Ty) : Option Ty := (opTyE o ts).toOption
 
@@ -238,14 +289,27 @@ def opTy (o : Op) (ts : List Ty) : Option Ty := (opTyE o ts).toOption
 def Program.nodeOkb (p : Program) (i : Nat) : Bool :=
   match p.nodes[i]! with
   | .builtin n => (builtinTy n).isSome && p.types[i]! == (builtinTy n).getD .bool
+  | .slotIn n s =>
+    slotInputs.contains n && (builtinTy n).isSome && p.types[i]! == (builtinTy n).getD .bool && s < p.slots.size
   | .source _ u => p.types[i]! == .num u
   | .const _ u => p.types[i]! == .num u
+  | .exactConst _ u => p.types[i]! == .exact u
   | .op o args => args.all (· < i) && opTy o (args.map (p.types[·]!)) == some p.types[i]!
 
-/-- Each node typed by its rule, arguments before their users, probes naming nodes. -/
+/-- A slot's `when` is a bool, its price an exact price, its size `close` or an exact size or notional. -/
+def Program.slotOkb (p : Program) (s : Slot) : Bool :=
+  s.when < p.nodes.size && p.types[s.when]! == .bool &&
+    s.price < p.nodes.size && p.types[s.price]! == .exact priceUnit &&
+    match s.size with
+    | .close => true
+    | .target n => n < p.nodes.size && (p.types[n]! == .exact sizeUnit || p.types[n]! == .exact moneyUnit)
+
+def maxSlots := 16
+
+/-- Each node typed by its rule, arguments before their users, probes naming nodes, at most 16 slots, each typed. -/
 def Program.wfb (p : Program) : Bool :=
   p.types.size == p.nodes.size && p.probeNodes.all (· < p.nodes.size) &&
-    (List.range p.nodes.size).all p.nodeOkb
+    (List.range p.nodes.size).all p.nodeOkb && p.slots.size ≤ maxSlots && p.slots.all p.slotOkb
 
 def Program.WF (p : Program) : Prop := p.wfb = true
 
@@ -265,12 +329,18 @@ def Program.rename (ρ : String → String) (p : Program) : Program :=
 
 /-! ### Reading a program -/
 
+/-- A parameter's value: a float with its bits, or an exact decimal. -/
+inductive PVal where
+  | float (bits : UInt64)
+  | exact (q : Rat)
+
 structure CState where
   sources : List (String × Dim) := []
   nodes : Array Node := #[]
   types : Array Ty := #[]
-  params : List (String × Option UInt64 × Dim) := []
+  params : List (String × PVal × Dim) := []
   lets : List (String × Nat) := []
+  slotNames : List (Option String) := []
   parsed : Nat := 0
   where_ : String := "document"
 
@@ -324,6 +394,20 @@ def windowTicks (kvs : List (String × J)) : Check Nat := do
   | .int i => if 1 ≤ i && i ≤ maxWindowTicks then return i.toNat else fail "E_WINDOW"
   | _ => fail "E_WINDOW"
 
+/-- The rational of an exact decimal: an optional `-`, digits, and optionally a point and digits. -/
+def decimalRat (s : String) : Option Rat :=
+  let (negative, cs) := match chars s with | '-' :: rest => (true, rest) | rest => (false, rest)
+  let (whole, rest) := cs.span isDigit
+  let fraction : Option (List Char) := match rest with
+    | [] => some []
+    | '.' :: digits => if !digits.isEmpty && digits.all isDigit then some digits else none
+    | _ => none
+  if whole.isEmpty then none else
+  fraction.map fun digits =>
+    let n := (whole ++ digits).foldl (fun n c => n * 10 + (c.toNat - '0'.toNat)) 0
+    let q : Rat := (n : Rat) / (10 : Rat) ^ digits.length
+    if negative then -q else q
+
 /-- One expression, its arguments first, at `depth`; `fuel` only bounds the recursion. -/
 def expr : Nat → J → Nat → Check Nat
   | 0, _, _ => fail "E_SIZE"
@@ -338,7 +422,11 @@ def expr : Nat → J → Nat → Check Nat
       let name ← asString (field kvs "input")
       let slotted := has "slot"
       if slotInputs.contains name then
-        if slotted then fail "E_REF" else fail "E_PARSE"
+        if !slotted then fail "E_PARSE"
+        let slot ← asString (field kvs "slot")
+        let some i := (← get).slotNames.findIdx? (· == some slot) | fail "E_REF"
+        let some t := builtinTy name | fail "E_UNKNOWN_INPUT"
+        intern (.slotIn name i) t
       else if slotted then fail "E_PARSE"
       else match builtinTy name with
         | some t => intern (.builtin name) t
@@ -351,12 +439,17 @@ def expr : Nat → J → Nat → Check Nat
       let b ← number (field kvs "const")
       let u ← unitOf (field kvs "unit")
       intern (.const (normalizeZero b) u) (.num u)
+    else if has "exact" then
+      let kvs ← fields v ["exact", "unit"] []
+      let some q := decimalRat (← asString (field kvs "exact")) | fail "E_PARSE"
+      let u ← unitOf (field kvs "unit")
+      intern (.exactConst q u) (.exact u)
     else if has "param" then
       let kvs ← fields v ["param"] []
       let name ← asString (field kvs "param")
       match (← get).params.find? (·.1 == name) with
-      | some (_, some bits, u) => intern (.const bits u) (.num u)
-      | some (_, none, _) => fail "E_TYPE"
+      | some (_, .float bits, u) => intern (.const bits u) (.num u)
+      | some (_, .exact q, u) => intern (.exactConst q u) (.exact u)
       | none => fail "E_REF"
     else if has "ref" then
       let kvs ← fields v ["ref"] []
@@ -376,6 +469,9 @@ def expr : Nat → J → Nat → Check Nat
         ix := ix ++ [← expr fuel a (depth + 1)]
       let types := (← get).types
       let ts := ix.map fun i => types[i]!
+      let op := match ts[0]?, op.exactTwin with
+        | some (.exact _), some twin => twin
+        | _, _ => op
       let op ← match op with
         | .window w _ => do
           let n ← match field kvs "ticks" with
@@ -424,15 +520,52 @@ def leverageOf (v : J) : Check Leverage := do
     return .byCoin out
   | _ => fail "E_PARSE"
 
-/-- An exact parameter's decimal: an optional `-`, digits, and optionally a point and digits. -/
-def decimalOk (s : String) : Bool :=
-  let cs := match chars s with | '-' :: rest => rest | rest => rest
-  let (whole, rest) := cs.span isDigit
-  !whole.isEmpty &&
-    match rest with
-    | [] => true
-    | '.' :: fraction => !fraction.isEmpty && fraction.all isDigit
-    | _ => false
+/-- The names of the document's slots by position, so that an input reads a slot named further on. -/
+def slotNamesOf : J → List (Option String)
+  | .arr items => items.map fun item => match item with
+    | .obj kvs => match field kvs "name" with | .str name => some name | _ => none
+    | _ => none
+  | _ => []
+
+def nodeAt (v : J) : Check Nat := do expr (maxDepth + 4) v 1
+
+def oneOf {β : Type} (table : List (String × β)) (v : J) : Check β := do
+  let name ← asString v
+  let some (_, x) := table.find? (·.1 == name) | fail "E_PARSE"
+  return x
+
+/-- The slots of A17, each checked in the order of its table. -/
+def slotList (v : J) : Check (List Slot) := do
+  let .arr items := v | fail "E_PARSE"
+  if items.length > maxSlots then fail "E_PARSE"
+  let mut out : List Slot := []
+  for item in items do
+    let kvs ← fields item ["name", "side", "when", "price", "size", "tif", "reduce_only"] []
+    let name ← asString (field kvs "name")
+    if !validName name || out.any (·.name == name) then fail "E_PARSE"
+    atSection ("slots." ++ name)
+    let side ← oneOf [("buy", Engine.Orders.Side.buy), ("sell", .sell)] (field kvs "side")
+    let when_ ← nodeAt (field kvs "when")
+    if (← get).types[when_]! != .bool then fail "E_TYPE"
+    let price ← nodeAt (field kvs "price")
+    match (← get).types[price]! with
+    | .exact u => if u != priceUnit then fail "E_UNIT"
+    | _ => fail "E_TYPE"
+    let size ← match field kvs "size" with
+      | .str "close" => pure SlotSize.close
+      | e => do
+        let n ← nodeAt e
+        match (← get).types[n]! with
+        | .exact u => if u != sizeUnit && u != moneyUnit then fail "E_UNIT"
+        | _ => fail "E_TYPE"
+        pure (SlotSize.target n)
+    let tif ← oneOf [("gtc", Engine.Orders.Tif.gtc), ("alo", .alo), ("ioc", .ioc)] (field kvs "tif")
+    let reduceOnly ← match field kvs "reduce_only" with
+      | .bool b => pure b
+      | _ => fail "E_PARSE"
+    out := out ++ [{ name := name, side := side, when := when_, price := price, size := size, tif := tif,
+                     reduceOnly := reduceOnly }]
+  return out
 
 def program (v : J) : Check Program := do
   let kvs ← fields v ["version", "tick", "decide_every", "leverage", "sources", "params", "let", "slots", "probes"] []
@@ -459,21 +592,23 @@ def program (v : J) : Check Program := do
       let pk ← fields item ["name", "value", "unit"] []
       let name ← asString (field pk "name")
       if !validName name || (← get).params.any (·.1 == name) then fail "E_PARSE"
-      let value : Option UInt64 ← match field pk "value" with
-        | .str s => if decimalOk s then pure none else fail "E_PARSE"
-        | j => do pure (some (← number j))
+      let value : PVal ← match field pk "value" with
+        | .str s => match decimalRat s with
+          | some q => pure (PVal.exact q)
+          | none => fail "E_PARSE"
+        | j => do pure (PVal.float (← number j))
       let u ← unitOf (field pk "unit")
       modify fun st => { st with params := st.params ++ [(name, value, u)] }
   | _ => fail "E_PARSE"
+  modify fun st => { st with slotNames := slotNamesOf (field kvs "slots") }
   atSection "let"
   let lets ← nameList (field kvs "let")
   for (name, e) in lets do
     atSection ("let." ++ name)
     let i ← expr (maxDepth + 4) e 1
     modify fun st => { st with lets := st.lets ++ [(name, i)] }
-  match field kvs "slots" with
-  | .arr [] => pure ()
-  | _ => fail "E_PARSE"
+  atSection "slots"
+  let slots ← slotList (field kvs "slots")
   atSection "probes"
   let probes ← nameList (field kvs "probes")
   let mut probeNodes : List Nat := []
@@ -485,7 +620,7 @@ def program (v : J) : Check Program := do
   let total := st.nodes.toList.foldl (fun s n => match n with | .op (.window _ k) _ => s + k | _ => s) 0
   if total > maxWindowTicks then fail "E_WINDOW"
   return { tick := tick, decideEvery := every, leverage := leverage, sources := st.sources, nodes := st.nodes,
-           types := st.types, probeNodes := probeNodes.toArray }
+           types := st.types, probeNodes := probeNodes.toArray, slots := slots.toArray }
 
 /-- The checked program of a text, or the first fault's code and where it is. -/
 def parseAt (text : String) : Except (String × String) Program :=

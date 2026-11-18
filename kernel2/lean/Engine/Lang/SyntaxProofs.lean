@@ -72,16 +72,19 @@ theorem check_error (text code : String) (h : parse text = .error code) :
 
 theorem wf_iff {p : Program} :
     p.WF ↔ p.types.size = p.nodes.size ∧ (∀ j ∈ p.probeNodes.toList, j < p.nodes.size) ∧
-      ∀ i, i < p.nodes.size → p.nodeOkb i = true := by
+      (∀ i, i < p.nodes.size → p.nodeOkb i = true) ∧
+      (p.slots.size ≤ maxSlots ∧ ∀ s ∈ p.slots.toList, p.slotOkb s = true) := by
   unfold Program.WF Program.wfb
-  simp [Array.all_eq, List.all_eq_true, List.mem_range]
-  simp [Array.mem_iff_getElem, and_assoc]
-  intro _ _
+  simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq, Array.all_eq_true, List.all_eq_true, List.mem_range,
+    Array.mem_toList_iff, Array.mem_iff_getElem, and_assoc]
   constructor
-  · intro h j i hi hij
-    subst hij
-    exact h i hi
-  · intro h i hi
-    exact h _ i hi rfl
+  · rintro ⟨h1, h2, h3, h4, h5⟩
+    refine ⟨h1, ?_, h3, h4, ?_⟩
+    · rintro j ⟨i, hi, rfl⟩
+      exact h2 i hi
+    · rintro s ⟨i, hi, rfl⟩
+      exact h5 i hi
+  · rintro ⟨h1, h2, h3, h4, h5⟩
+    exact ⟨h1, fun i hi => h2 _ ⟨i, hi, rfl⟩, h3, h4, fun i hi => h5 _ ⟨i, hi, rfl⟩⟩
 
 end Engine.Lang

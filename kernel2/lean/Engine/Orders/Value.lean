@@ -12,6 +12,12 @@ inductive Side where
   | sell
   deriving DecidableEq, Repr, Inhabited
 
+inductive Tif where
+  | gtc
+  | alo
+  | ioc
+  deriving DecidableEq, Repr, Inhabited
+
 /-- A wish's value: an exact price and a target; `target = none` is `close`. A notional has already been divided
 by the slot's unrounded exact price. -/
 structure Value where
