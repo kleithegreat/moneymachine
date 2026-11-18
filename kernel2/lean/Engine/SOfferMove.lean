@@ -193,7 +193,7 @@ theorem sinv_offer (s : State) (coin slot : Nat) (parts : List (Nat × Rat)) (ro
       intro k; show (offer s coin slot parts role).1.acct.cycles.getD k 0 = _; rw [hacct]
     have hnames : (offer s coin slot parts role).1.core.cfg.names.length = s.cfg.names.length := by
       show (offer s coin slot parts role).1.cfg.names.length = _; rw [hcfg]
-    refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
     · intro l' hl' st hst
       obtain ⟨l, hc, e1, _⟩ := hlog l' hl'
       rw [e1] at hst
@@ -277,6 +277,25 @@ theorem sinv_offer (s : State) (coin slot : Nat) (parts : List (Nat × Rat)) (ro
               rw [worldBook_cycle]; omega
         · rw [h2 k hkc] at hK2
           exact old hK2
+    · intro l' hl' st hst k hk
+      obtain ⟨l, hc, e1, _⟩ := hlog l' hl'
+      rw [e1] at hst
+      rw [hnames]
+      rcases List.mem_append.1 hst with hst | hst
+      · exact h.endedLt l.core hc st hst k hk
+      · simp only [List.mem_singleton] at hst
+        subst hst
+        have hsh : Shape s.cfg.names.length s.acct := hB.shapeW
+        have hn := offer_coin_lt hp
+        have hlt : coin < s.cfg.names.length := by
+          have := hsh.1
+          omega
+        have hk' : k ∈ (if p.ends = true then [coin] else []) := hk
+        cases he : p.ends
+        · simp [he] at hk'
+        · simp [he] at hk'
+          subst hk'
+          exact hlt
     · intro l' hl' q hq j st hj hjq
       obtain ⟨l, hc, e1, _, e3, _⟩ := hlog l' hl'
       rw [e3] at hq

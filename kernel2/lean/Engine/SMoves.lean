@@ -21,7 +21,7 @@ theorem sinv_tick (s : State) (time ms : Int) (h : SInv s.core) :
 
 theorem sinv_prev (s : State) (e : Event) (hprev : ∀ q, s.previous = some q → q.time ≤ e.time) (h : SInv s.core) :
     SInv ({ s with previous := some e } : State).core := by
-  refine ⟨h.steps, h.mono, h.chain, h.times, ?_, h.exist, h.placedIdx, h.placedOwn, h.fillsIdx, h.fillsOwn, h.fillsGood⟩
+  refine ⟨h.steps, h.mono, h.chain, h.times, ?_, h.exist, h.endedLt, h.placedIdx, h.placedOwn, h.fillsIdx, h.fillsOwn, h.fillsGood⟩
   intro l hl st hst hne
   obtain ⟨q, hq, hle⟩ := h.prevTime l hl st hst hne
   exact ⟨e, rfl, Int.le_trans hle (hprev q hq)⟩

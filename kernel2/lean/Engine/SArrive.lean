@@ -119,7 +119,7 @@ theorem sinv_arrive (s : State) (w : Wish) (rest : List Wish) (h : SInv ({ s wit
   have hnames : ({ (arriveWish s w).1 with wishes := rest } : State).core.cfg.names.length = s.cfg.names.length := by
     show (arriveWish s w).1.cfg.names.length = _
     rw [fr.cfg]
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro l' hl' st hst
     obtain ⟨l, hc, _, e1, _⟩ := hlog l' hl'
     rw [e1] at hst
@@ -191,6 +191,18 @@ theorem sinv_arrive (s : State) (w : Wish) (rest : List Wish) (h : SInv ({ s wit
     rw [hnames] at hk
     obtain ⟨st, hst, hend, hbef⟩ := h.exist l.core hc k hk K hK1 hK2
     exact ⟨st, by rw [e1]; exact List.mem_append_left _ hst, hend, hbef⟩
+  · intro l' hl' st hst k hk
+    obtain ⟨l, hc, _, e1, _⟩ := hlog l' hl'
+    rw [e1] at hst
+    rw [hnames]
+    rcases List.mem_append.1 hst with hst | hst
+    · exact h.endedLt l.core hc st hst k hk
+    · rcases arrivalSteps_spec s w with e | e
+      · rw [e] at hst; simp at hst
+      · rw [e] at hst
+        simp only [List.mem_singleton] at hst
+        subst hst
+        simp at hk
   · intro l' hl' p hp j st hj hjp
     obtain ⟨l, hc, hs, e1, e2, _⟩ := hlog l' hl'
     rw [e2] at hp
