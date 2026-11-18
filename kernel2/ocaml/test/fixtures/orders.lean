@@ -47,7 +47,7 @@ open Engine.Machine Engine.Lang Engine.Orders
 namespace Step5Orders
 
 def base : Int := 1775174400000
-def at (t : Int) := base + t
+def timeAt (t : Int) := base + t
 def js (s : String) := "\"" ++ s ++ "\""
 def obj (xs : List (String × String)) :=
   "{" ++ ",".intercalate (xs.map fun (k, v) => js k ++ ":" ++ v) ++ "}"
@@ -90,7 +90,7 @@ def header (h : Market) :=
   let coin := fun name => obj [("name", js name), ("sz_decimals", toString h.sz),
     ("figures", "5"), ("decimals", toString (6 - h.sz)),
     ("tiers", arr [obj [("from", js "0"), ("max_leverage", "10")]])]
-  obj [("horizon", obj [("start", toString base), ("end", toString (at h.stop))]),
+  obj [("horizon", obj [("start", toString base), ("end", toString (timeAt h.stop))]),
     ("venue", obj [("fill", js "pessimistic"), ("lambda", toString h.lambda),
       ("delta", toString h.delta), ("stale", toString h.stale),
       ("cap", js h.cap), ("minimum", js h.minimum)]), ("cash", js h.cash),
@@ -108,17 +108,16 @@ def number (s : String) : Number :=
   match s.splitOn "." with
   | [a, b] => .placed ((a ++ b).toInt?.getD 0) b.length
   | _ => .placed (s.toInt?.getD 0) 0
-def event (t : Int) (p : Payload) (delta := 0) (coin := 0) : Move :=
-  .event {coin, time := at t, known := at (t + delta), payload := p}
-def book (t : Int) (bid := "99") (ask := "101") (delta := 0) (coin := 0) :=
+def event (t : Int) (p : Payload) (delta : Int := 0) (coin : Nat := 0) : Move :=
+  .event {coin, time := timeAt t, known := timeAt (t + delta), payload := p}
+def book (t : Int) (bid := "99") (ask := "101") (delta : Int := 0) (coin : Nat := 0) :=
   event t (.quote [{price := number bid, size := number "100"}]
                     [{price := number ask, size := number "100"}]) delta coin
-def signal (t : Int) (n : Float) (coin := 0) := event t (.observation 0 n.toBits) 0 coin
-def print (t : Int) (p : String) (delta := 0) :=
+def signal (t : Int) (n : Float) (coin : Nat := 0) := event t (.observation 0 n.toBits) 0 coin
+def print (t : Int) (p : String) (delta : Int := 0) :=
   event t (.trade t (number p) (number "100") true) delta
 def rules (t : Int) (sz : Nat := 3) (lev : Int := 10) :=
-  event t (.listing {szDecimals := sz, figures := 5, decimals := (6 : Int) - sz,
-    tiers := [(number "0", lev)]})
+  event t (.listing {szDecimals := sz, figures := 5, decimals := (6 : Int) - (sz : Int), tiers := [(number "0", lev)]})
 def offer (slot lots : Nat) (p : Rat := 100) (role := Engine.Ledger.Role.maker)
     (coin := 0) : Move := .offer coin slot [(lots, p)] role
 def sweep (slot : Nat) (parts : List (Nat × Rat)) (role := Engine.Ledger.Role.taker)
@@ -142,8 +141,7 @@ def run (p : String) (h : Market) (moves : List Move) : IO Run := do
       let next := match move with
         | .event e => feed acc.1 (pack [e])
         | .offer coin slot parts role => Engine.Machine.offer acc.1 coin slot parts role
-      (next.1, {report := acc.2.report ++ next.2.report,
-                trace := acc.2.trace ++ next.2.trace})) (s, {report := "", trace := ""})
+      (next.1, {report := acc.2.report ++ next.2.report, trace := acc.2.trace ++ next.2.trace})) (s, {report := "", trace := ""})
     let (last, summary) := finish world
     require "ordinary feed/offer/finish succeeds" (summary.startsWith "{\"ok\":true")
     require "instrumentation is exactly the linked engine's feed/offer/finish"
@@ -430,8 +428,9 @@ def test7 : IO Unit := do
       require "only reduce_only or close gets the venue exemption"
         (((placed "exit" r).length == 1) == admitted)
       if admitted then value "exempt remainder is position, not target" (placed "exit" r) 10 (1/20)
-      else require "numeric non-reduce_only full close is below minimum"
-        ((named "exit" (kind "refused" (rows r))).any (fun row => field row 5 == "minimum"))
+      else
+        require "numeric non-reduce_only full close is below minimum"
+          ((named "exit" (kind "refused" (rows r))).any (fun row => field row 5 == "minimum"))
 
 def endAtFill (buyFirst : Bool) (matching := false) : IO Unit := do
   let entry := slot "entry" price (ex "1" "coin") (phase 1)
@@ -467,7 +466,7 @@ def test8 : IO Unit := do
     require "loses 120 not 220" (tick 10000 r == ["9880"])
   test "step5_8_argon_nine_of_ten" do
     let later := (List.range 64).flatMap fun i =>
-      [print (5001 + i) "90" 2000, offer 0 1000 100]
+      [print (5001 + Int.ofNat i) "90" 2000, offer 0 1000 100]
     let r ← run (program [slot "level" price (ex "10" "coin") (phase 1), close "exit"])
       {stop := 6001, delta := 2000} ([book 0 "99" "101" 2000, signal 0 1,
         book 1 "99" "100" 2000, offer 0 900, book 3001 "99" "101" 2000,
@@ -489,7 +488,7 @@ def test8 : IO Unit := do
     let q := event 1 (.quote [{price := number "99", size := number "100"}]
       [{price := number "100", size := number "9"}]) 2000
     let exitPrint := event 4500 (.trade 1 (number "111") (number "9") false) 2000
-    let later := (List.range 64).map fun i => print (5001 + i) "90" 2000
+    let later := (List.range 64).map fun i => print (5001 + Int.ofNat i) "90" 2000
     let r ← run (program [slot "level" price (ex "10" "coin") (phase 1), close "exit"])
       {stop := 6001, delta := 2000} ([book 0 "99" "101" 2000, signal 0 1,
         q, book 3001 "99" "101" 2000, exitPrint, signal 4600 0] ++ later)
@@ -532,14 +531,12 @@ def remainder (a : Account) (o : Live) : Rat := match o.target with
 def effect (a : Account) (row : Row) : Account :=
   let name := field row 3
   match field row 0 with
-  | "placed" => {a with live := a.live ++ [{name, side := field row 5,
-      price := rat (field row 8), target := if field row 9 == "close" then none else some (rat (field row 9))}]}
+  | "placed" => {a with live := a.live ++ [{name, side := field row 5, price := rat (field row 8), target := if field row 9 == "close" then none else some (rat (field row 9))}]}
   | "cancelled" => {a with live := a.live.filter (fun o => o.name != name)}
   | "fill" =>
     let units := rat (field row 10)
     let n := filledAt a name + (if units < 0 then -units else units)
-    let b := {a with cash := a.cash - units * rat (field row 9) - rat (field row 11),
-      pos := a.pos + units, filled := (name, n) :: a.filled.filter (fun x => x.1 != name)}
+    let b := {a with cash := a.cash - units * rat (field row 9) - rat (field row 11), pos := a.pos + units, filled := (name, n) :: a.filled.filter (fun x => x.1 != name)}
     {b with live := b.live.filter (fun o => o.name != name || remainder b o > 0)}
   | "cycle_end" => {a with filled := [], live := []}
   | "paid" => {a with cash := a.cash + rat (field row 4)}
@@ -566,7 +563,7 @@ def checkEffects (r : Run) (delta : Int) (names : List String) (moves : List Mov
       for (_, e) in due do a := effect a e
       let bound := time row - delta
       let mark := moves.foldl (fun (p : Rat) m => match m with
-        | .event e => if e.time <= at bound then match e.payload with
+        | .event e => if e.time <= timeAt bound then match e.payload with
             | .quote bs asks =>
               let read := fun n => match n with
                 | Number.placed z d => (z : Rat) / (10 : Rat)^d
@@ -583,7 +580,7 @@ def checkEffects (r : Run) (delta : Int) (names : List String) (moves : List Mov
       let expected := projections a mark names
       let actual := (row.drop 6).map (fun s => if s == "-" then none else some (rat s))
       require "effect fold equals view" (actual == expected)
-      let sampled := r.tickWorlds.find? (fun x => x.1 == at (time row) && x.2.1 == 0)
+      let sampled := r.tickWorlds.find? (fun x => x.1 == timeAt (time row) && x.2.1 == 0)
       require "view equals ACTUAL delayed world, not a second effect fold"
         (sampled.map (fun x => x.2.2) == some expected)
       count := count + 1
@@ -592,7 +589,7 @@ def checkEffects (r : Run) (delta : Int) (names : List String) (moves : List Mov
 def effectsScenario (delta : Int) (seed : Nat) : IO Run := do
   let names := ["entry", "empty", "refuse", "exit"]
   let size := 2 + seed * 17 % 5
-  let partial := 1 + seed * 13 % (size - 1)
+  let partialSize := 1 + seed * 13 % (size - 1)
   let p := program [slot "entry" price (ex (toString size) "coin") (phase 1),
     slot "empty" (ex "1" "usd/coin") (ex "1" "coin") (phase 2) "buy" "ioc",
     slot "refuse" price (ex "200" "coin") (phase 2), close "exit" (ex "110" "usd/coin") (phase 3)]
@@ -602,7 +599,7 @@ def effectsScenario (delta : Int) (seed : Nat) : IO Run := do
     offer 0 (100 * size) 100 (if seed % 2 == 0 then .maker else .taker),
     signal 4000 2, book 4001 "99" "101" delta,
     signal 6000 3, book 6001 "99" "101" delta,
-    print (7100 + jitter) "111" delta, offer 3 (100 * partial) 110,
+    print (7100 + jitter) "111" delta, offer 3 (100 * partialSize) 110,
     book (8100 + jitter) "98" "100" delta, print 10100 "111" delta, offer 3 2000 110]
   let r ← run p {stop := 15001, delta, fee := if seed % 2 == 0 then "0" else "0.001", cap := "1000"} moves
   checkEffects r delta names moves
@@ -693,8 +690,7 @@ def test11 : IO Unit := do
     let initial ← match start (program [slot "entry" price (ex "1" "coin") (phase 1)]) (header {}) with
       | .ok s => pure s
       | .error e => throw (IO.userError e)
-    let s := (feed initial (pack [{coin := 0, time := base, known := base,
-      payload := .observation 0 (0 : Float).toBits}])).1
+    let s := (feed initial (pack [{coin := 0, time := base, known := base, payload := .observation 0 (0 : Float).toBits}])).1
     let (s', output) := Engine.Machine.offer s 0 0 [(100, 100)] .maker
     require "absent live order changes no state and writes no row"
       (decide (s' = s) && output.report == "" && output.trace == "")
@@ -703,8 +699,7 @@ def test11 : IO Unit := do
     let initial ← match start p (header {}) with
       | .ok s => pure s
       | .error e => throw (IO.userError e)
-    let obs := fun t => {coin := 0, time := at t, known := at t,
-      payload := Payload.observation 0 (1 : Float).toBits : Event}
+    let obs := fun t => {coin := 0, time := timeAt t, known := timeAt t, payload := Payload.observation 0 (1 : Float).toBits : Event}
     let s := (feed initial (pack [obs 0, obs 1])).1
     let (s', output) := Engine.Machine.offer s 0 0 [(100, 100)] .maker
     require "live order before any quote changes nothing and writes no row"
@@ -729,15 +724,15 @@ def test11 : IO Unit := do
     let p := program [slot "entry" price (ex "3" "coin") (phase 1),
       slot "flip" (ex "99" "usd/coin") (ex "10" "coin") (phase 2) "sell"]
       [probe "pos" (inp "pos")]
-    let prefix := [book 0, signal 0 1, book 1, offer 0 3, signal 500 2, print 1001 "99"]
-    let r ← run p {stop := 2001, sz := 0} (prefix ++ [sweep 1 [(3, 101), (7, 100)]])
+    let initialMoves := [book 0, signal 0 1, book 1, offer 0 3, signal 500 2, print 1001 "99"]
+    let r ← run p {stop := 2001, sz := 0} (initialMoves ++ [sweep 1 [(3, 101), (7, 100)]])
     require "one event is one fill" ((fills "flip" r).length == 1)
     value "sweep signed size" (fills "flip" r) 10 (-10)
     value "sweep weighted price" (fills "flip" r) 9 (1003/10)
     require "sweep flips without ending cycle" (tick 2000 r == ["-7"] &&
       (kind "cycle_end" (rows r)).isEmpty)
     let r ← run p {stop := 2001, sz := 0}
-      (prefix ++ [offer 1 3 101, print 1500 "99", offer 1 7 100])
+      (initialMoves ++ [offer 1 3 101, print 1500 "99", offer 1 7 100])
     require "two events end cycle at the first" ((kind "cycle_end" (rows r)).map time == [1001])
     require "second event finds no old order" ((fills "flip" r).length == 1 &&
       (during 1500 (kind "fill" (rows r))).isEmpty)
@@ -749,12 +744,12 @@ def test11 : IO Unit := do
     require "own exhaustion clears resting and price" (tick 1000 r == ["0", "-"])
     require "different next wish cancels no exhausted order" ((kind "cancelled" (rows r)).isEmpty)
   test "step5_11_flat_listing_end_blocks_wishes" do
-    let ending : Event := {coin := 0, time := at 500, known := at 5000, payload := .ending (number "100")}
+    let ending : Event := {coin := 0, time := timeAt 500, known := timeAt 5000, payload := .ending (number "100")}
     let r ← run (program [slot "entry"]) {stop := 6001, lambda := 2500}
       [book 0, .event ending]
     require "wish in flight and later wishes place nothing" ((kind "placed" (rows r)).isEmpty)
     require "nonvacuous pre-end and post-end sent wishes" (r.wishes.any (fun w => w.sent == base) &&
-      r.wishes.any (fun w => w.sent == at 1000))
+      r.wishes.any (fun w => w.sent == timeAt 1000))
   test "step5_11_identical_rules_cancel_nothing" do
     let r ← run (program [slot "entry"]) {stop := 1001} [book 0, rules 500 2]
     require "restating rules cancels nothing" ((placed "entry" r).length == 1 &&

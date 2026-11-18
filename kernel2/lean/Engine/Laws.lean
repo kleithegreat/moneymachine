@@ -687,7 +687,7 @@ theorem parse_step4Vol_eq : parse step4Vol = .ok step4VolProgram := by
 open Engine.Lang in
 theorem step4Vol_reads {α : Type} (N : NumOps α) (x : α) (hx : N.finite x = true) :
     (Mach.run N step4VolProgram 1
-      [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[0]![0]! = some x := by
+      [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0, fun _ _ _ => none⟩]).vals[0]![0]! = some x := by
   simp [Mach.run, Mach.step, build, nodeStep, nodeFull, finalize, nodeCore, pointVal, evalNode, step4VolProgram,
     Mach.init, NumOps.keep, hx]
 
@@ -714,14 +714,14 @@ theorem parse_step4NegNeg_eq : parse step4NegNeg = .ok step4NegNegProgram := by
 open Engine.Lang in
 theorem step4NegNeg_reads {α : Type} (N : NumOps α) (hL : N.Lawful) (x : α) (hx : N.finite x = true) :
     (Mach.run N step4NegNegProgram 1
-      [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[2]![0]! = some x := by
+      [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0, fun _ _ _ => none⟩]).vals[2]![0]! = some x := by
   simp [Mach.run, Mach.step, build, nodeStep, nodeFull, finalize, nodeCore, pointVal, evalNode, evalOp,
     step4NegNegProgram, Mach.init, Node.args, argRow, NumOps.keep, hx, hL.finite_neg x hx, hL.neg_neg x hx]
 
 open Engine.Lang in
 theorem step4NegNeg_reads' {α : Type} (N : NumOps α) (x : α) (hx : N.finite x = true) :
     (Mach.run N ((step4NegNegProgram).redirect 2 0) 1
-      [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[0]![0]! = some x := by
+      [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0, fun _ _ _ => none⟩]).vals[0]![0]! = some x := by
   simp [Mach.run, Mach.step, build, nodeStep, nodeFull, finalize, nodeCore, pointVal, evalNode, evalOp,
     step4NegNegProgram, Program.redirect, Mach.init, Node.args, argRow, NumOps.keep, hx]
 
@@ -799,13 +799,13 @@ theorem L2_units {α : Type} :
             ∃ u, m.exactTagged i c = some (x, u))) ∧
     (∃ p : Program, parse step4Vol = .ok p ∧ ∃ i, p.probeNodes[0]? = some i ∧
        ∀ (N : NumOps α) (x : α), N.finite x = true →
-         (Mach.run N p 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[i]![0]! = some x) ∧
+          (Mach.run N p 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0, fun _ _ _ => none⟩]).vals[i]![0]! = some x) ∧
     (∃ p : Program,
       parse r#"{"version":2,"tick":1,"decide_every":1,"leverage":1,"sources":[{"name":"vol","unit":"1"}],"params":[],"let":[],"slots":[],"probes":[{"name":"v","is":{"op":"exact","args":[{"input":"vol"}]}}]}"# = .ok p ∧
       ∃ i, p.probeNodes[0]? = some i ∧
         ∀ (N : NumOps α) (x : α) (r : Rat), N.finite x = true → N.toExact x = some r →
           (Mach.run N p 1
-            [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).exacts[i]![0]! = some r) := by
+            [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0, fun _ _ _ => none⟩]).exacts[i]![0]! = some r) := by
    sorry
 
 open Engine.Lang in
@@ -831,9 +831,9 @@ theorem L3_rewrite {α : Type} :
     (∃ (r : Rule) (p p' : Program) (i : Nat), r ∈ Rule.all ∧ parse step4NegNeg = .ok p ∧ r.apply p i = some p' ∧
       p' ≠ p ∧
       ∀ (N : NumOps α), N.Lawful → ∀ x : α, N.finite x = true →
-        (Mach.run N p 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[p.probeNodes[0]!]![0]!
+        (Mach.run N p 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0, fun _ _ _ => none⟩]).vals[p.probeNodes[0]!]![0]!
             = some x ∧
-        (Mach.run N p' 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0⟩]).vals[p'.probeNodes[0]!]![0]!
+        (Mach.run N p' 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0, fun _ _ _ => none⟩]).vals[p'.probeNodes[0]!]![0]!
             = some x) := by
    sorry
 
@@ -1265,7 +1265,7 @@ theorem R1 :
           let reducible := match w.side with
             | .sell => max 0 (b.position w.coin)
             | .buy => max 0 (-b.position w.coin)
-          let remainder := match target with
+          let remainder : Rat := match target with
             | some x =>
               let remaining := max 0 (x - b.filled w.coin w.slot)
               if w.reduceOnly then min remaining reducible else remaining
@@ -1367,7 +1367,7 @@ theorem S1 :
             | .sell => max 0 (f.before.position f.order.coin)
             | .buy => max 0 (-f.before.position f.order.coin)
           (match f.order.target with
-             | some target => f.before.filled f.order.coin f.order.slot + magnitude ≤ target
+            | some target => f.before.filled f.order.coin f.order.slot + magnitude ≤ target
             | none => magnitude ≤ reducible) ∧
           (f.order.reduceOnly = true → magnitude ≤ reducible))) ∧
     (∀ (b : Book) (w : Wish), w.cycle < b.cycle w.coin → arrive b w = (b, [])) ∧
