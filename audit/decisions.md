@@ -1270,3 +1270,19 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Next:**
     - GPT updates step 5's tests with every round's list. A Sonnet builder then builds step 5, while the architect's round 7 pins steps 6 and 7.
     - The CS2.1 note waits for its two reviews.
+- 2026-11-18 21:43 UTC (16:43 EST), advisor: **kernel version 2's step 5 is built and its laws proved; the merge waits on its local tests' inputs** (`kernel2-step5` to `7308398`, pushed). The builder ran on TAMU in five sessions, cut by the account's 5-hour window.
+  - **Proved, with no `sorry` and only the three standard axioms:**
+    - X4 (`exp` and `log` by the law's formulas) and X5 (`nearestBits` is IEEE's round-to-nearest-even at every rational);
+    - L1a, over the machine with orders;
+    - L2's units, L3 and N1;
+    - X1, R1 and S1.
+  - **The flake checks** `mm2-tests`, `engine-proofs`, `engine-proofs-fixtures`, `mm2-style` and `mm2` pass.
+  - **The advisor's review:**
+    - The test files were changed only by their writer (GPT's compile fixes, `7ec08ce`) and by two mechanical fixes of the advisor's, each labelled: `Int.ofNat` at two loops, and warning 48's `fun line -> ...`.
+    - All 35 law statements are word for word as written.
+    - The builder added six witness-check lemmas and changed no statement.
+  - **Before the merge into `kernel2-build`**, the local tests `x4_local`, `x4_reference_local` and B4 run. They need the advisor's inputs:
+    - test 12's draw corpus, whose recipe disagrees with the test (to be settled by the test writer and the architect);
+    - CORE-MATH's worst-case tables, pinned in `data/x4-inputs/`;
+    - B4's new reference streams, with MPFR's `exp` and `log`.
+  - **Noted:** the builder used `pkill -f`, which killed its own shell. Future briefs repeat the rule.
