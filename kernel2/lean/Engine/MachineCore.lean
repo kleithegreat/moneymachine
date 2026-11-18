@@ -509,7 +509,8 @@ def release (s : StateOf α) (time : Int) : StateOf α :=
 
 /-- Every effect known by `time` that the view's account has not taken: the world's own function, applied again (A1). -/
 def releaseEffects (s : StateOf α) (time : Int) : StateOf α :=
-  let (ready, later) := s.veffects.span (fun l => decide (l.known ≤ time))
+  let ready := s.veffects.filter fun l => decide (l.known ≤ time)
+  let later := s.veffects.filter fun l => !decide (l.known ≤ time)
   { s with veffects := later, vacct := ready.foldl (fun a l => a.apply s.cfg.fees l.time l.effect) s.vacct }
 
 /-! ### The account's numbers (A5, A6, A10) -/
@@ -781,12 +782,15 @@ def drainOne (acc : StateOf α × String) (w : Wish) : StateOf α × String :=
   let r := arriveWish acc.1 w
   (r.1, acc.2 ++ r.2)
 
-/-- Every wish that arrives before `bound`, in time, then A18's order. -/
+/-- A tick's wishes in A18's order, which they keep in the queue. -/
+def orderWishes (sent : List Wish) : List Wish :=
+  sent.mergeSort fun a b => (compare (arrivalKey a) (arrivalKey b)).isLE
+
+/-- Every wish that arrives before `bound`, in the queue's order: by arrival, and within one tick's by A18's. -/
 def drain (s : StateOf α) (bound : Int) : StateOf α × String :=
   let due := s.wishes.takeWhile fun w => decide (w.arrives < bound)
   let later := s.wishes.dropWhile fun w => decide (w.arrives < bound)
-  let ordered := due.mergeSort fun a b => (compare (arrivalKey a) (arrivalKey b)).isLE
-  ordered.foldl drainOne ({ s with wishes := later }, "")
+  due.foldl drainOne ({ s with wishes := later }, "")
 
 /-! ### The clock -/
 
@@ -842,7 +846,7 @@ def tickAt [Engine.Lang.Numbers α] (s : StateOf α) (time : Int) : StateOf α �
       vals := mach.vals.map fun row => row.map fun x => x.map N.toBits, exacts := mach.exacts, wishes := sent,
       row := (coinIdx.filter inView).flatMap fields }
   let s' := { s with coins := marks.map (·.1), view := s.view.map clearInterval, mach := mach,
-                     wishes := s.wishes ++ sent,
+                     wishes := s.wishes ++ orderWishes sent,
                      traceLines := s.traceLines + (coinIdx.filter inView).length }
   let s'' := withLog s' fun l =>
     { l with

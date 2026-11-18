@@ -131,8 +131,8 @@ def parseAliases (j : J) : Except String (List (String × String)) := do
   let _ ← table "sources"
   return coins
 
-/-- The market's header (A18). -/
-def parseHeader (text : String) : Except String Config := do
+/-- The market's header (A18) as the document gives it, before the venue's own checks. -/
+def parseHeaderRaw (text : String) : Except String Config := do
   let j ← match parse text with
     | .ok j => .ok j
     | .error _ => headerError
@@ -192,8 +192,6 @@ def parseHeader (text : String) : Except String Config := do
   unless aliases.all (fun a => rawNames.contains a.1) do headerError
   unless (rawNames.map fun n => ((aliases.find? (·.1 == n)).map (·.2)).getD n).eraseDups.length ==
       rawNames.length do headerError
-  unless 0 ≤ lambda && 0 ≤ delta && 1 ≤ gap && 0 < cap && 0 ≤ minimum do .error "E_VENUE"
-  if fill == "pessimistic" && quotes.isSome && trades.isNone then .error "E_VENUE"
   return {
     start := start, stop := stop, pessimistic := fill == "pessimistic", lambda := lambda, delta := delta,
     gap := gap, cap := cap, minimum := minimum, cash := cash,
@@ -202,6 +200,13 @@ def parseHeader (text : String) : Except String Config := do
     fees := fees, listingLag := listingLag, fundingString := fundingString, fundingLag := fundingLag,
     fundingLate := fundingLate, quotes := quotes, trades := trades, observations := observations,
     tickMs := none }
+
+/-- The market's header (A18): the document, then the venue's numbers and a pessimistic fill's need of trades. -/
+def parseHeader (text : String) : Except String Config := do
+  let cfg ← parseHeaderRaw text
+  unless 0 ≤ cfg.lambda && 0 ≤ cfg.delta && 1 ≤ cfg.gap && 0 < cfg.cap && 0 ≤ cfg.minimum do .error "E_VENUE"
+  if cfg.pessimistic && cfg.quotes.isSome && cfg.trades.isNone then .error "E_VENUE"
+  return cfg
 
 def meetsProtected (cfg : Config) : Bool :=
   windows.any fun w => !w.released && decide (w.start < cfg.stop) && decide (cfg.start < w.stop)

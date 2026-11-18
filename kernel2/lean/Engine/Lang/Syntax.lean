@@ -631,7 +631,7 @@ def parseAt (text : String) : Except (String × String) Program :=
     | .ok j =>
       match (program j).run {} with
       | .error e => .error e
-      | .ok (p, _) => if p.wfb then .ok p else .error ("E_PARSE", "document")
+      | .ok (p, _) => if p.wfb && 0 < p.tick then .ok p else .error ("E_PARSE", "document")
 
 def parse (text : String) : Except String Program := (parseAt text).mapError (·.1)
 

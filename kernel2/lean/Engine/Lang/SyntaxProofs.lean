@@ -6,7 +6,7 @@ import Engine.Check
 
 namespace Engine.Lang
 
-theorem parseAt_wfb {text : String} {p : Program} (h : parseAt text = .ok p) : p.wfb = true := by
+theorem parseAt_checks {text : String} {p : Program} (h : parseAt text = .ok p) : p.wfb = true ∧ 0 < p.tick := by
   unfold parseAt at h
   split at h
   · simp at h
@@ -15,10 +15,21 @@ theorem parseAt_wfb {text : String} {p : Program} (h : parseAt text = .ok p) : p
     · split at h
       · simp at h
       · split at h
-        · injection h with h
+        · rename_i hc
+          injection h with h
           subst h
-          assumption
+          simpa using hc
         · simp at h
+
+theorem parseAt_wfb {text : String} {p : Program} (h : parseAt text = .ok p) : p.wfb = true := (parseAt_checks h).1
+
+theorem parse_tick_pos {text : String} {p : Program} (h : parse text = .ok p) : 0 < p.tick := by
+  have : parseAt text = .ok p := by
+    unfold parse at h
+    cases hp : parseAt text with
+    | error e => rw [hp] at h; simp [Except.mapError] at h
+    | ok q => rw [hp] at h; simp [Except.mapError] at h; rw [h]
+  exact (parseAt_checks this).2
 
 theorem parse_ok_iff {text : String} {p : Program} : parse text = .ok p ↔ parseAt text = .ok p := by
   unfold parse
