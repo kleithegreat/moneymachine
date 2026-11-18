@@ -1,4 +1,4 @@
-import Engine.Machine
+import Engine.MachineCore
 import Engine.Lang.Syntax
 
 /-!
@@ -82,7 +82,7 @@ def parseCoin (j : J) : Except String (String × Rules) := do
       tiersRise tiers none = false then headerError
   return (name, rules)
 
-def parseFee (j : J) : Except String FeeTier := do
+def parseFee (j : J) : Except String Engine.Ledger.Tier := do
   unless j.keysAre ["from", "tier", "maker", "taker"] [] do headerError
   let since ← intField j "from"
   let tier ← strField j "tier"
@@ -91,8 +91,8 @@ def parseFee (j : J) : Except String FeeTier := do
   unless 0 ≤ maker && maker ≤ 1 && 0 ≤ taker && taker ≤ 1 do headerError
   return ⟨since, tier, maker, taker⟩
 
-def feesRise : List FeeTier → Bool
-  | a :: b :: rest => decide (a.since < b.since) && feesRise (b :: rest)
+def feesRise : List Engine.Ledger.Tier → Bool
+  | a :: b :: rest => decide (a.start < b.start) && feesRise (b :: rest)
   | _ => true
 
 /-- A source's encoding (A2): `string` is true, `double` false. -/
@@ -164,7 +164,7 @@ def parseHeader (text : String) : Except String Config := do
     | _ => headerError
   match fees with
   | [] => headerError
-  | first :: _ => unless first.since ≤ start && feesRise fees do headerError
+  | first :: _ => unless first.start ≤ start && feesRise fees do headerError
   let sources ← need (j.field? "sources")
   unless sources.keysAre ["listings", "funding"] ["quotes", "trades", "observations"] do headerError
   let listings ← need (sources.field? "listings")
@@ -252,7 +252,9 @@ def initialState (cfg : Config) (prog : Option Engine.Lang.Program) (tick : Opti
     rules := cfg.initialRules, coins := cfg.names.map fun _ => CoinState.fresh, nextTick := first,
     traceLines := 0, rejected := none, prog := prog, pending := [],
     view := cfg.names.map fun _ => ViewCoin.fresh cfg.observations.length,
-    mach := Engine.Lang.Mach.init Engine.Lang.bitsOps (prog.getD default) cfg.names.length }
+    mach := Engine.Lang.Mach.init Engine.Lang.bitsOps (prog.getD default) cfg.names.length,
+    acct := Engine.World.Acct.initial cfg.cash cfg.names.length, vacct := Engine.World.Acct.initial cfg.cash cfg.names.length,
+    veffects := [], wishes := [], vage := cfg.names.map fun _ => none, log := none }
 
 /-- A run's first state: every coin listed with its header's rules, no event admitted, the clock at its first tick. -/
 def start (program header : String) : Except String State := do

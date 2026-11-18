@@ -33,6 +33,7 @@ structure NumOps (α : Type) where
   ofBits : UInt64 → α
   toExact : α → Option Rat
   ofExact : Rat → α
+  toBits : α → UInt64
 
 namespace NumOps
 variable {α : Type} (N : NumOps α)
@@ -91,5 +92,12 @@ def bitsOps : NumOps UInt64 where
   ofBits b := b
   toExact := Engine.Exact.decode
   ofExact := Engine.Exact.nearestBits
+  toBits a := a
+
+/-- A type's numbers: the one `NumOps` the machine runs on. -/
+class Numbers (α : Type) where
+  ops : NumOps α
+
+instance : Numbers UInt64 := ⟨bitsOps⟩
 
 end Engine.Lang

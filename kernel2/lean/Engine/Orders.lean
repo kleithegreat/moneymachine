@@ -151,9 +151,19 @@ def install (b : Book) (o : Order) : Book := {b with orders := b.orders ++ [o]}
 def Order.signed (o : Order) : Rat := if o.side = .buy then o.remainder else -o.remainder
 
 /-- What filling an order's remainder would add to the position's absolute size. -/
-def Admission.opens (a : Admission) (o : Order) : Rat :=
-  if o.reduceOnly then 0 else if a.book.position o.coin * o.signed < 0
-  then max 0 (o.remainder - absQ (a.book.position o.coin)) else o.remainder
+def Book.opens (b : Book) (o : Order) : Rat :=
+  if o.reduceOnly then 0 else if b.position o.coin * o.signed < 0
+  then max 0 (o.remainder - absQ (b.position o.coin)) else o.remainder
+
+def Admission.opens (a : Admission) (o : Order) : Rat := a.book.opens o
+
+/-- The initial margin of the positions and of what every live order opens at its limit, with its taker fee. -/
+def Book.committed (b : Book) : Rat :=
+  b.positionMargin + b.orders.foldl (fun total o =>
+    total + b.opens o * o.price * (1 / (b.leverage o.coin : Rat) + b.takerRate o.coin)) 0
+
+/-- Equity at the book's marks less what it commits (A5's `free_margin`). -/
+def Book.freeMargin (b : Book) : Rat := b.equity - b.committed
 
 /-- The margin of the positions, of what every live order and the candidate open at their limits, and their taker fees. -/
 def Admission.requirement (a : Admission) : Rat :=
@@ -208,17 +218,20 @@ structure Placement where
   value : Value
   rules : Rules
   step : Nat
+  deriving DecidableEq, Repr
 
 structure Arrival where
   before : Book
   after : Book
   wish : Wish
   time : Int
+  deriving DecidableEq, Repr
 
 inductive Trigger where
   | fill (coin : Nat) (units : Rat)
   | liquidation
   | other
+  deriving DecidableEq, Repr
 
 structure CycleStep where
   before : Book
@@ -226,6 +239,7 @@ structure CycleStep where
   trigger : Trigger
   time : Int
   ended : List Nat
+  deriving DecidableEq, Repr
 
 structure OrderFill where
   order : Order
@@ -233,6 +247,7 @@ structure OrderFill where
   units : Rat
   time : Int
   step : Nat
+  deriving DecidableEq, Repr
 
 structure Run where
   placed : List Placement

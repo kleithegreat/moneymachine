@@ -312,8 +312,7 @@ def Node.isToExact : Node → Bool
 A slot is inactive when its `when` is false or undefined, or its price or target is undefined. The `when` values
 of every coin and slot, and the exact value of every `exact(·)` node at every coin, are returned beside the wishes:
 they, with the tick's exact inputs, are all the wishes read. -/
-def slotEval (p : Program) (coins : Nat) (t : Tick α) (m : Mach α) : Engine.Orders.SlotEval :=
-  let m' := Mach.step N p t m
+def slotEvalAt (p : Program) (coins : Nat) (t : Tick α) (m' : Mach α) : Engine.Orders.SlotEval :=
   let slotIds := List.range p.slots.size
   let crossings := (List.range p.nodes.size).filter fun j => (p.nodes[j]!).isToExact
   { wishes := (List.range coins).flatMap fun c =>
@@ -323,5 +322,9 @@ def slotEval (p : Program) (coins : Nat) (t : Tick α) (m : Mach α) : Engine.Or
       else []
     whenValues := (List.range coins).flatMap fun c => slotIds.map fun i => (c, i, m'.whenAt N c p.slots[i]!)
     exactValues := crossings.flatMap fun j => (List.range coins).map fun c => (c, j, m'.exacts[j]![c]!) }
+
+/-- `slotEvalAt` after the machine takes the tick. -/
+def slotEval (p : Program) (coins : Nat) (t : Tick α) (m : Mach α) : Engine.Orders.SlotEval :=
+  slotEvalAt N p coins t (Mach.step N p t m)
 
 end Engine.Lang

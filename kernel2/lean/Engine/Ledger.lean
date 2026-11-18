@@ -3,16 +3,19 @@ namespace Engine.Ledger
 inductive Role where
   | maker
   | taker
+  deriving DecidableEq, Repr
 
 structure Position where
   units : Rat
   cost : Rat
+  deriving DecidableEq, Repr
 
 structure Tier where
   start : Int
   name : String
   maker : Rat
   taker : Rat
+  deriving DecidableEq, Repr
 
 inductive Event where
   | fill (time : Int) (coin : Nat) (units price : Rat) (role : Role)
@@ -27,6 +30,7 @@ structure State where
   funding : Rat
   absorbed : Rat
   bankrupt : Bool
+  deriving DecidableEq, Repr
 
 structure Receipt where
   state : State

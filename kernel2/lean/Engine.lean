@@ -8,6 +8,7 @@ import Engine.Windows
 import Engine.Rules
 import Engine.Orders.Value
 import Engine.Orders
+import Engine.World
 import Engine.Lang.Syntax
 import Engine.Lang.Eval
 import Engine.Lang.SyntaxProofs
@@ -22,8 +23,9 @@ import Engine.Lang.RewriteLaw
 import Engine.StartProofs
 import Engine.Lang.StepFiveProofs
 import Engine.Policy
-import Engine.Machine
+import Engine.MachineCore
 import Engine.Start
+import Engine.Machine
 import Engine.MachineProofs
 import Engine.MachineFaults
 import Engine.MachineConcrete
