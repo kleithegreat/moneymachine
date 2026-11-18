@@ -1308,3 +1308,14 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **F2:** the replay's start time chooses a day's record when a writer lags past 30 days. This is the operator's lever, and GPT's construction.
   - **Beyond both earlier reviewers:** a live `.zst` file cut mid-frame, and the horizon past day 730.
   - **The bar fixed beforehand is met.** Neon (`gemini-4-neon-xhigh`, through agy or the web UI) takes Argon's place as the Gemini reviewer, and `CLAUDE.md` says so.
+- 2026-11-18 22:23 UTC (17:23 EST), advisor: **Neon on test 12's inputs:** test 12 needs hardening and the recipe an update before step 5 merges (`audit/reviews/2026-11-18-neon-x4-inputs.md`).
+  - **The recipe:** keep the test's 1,000,000 draws and change the recipe. Neon gives one: `random.Random(5)`, `exp` and `log` interleaved, raw hex bits, identical to `last_pass_r3` on its first 200,000. The architect's `arithmetic.py.txt` gains an emitter.
+  - **The certification:** CORE-MATH's tables are a test corpus, not a proof that the cap is never reached. Correct rounding where defined is X4 with X5's.
+  - **The glibc list:** computed on one pinned glibc and IFUNC path.
+  - **Test 12's loopholes, for its writer:**
+    - every non-finite result collapses to "undefined";
+    - the engine links beside MPFR, unchecked;
+    - the glibc lists and the input files are barely validated;
+    - edge inputs are untested;
+    - `x4-hosts.sh` checks only the machine id.
+  - **Next, when an account allows:** the test writer hardens test 12, the architect adds the emitter, then the advisor builds the inputs.
