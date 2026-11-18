@@ -56,6 +56,9 @@ import Engine.Machine
 import Engine.MachineConcrete
 import Engine.MachineFaults
 import Engine.Delivery
+import Engine.X5
+import Engine.Lang.StepFiveProofs
+import Engine.StepFiveWitnesses
 
 namespace Engine.Laws
 
@@ -806,7 +809,9 @@ theorem L2_units {α : Type} :
         ∀ (N : NumOps α) (x : α) (r : Rat), N.finite x = true → N.toExact x = some r →
           (Mach.run N p 1
             [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0, fun _ _ _ => none⟩]).exacts[i]![0]! = some r) := by
-   sorry
+   refine ⟨fun N p hwf coins ts => Engine.Lang.L2_units_universal N p hwf coins ts, ?_, ?_⟩
+   · exact ⟨step4VolProgram, parse_step4Vol_eq, 0, rfl, fun N x hx => step4Vol_reads N x hx⟩
+   · exact ⟨step5ExactProgram, parse_step5Exact_eq, 1, rfl, fun N x r hx hr => step5Exact_reads N x r hx hr⟩
 
 open Engine.Lang in
 /-- B3 L3: rewrites preserve vals AND exacts at corresponding nodes and probes,
@@ -835,7 +840,20 @@ theorem L3_rewrite {α : Type} :
             = some x ∧
         (Mach.run N p' 1 [⟨fun _ => true, fun _ s => if s = "vol" then some x else none, 0, fun _ _ _ => none⟩]).vals[p'.probeNodes[0]!]![0]!
             = some x) := by
-   sorry
+   refine ⟨fun N r p p' i hLE hwf happ coins ts => Engine.Lang.L3_rewrite_universal N r p p' i hLE hwf happ coins ts, rfl, ?_⟩
+   refine ⟨.negNeg, step4NegNegProgram, step4NegNegProgram.redirect 2 0, 2, by simp [Rule.all],
+     parse_step4NegNeg_eq, rfl, ?_, fun N hL x hx => ⟨?_, ?_⟩⟩
+   · intro h
+     have := congrArg Program.probeNodes h
+     simp [Program.redirect, step4NegNegProgram] at this
+   · have h0 : step4NegNegProgram.probeNodes[0]! = 2 := by
+       simp [step4NegNegProgram]
+     rw [h0]
+     exact step4NegNeg_reads N hL x hx
+   · have h0 : (step4NegNegProgram.redirect 2 0).probeNodes[0]! = 0 := by
+       simp [Program.redirect, step4NegNegProgram]
+     rw [h0]
+     exact step4NegNeg_reads' N x hx
 
 open Engine.Lang Engine.Machine in
 /-- B3 L5 over declared sources: `start`'s preflight, before any event or tick, fails exactly when the program
@@ -903,7 +921,23 @@ theorem N1_renaming {α : Type} :
        (∀ s ∈ ["vol"], validName (ρ s) = true ∧ ρ s ∉ inputNames) ∧
        (∀ d ∈ p.declared, d.1 ∈ ["vol"]) ∧ (∀ s ∈ p.sourceNames, s ∈ ["vol"]) ∧ (∀ o ∈ cfg.observations, o.name ∈ ["vol"]) ∧
        p.rename ρ ≠ p ∧ bind (p.rename ρ) (cfg.rename ρ) = .ok ())) := by
-   sorry
+   refine ⟨fun names ρ hinj hval N p cfg hwf hd hs ho coins ts ts' hlen hrel =>
+     Engine.Lang.N1_renaming_universal names ρ hinj hval N p cfg hwf hd hs ho coins ts ts' hlen hrel, ?_⟩
+   cases hp : parse step4Vol with
+   | error _ => have := n1_witness_holds; rw [hp] at this; simp at this
+   | ok p =>
+     cases hc : parseHeader step4Header with
+     | error _ => have := n1_witness_holds; rw [hp, hc] at this; simp at this
+     | ok cfg =>
+       have := n1_witness_holds
+       rw [hp, hc] at this
+       have hw : n1Witness p cfg := of_decide_eq_true this
+       obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := hw
+       refine ⟨p, cfg, rfl, rfl, h1, h2, h3, h4, h5, h6, ?_⟩
+       cases hb : bind (p.rename fun s => if s = "vol" then "vol2" else s)
+           (cfg.rename fun s => if s = "vol" then "vol2" else s) with
+       | ok u => rfl
+       | error e => rw [hb] at h7; simp at h7
 
 /-- The event of L1a's witnesses: one declared float observation at the horizon's start. -/
 def l1aSeen (bits : UInt64) : Engine.Machine.Event :=
@@ -1504,6 +1538,6 @@ theorem X5 :
             (v - q) * (v - q) ≤ (w - q) * (w - q) ∧
             ((w - q) * (w - q) = (v - q) * (v - q) → w ≠ v →
               (Engine.Exact.nearestBits q).toNat % 2 = 0)) := by
-  sorry
+  exact Engine.Exact.nearestBits_ieee
 
 end Engine.Laws
