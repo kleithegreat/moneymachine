@@ -53,7 +53,7 @@ def offerFinal (s : StateOf α) (coin : Nat) (p : Taken) (role : Engine.Ledger.R
   let s1 := (emit s p.time [Engine.World.Effect.fill p.order p.units p.price role]).1
   let cancels := if p.ends then (s1.acct.orders.filter (·.coin == coin)).map fun o => Engine.World.Effect.cancelled o "cycle_end"
     else []
-  (emit s1 p.time (cancels ++ if p.ends then [Engine.World.Effect.cycleEnd coin] else [])).1
+  (emit s1 p.time (cancels ++ if p.ends then [Engine.World.Effect.cycleEnd coin (s.acct.cycle coin)] else [])).1
 
 theorem applyOffer_log (s : StateOf α) (coin : Nat) (p : Taken) (role : Engine.Ledger.Role) :
     (applyOffer s coin p role).1.log.map Log.core = s.log.map fun l =>

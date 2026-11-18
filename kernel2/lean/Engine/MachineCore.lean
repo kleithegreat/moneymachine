@@ -738,7 +738,7 @@ def effectRow (s : StateOf α) (time : Int) : Effect → String
     "fill\t" ++ toString time ++ "\t" ++ coinName s o.coin ++ "\t" ++ slotName s o.slot ++ "\t" ++ toString o.cycle ++
       "\tfill\t" ++ roleWord role ++ "\t" ++ ((tier.map (·.name)).getD "-") ++ "\t" ++ fmtRat rate ++ "\t" ++
       fmtRat price ++ "\t" ++ fmtRat units ++ "\t" ++ fmtRat fee ++ "\t-\n"
-  | .cycleEnd coin =>
+  | .cycleEnd coin _ =>
     "cycle_end\t" ++ toString time ++ "\t" ++ coinName s coin ++ "\t" ++ toString (s.acct.cycle coin) ++ "\n"
 
 /-- The world makes one effect at `time`: it is applied to the account and held for the view until `time + δ`. -/
@@ -1250,6 +1250,14 @@ def walk (scale : Nat) : Rat → List (Nat × Rat) → Rat × Rat
     let others := walk scale (remainder - take) rest
     (take + others.1, take * price + others.2)
 
+/-- Whether the ledger takes a fill: a position that exists, a size and a price above zero, a fee tier in force, no
+bankruptcy. An offer the ledger would refuse takes nothing. -/
+def fillAccepted (fees : List Engine.Ledger.Tier) (ledger : Engine.Ledger.State) (time : Int) (coin : Nat)
+    (units price : Rat) : Bool :=
+  match Engine.Ledger.step fees ledger (.fill time coin units price .taker) with
+  | .ok _ => true
+  | .error _ => false
+
 /-- What an offer takes: the live order, what of it remained, the time (the last fed event's), the units (signed) and the
 price of its one fill, and whether that fill ends the cycle. -/
 structure Taken where
@@ -1269,12 +1277,14 @@ def offerPlan (s : StateOf α) (coin slot : Nat) (parts : List (Nat × Rat)) : O
     let remaining := s.acct.remainder order
     let rules := s.rules.getD coin default
     let taken := walk rules.szDecimals remaining parts
-    if remaining = 0 || staleNow s coin || taken.1 = 0 then none else
     let units := match order.side with
       | .buy => taken.1
       | .sell => -taken.1
+    let price := taken.2 / taken.1
+    if remaining = 0 || staleNow s coin || taken.1 = 0 ||
+        !fillAccepted s.cfg.fees s.acct.ledger last.time coin units price then none else
     let position := s.acct.position coin
-    some ⟨order, remaining, last.time, units, taken.2 / taken.1, position != 0 && position + units == 0⟩
+    some ⟨order, remaining, last.time, units, price, position != 0 && position + units == 0⟩
   | _, _, _ => none
 
 /-- The state after an order's fill: one fee, one change of the position, of `filled` and of the opening order, one
@@ -1285,7 +1295,7 @@ def applyOffer (s : StateOf α) (coin : Nat) (p : Taken) (role : Engine.Ledger.R
   let (s1, filledRow) := emit s p.time [Effect.fill p.order p.units p.price role]
   let cancels := if p.ends then (s1.acct.orders.filter (·.coin == coin)).map fun o => Effect.cancelled o "cycle_end"
     else []
-  let (s2, endRows) := emit s1 p.time (cancels ++ if p.ends then [Effect.cycleEnd coin] else [])
+  let (s2, endRows) := emit s1 p.time (cancels ++ if p.ends then [Effect.cycleEnd coin (s.acct.cycle coin)] else [])
   let s3 := withLog s2 fun l =>
     { l with
       fills := l.fills ++ [⟨{ p.order with remainder := p.remaining }, before, p.units, p.time, step⟩],

@@ -72,7 +72,7 @@ inductive Effect where
   | refused (o : Order) (reason : String)
   | cancelled (o : Order) (cause : String)
   | fill (o : Order) (units price : Rat) (role : Engine.Ledger.Role)
-  | cycleEnd (coin : Nat)
+  | cycleEnd (coin cycle : Nat)
   deriving DecidableEq, Repr
 
 /-- One fill's figures for its order's opening record: the first fill that finds the position at zero starts it, and
@@ -101,8 +101,8 @@ def Acct.apply (fees : List Engine.Ledger.Tier) (time : Int) (a : Acct) : Effect
                filled := replaceAt a.filled o.coin fun row => setRow row o.slot (a.filledAt o.coin o.slot + absQ units),
                openings := replaceAt a.openings o.coin fun _ => opening }
     { a' with orders := a'.orders.filter fun x => !(x.coin == o.coin && x.slot == o.slot && a'.remainder x = 0) }
-  | .cycleEnd coin =>
-    { a with cycles := replaceAt a.cycles coin (· + 1), filled := replaceAt a.filled coin fun _ => [],
+  | .cycleEnd coin cycle =>
+    { a with cycles := replaceAt a.cycles coin (fun _ => cycle + 1), filled := replaceAt a.filled coin fun _ => [],
              orders := a.orders.filter fun x => x.coin != coin, openings := replaceAt a.openings coin fun _ => none }
 
 end Engine.World

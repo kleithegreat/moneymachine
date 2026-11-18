@@ -24,7 +24,7 @@ theorem fixed_closed (cfg : Config) (prog : Option Engine.Lang.Program) : Closed
     have hk := applyPayload_keeps s e (.listing rules)
     exact ⟨by simpa [StateOf.core, hk.cfg] using hP.1, by simpa [StateOf.core, hk.prog] using hP.2⟩
   prev := by
-    intro s e hS hI hF hP _ _
+    intro s e hS hI hF hP _ _ _
     exact hP
   offer := by
     intro s coin slot parts role hS hI hF hP

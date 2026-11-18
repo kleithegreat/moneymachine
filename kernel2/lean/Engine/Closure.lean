@@ -58,7 +58,7 @@ structure Closed (P : Core → Prop) : Prop where
     P (applyPayload s e (.listing rules)).1.core
   prev : ∀ (s : State) (e : Event), Setup s → WishInv s → Frontier s.core → P s.core →
     (∀ t, s.nextTick = some t → e.time ≤ t) → (∀ w ∈ s.wishes, e.time ≤ w.arrives) →
-    P ({ s with previous := some e } : State).core
+    (∀ q, s.previous = some q → q.time ≤ e.time) → P ({ s with previous := some e } : State).core
   offer : ∀ (s : State) (coin slot : Nat) (parts : List (Nat × Rat)) (role : Engine.Ledger.Role),
     Setup s → WishInv s → Frontier s.core → P s.core → P (offer s coin slot parts role).1.core
 
@@ -330,7 +330,8 @@ theorem pushHistory_core (s : State) (t : Int) : (pushHistory s t).core = s.core
   cases hl : s.log <;> simp [pushHistory, withLog, StateOf.core, hl, Log.core]
 
 theorem pack_after {P : Core → Prop} (hC : Closed P) (u : State) (e : Event) (r : Reading) (h : Pack P u)
-    (h1 : ∀ t, u.nextTick = some t → e.time ≤ t) (h2 : ∀ w ∈ u.wishes, e.time ≤ w.arrives) :
+    (h1 : ∀ t, u.nextTick = some t → e.time ≤ t) (h2 : ∀ w ∈ u.wishes, e.time ≤ w.arrives)
+    (h3 : ∀ q, u.previous = some q → q.time ≤ e.time) :
     Pack P (after u e r) := by
   have hk := applyPayload_keeps u e r
   have hp := applyPayload_previous u e r
@@ -361,17 +362,47 @@ theorem pack_after {P : Core → Prop} (hC : Closed P) (u : State) (e : Event) (
     apply h2 w
     have := hk.wishes
     simpa [pushHistory, withLog, this] using hw
-  have hP' := hC.prev _ e hS hI hF hP h1' h2'
+  have h3' : ∀ q, (pushHistory (applyPayload u e r).1 e.time).previous = some q → q.time ≤ e.time := by
+    intro q hq
+    apply h3 q
+    have := hp
+    simpa [pushHistory, withLog, this] using hq
+  have hP' := hC.prev _ e hS hI hF hP h1' h2' h3'
   have hI' : WishInv ({ pushHistory (applyPayload u e r).1 e.time with previous := some e } : State) := hI
   have hpack : Pack P ({ pushHistory (applyPayload u e r).1 e.time with previous := some e } : State) :=
     ⟨hS, hK, hI', frontier_prev _ e h1' h2', hP'⟩
   exact pack_core hpack rfl
 
+theorem fireR_previous (n : Nat) : ∀ s : State, (fireR n s).1.previous = s.previous := by
+  induction n with
+  | zero => intro s; simp [fireR_zero]
+  | succ n ih =>
+    intro s
+    cases hn : s.nextTick with
+    | none => rw [fireR_stuck _ s (Or.inl hn)]
+    | some t =>
+      cases ht : s.cfg.tickMs with
+      | none => rw [fireR_stuck _ s (Or.inr ht)]
+      | some ms =>
+        rw [fireR_succ_some n s t ms hn ht, ih]
+        have h1 : (stepTick s t ms).1.previous = s.previous := by
+          simp only [stepTick, tickAt_previous]
+          have := (drain_frame_wishes s t).previous
+          simpa using this
+        exact h1
+
+theorem settleR_previous (s : State) (b : Int) : (settleR s b).1.previous = s.previous := by
+  unfold settleR
+  have := (drain_frame_wishes (fireR (ticksBefore s b) s).1 b).previous
+  simp only [] at this ⊢
+  rw [← fireR_previous (ticksBefore s b) s]
+  exact this
+
 theorem pack_advance {P : Core → Prop} (hC : Closed P) (s : State) (e : Event) (r : Reading) (h : Pack P s)
-    (hb : e.time ≤ s.cfg.stop) : Pack P (advanceRec s e r).1 := by
+    (hb : e.time ≤ s.cfg.stop) (hpv : ∀ q, s.previous = some q → q.time ≤ e.time) : Pack P (advanceRec s e r).1 := by
   rw [advanceRec_state]
   obtain ⟨hp, h1, h2⟩ := pack_settleR hC s e.time h hb
-  exact pack_after hC _ e r hp h1 h2
+  exact pack_after hC _ e r hp h1 h2 (by rw [settleR_previous]; exact hpv)
 
 theorem pack_step {P : Core → Prop} (hC : Closed P) (s : State) (e : Event) (h : Pack P s) : Pack P (step s e).1 := by
   cases hr : s.rejected with
@@ -384,7 +415,7 @@ theorem pack_step {P : Core → Prop} (hC : Closed P) (s : State) (e : Event) (h
     | ok reading =>
       rw [step_of_ok s e reading hr ha]
       have hb := (admit_ok_shape s e reading ha).1
-      exact pack_advance hC s e reading h (Int.le_of_lt hb)
+      exact pack_advance hC s e reading h (Int.le_of_lt hb) (admit_ok_shape s e reading ha).2.1
 
 theorem pack_goAcc {P : Core → Prop} (hC : Closed P) : ∀ (es : List Event) (s : State) (acc : Rows), Pack P s →
     Pack P (goAcc s es acc).1 := by
@@ -422,7 +453,7 @@ theorem offer_fields (s : State) (coin slot : Nat) (parts : List (Nat × Rat)) (
     have h2 := emit_frame (emit s p.time [Engine.World.Effect.fill p.order p.units p.price role]).1 p.time
       ((if p.ends = true then ((emit s p.time [Engine.World.Effect.fill p.order p.units p.price role]).1.acct.orders.filter
         (·.coin == coin)).map fun o => Engine.World.Effect.cancelled o "cycle_end" else []) ++
-        if p.ends = true then [Engine.World.Effect.cycleEnd coin] else [])
+        if p.ends = true then [Engine.World.Effect.cycleEnd coin (s.acct.cycle coin)] else [])
     exact ⟨by rw [h2.cfg, h1.cfg], by rw [h2.nextTick, h1.nextTick], by rw [h2.wishes, h1.wishes],
       by rw [h2.previous, h1.previous]⟩
 
@@ -539,7 +570,7 @@ theorem Closed.and {P Q : Core → Prop} (hP : Closed P) (hQ : Closed Q) : Close
   arrive := fun s w rest b hS hI hF h hb hn hs => ⟨hP.arrive s w rest b hS hI hF h.1 hb hn hs, hQ.arrive s w rest b hS hI hF h.2 hb hn hs⟩
   tick := fun s time ms hS hI hF h hn ht hs => ⟨hP.tick s time ms hS hI hF h.1 hn ht hs, hQ.tick s time ms hS hI hF h.2 hn ht hs⟩
   listing := fun s e rules hS hI hF h h1 h2 => ⟨hP.listing s e rules hS hI hF h.1 h1 h2, hQ.listing s e rules hS hI hF h.2 h1 h2⟩
-  prev := fun s e hS hI hF h h1 h2 => ⟨hP.prev s e hS hI hF h.1 h1 h2, hQ.prev s e hS hI hF h.2 h1 h2⟩
+  prev := fun s e hS hI hF h h1 h2 h3 => ⟨hP.prev s e hS hI hF h.1 h1 h2 h3, hQ.prev s e hS hI hF h.2 h1 h2 h3⟩
   offer := fun s coin slot parts role hS hI hF h => ⟨hP.offer s coin slot parts role hS hI hF h.1, hQ.offer s coin slot parts role hS hI hF h.2⟩
 
 end Engine.Machine

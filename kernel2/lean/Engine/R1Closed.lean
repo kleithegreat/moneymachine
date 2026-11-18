@@ -20,7 +20,7 @@ theorem r1_closed : Closed R1Inv where
     intro s e rules hS hI hF hP _ _
     exact ⟨rinv_listing s e rules hP.1, ainv_listing s e rules hP.2.1, tinv_listing s e rules hP.2.2⟩
   prev := by
-    intro s e hS hI hF hP _ _
+    intro s e hS hI hF hP _ _ _
     exact ⟨rinv_prev s e hP.1, ainv_prev s e hP.2.1, tinv_prev s e hP.2.2⟩
   offer := by
     intro s coin slot parts role hS hI hF hP

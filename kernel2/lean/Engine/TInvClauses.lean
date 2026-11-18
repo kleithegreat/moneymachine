@@ -129,7 +129,7 @@ theorem offer_prog (s : State) (coin slot : Nat) (parts : List (Nat × Rat)) (ro
     have h2 := emit_frame (emit s p.time [Engine.World.Effect.fill p.order p.units p.price role]).1 p.time
       ((if p.ends = true then ((emit s p.time [Engine.World.Effect.fill p.order p.units p.price role]).1.acct.orders.filter
         (·.coin == coin)).map fun o => Engine.World.Effect.cancelled o "cycle_end" else []) ++
-        if p.ends = true then [Engine.World.Effect.cycleEnd coin] else [])
+        if p.ends = true then [Engine.World.Effect.cycleEnd coin (s.acct.cycle coin)] else [])
     exact by rw [h2.prog, h1.prog]
 
 theorem tinv_arrive (s : State) (w : Wish) (rest : List Wish) (h : TInv ({ s with wishes := w :: rest } : State).core) :
