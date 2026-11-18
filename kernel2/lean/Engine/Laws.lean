@@ -60,6 +60,7 @@ import Engine.X5
 import Engine.Lang.StepFiveProofs
 import Engine.StepFiveWitnesses
 import Engine.PlacedLaw
+import Engine.R1Streams
 
 namespace Engine.Laws
 
@@ -1293,6 +1294,44 @@ All required fields/signatures are in the interface block above. The admission
 record is taken AFTER cancelling the replaced order; its book.orders excludes
 the candidate, which the inequality adds exactly once. -/
 open Engine.Orders Engine.Machine in
+/-- R1's witness as one boolean, evaluated by the kernel. -/
+def r1WitnessCheck : Bool :=
+  match start step5Program step5Header with
+  | .error _ => false
+  | .ok initial =>
+    match orderRun Engine.Lang.bitsOps initial step5Moves with
+    | none => false
+    | some r =>
+      decide ((r.wishes.filter (fun w => decide (w.coin = 0 ∧ w.slot = 0 ∧ w.cycle = 1))).map (·.sent) =
+        [1775174400000, 1775174401000]) &&
+      decide ((r.placed.filter (fun p => decide (p.order.slot = 0 ∧ p.order.cycle = 1))).length = 1) &&
+      r.fills.any (fun f => decide (f.order.slot = 0 ∧ f.units = 123 / 100))
+
+set_option maxHeartbeats 4000000 in
+theorem r1WitnessCheck_true : r1WitnessCheck = true := by
+  decide +kernel
+
+open Engine.Orders Engine.Machine in
+theorem r1_witness :
+    ∃ (initial : State) (run : Run), start step5Program step5Header = .ok initial ∧
+      orderRun Engine.Lang.bitsOps initial step5Moves = some run ∧
+      (run.wishes.filter (fun w => decide (w.coin = 0 ∧ w.slot = 0 ∧ w.cycle = 1))).map (·.sent) =
+        [1775174400000, 1775174401000] ∧
+      (run.placed.filter (fun p => decide (p.order.slot = 0 ∧ p.order.cycle = 1))).length = 1 ∧
+      ∃ f ∈ run.fills, f.order.slot = 0 ∧ f.units = 123 / 100 := by
+  have h := r1WitnessCheck_true
+  unfold r1WitnessCheck at h
+  split at h
+  · simp at h
+  · rename_i initial hstart
+    split at h
+    · simp at h
+    · rename_i run hrun
+      simp only [Bool.and_eq_true, decide_eq_true_eq, List.any_eq_true] at h
+      obtain ⟨⟨h1, h2⟩, f, hf, h3⟩ := h
+      exact ⟨initial, run, hstart, hrun, h1, h2, f, hf, h3⟩
+
+open Engine.Orders Engine.Machine in
 /-- B3 R1 ★: one wish per slot per deciding tick, none between; arrival at
 sent + lambda, in FIFO order. The three A6 arrival cases, equal live-order
 wishes changing nothing, reduction-first admission order, and the three
@@ -1400,7 +1439,14 @@ theorem R1 :
         [1775174400000, 1775174401000] ∧
       (run.placed.filter (fun p => decide (p.order.slot = 0 ∧ p.order.cycle = 1))).length = 1 ∧
       ∃ f ∈ run.fills, f.order.slot = 0 ∧ f.units = 123 / 100) := by
-  sorry
+  refine ⟨?_, fun b w => Engine.Orders.prepare_spec b w, fun b o => Engine.Orders.admission_spec b o, ?_,
+    fun a => Engine.Orders.admit_spec a, r1_witness⟩
+  · intro program header initial hs moves run hr
+    obtain ⟨t2, t3, t4, t5, t6, t7, t8, t9⟩ := r1_tail hs moves run hr
+    exact ⟨r1_keys hs moves run hr, t2, t3, t4, t5, t6, t7, t8, t9⟩
+  · intro b w hle
+    exact ⟨Engine.Orders.arrive_ended b w hle, Engine.Orders.arrive_stale_cycle b w hle,
+      Engine.Orders.arrive_same b w hle, Engine.Orders.arrive_replace b w hle⟩
 
 /- S1 uses only `Machine.orderRun` and the actual Book/CycleStep/OrderFill
 projections in the interface above. A Run.steps index is the micro-transition
