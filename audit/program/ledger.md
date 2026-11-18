@@ -2169,3 +2169,93 @@ None new.
 ### Convergence
 
 **Answered at the causes, and not yet read.** Each of GPT's five points is conceded and answered at its cause, not patched. D202 and D203 change the design, so the next round is due on another model. No open dispute would change what step 5 builds once its tests carry this round's two items.
+
+## The last pass, round 7: Argon's read of rounds 5 and 6, answered for steps 6 and 7
+
+Appended 2026-11-18 22:06 UTC (17:06 EST) by the Opus 5.5 architect, session "architect: steps 6 and 7's specifications (round 7)". Review answered: `audit/reviews/2026-11-17-argon-web-last-pass-r5r6.md`. Commits `1210fd9` to the one that appends this. No market data read. Report: `data/builder/architect-r7-report.md`, which holds the derivations, CS2.1's note with its argument, the test writers' lists and the host list.
+
+### In plain words
+
+- **Each month's replay now reads the record once, at a fixed moment, and nothing that goes wrong afterwards changes what it read.** If a computer crashes, is killed, runs out of time or gives a wrong answer, the same reading is computed again on another computer. Round 6 had a killed run read the record afresh, so a kill could change what was read. A run that crashed on one computer and finished on another fell under two rules at once.
+- **The two computers now compare everything a verdict rests on,** not just the engine's rows: the error a run stopped with, every verdict, the vault's fills, the matching and the report.
+- **There must be at least three computers,** so that one fault resolves without a person. Agreement must come from two different machines, never the same machine twice.
+- **The replay cannot run past what the funding pull covered.** A pull that began before midnight could otherwise let the replay run into a day whose last settlement it lacked, falsely ending the test.
+- **The pull now reaches back to the last published day,** however long ago that was. Pulls have time limits, and no step waits on a run.
+- **What a replay reads of a line is now pinned:** only the venue's message, never when or how it was fetched. One row fetched several times is then one row. Each file is read to the length recorded at the moment of reading, and only events inside the replay's span go in.
+- **One vault fill is identified by its coin, trade and order,** and two copies are the same fill when every field the replay reads is equal.
+- **The note to CS2.1 that an honest late row can end the test early is drafted,** with the argument that it can only remove a discovery.
+- **Nothing needs a second clock, a deferred count or a stake that moves without a fill.** No criterion is edited, and the human has no new choice.
+
+### Who has seen what
+
+- Argon read rounds 5 and 6 at `57ce8b9`. Nobody has read this section or its commits.
+- D205 reverses D200, which GPT's round-5 finding 1 produced. GPT has not seen why.
+
+### Agreed
+
+- **Argon's acceptances, standing:**
+  - D195 to D199;
+  - D200's closing of GPT's finding as a pathwise claim, now restated by D205;
+  - D202's two-host architecture;
+  - D203 and X5;
+  - D204's detection;
+  - the CS2.1 note as safe.
+- **Argon's findings 1.1, 3.1, 3.2 and 4.1,** each conceded at its cause (D206 to D209). **Its finding 1.2,** conceded at a wider cause (D205).
+- **Its finding 2.1** is step 5's, taken by the advisor (`audit/decisions.md`, 2026-11-17).
+- **Its common modes** (the capture's own host, one volume, one build) are assumed, and wall 3 now says so.
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D205 | A host that crashes or aborts, against one that disagrees (Argon 1.2.1 to 1.2.3); a killed attempt (D200, GPT's round-5 finding 1) | **One reading a month.** A timer captures the month's identity once, after a complete pull. Every failure to compute it is answered on it, by the next host of the list: a kill, a crash, a timeout, a host's refusal, a file not the identity's, or an output no other host gives. The identity computes to the same output at any later time, since the files are only appended to and it holds every length and hash. So waiting loses nothing, and reading again would let a failure choose the reading. The truncated rerun after an agreed abort is part of each run, at once, on the same bytes. Months publish in capture order. **Replaces** D200's "a killed attempt produced nothing" and D202's separate rule for faults. **GPT's construction** is now the honest late row of D201: the print appended after the capture is read by the next month. Its comparator was killed alike, so a kill chose its reading. The committed text, replayed once a month and computed right, is this design run for run | **Yes** (brief 4, step 7: builds, wall 3, test 10) |
+| D206 | What two hosts compare (Argon 1.1.1 to 1.1.3) | **Everything a run computes from its identity:** the horizon, the engine's summary with its error and time, the truncated rerun, the report and trace, `confirm`, `guard`, `held`, CS2.3's chain, replay and matching, layer 2, the readers' counts and the report's text; not the host or its times. Runs that give no output are failures and agree on nothing. **The identity holds every file a run reads,** `mmvault`'s and the copy before 2026-11-01 included (A13: "every file the run reads" for "the market's every file") | **Yes** (brief 4, step 7, wall 3, test 10; brief 3, step 9, wall 2 and test 11; A13) |
+| D207 | The capture (Argon 3.1.1 to 3.1.3) | **The horizon is the last midnight at or before both the pull's start and the recorder's last quote.** Each run reads the start from the pull's own `start` event. **The firing's pull covers every universe coin from the last published horizon,** and is killed at 30 minutes. **No firing waits on a run;** a run's timeout is the operator's, 7 days, and moves nothing (D205). **Deleted:** the same-day rule, its "starts none" case, and "a firing while one runs does nothing". The cap reads the clock the same-day rule read, and sets a midnight, never an event's time | **Yes** (brief 4, step 7: wall 3, test 10; `recorder/VAULT.md`, settled funding) |
+| D208 | The reader (Argon 3.2.1 to 3.2.3) | **A quote, a trade and a funding row take nothing from their line's envelope.** Funding's `known` is `time + lag`, and a settlement is (coin, `time`, rate). A listing, whose source states no time, stays timed at the first copy that shows it. **Each file is read to the identity's length** (`mmrec cat <file> <length>`): whole lines only, a cut frame not read, the file counted as cut. **Only events in `[w_start, w_end)` are fed,** the rest counted. Files before the hour before `w_start` are not read | **Yes** (A3; `KERNEL.md` A18; brief 3, step 6, test 13 and step 7, test 8; `recorder/RECORDER.md`) |
+| D209 | A vault fill's identity (Argon 4.1) | **(coin, `tid`, `oid`)**, and an item is the fields the replay reads, parsed (A18's placed decimals), nothing of the envelope or of unread fields. The coin adds nothing on the venue's data and keeps every identity coin-scoped. `mmvault`'s count used `tid` alone, which counted a self-trade's second fill as a duplicate; it now uses the same key | **Yes** (brief 3, step 2, test 5; A13; `recorder/VAULT.md`) |
+| D210 | CS2.1's dated note (Argon 5) | **Drafted, with its argument** (the report, item 4). Against any procedure that agrees through the replay before the changed row and keeps every published day as shown, the end's rejections are a subset. Its finals were named by common replays, and its "earned" stands on a day that procedure keeps. So the 5% of any such reading holds | No (the advisor's to review and commit) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| D205 | GPT's comparator (killed alike) against "replayed once a month, computed right" | Settled here by derivation; GPT has not read it | Step 7's timer and runner, if GPT's comparator is shown to be the committed text's |
+| O22 | The recorder's reader inside 22,500 a second | Open, unchanged | Step 6's reader |
+| O24 | The replica's own trace at a second's tick | Open, unchanged | The trace's `tick` rows, if a wall |
+| O26 | `exp` and `log` at B5's walls | Open, unchanged | A twin, if a rate is missed |
+
+### What the next read should attack first
+
+1. **D205:**
+   - a run on which the outcome depends on a failure of computation;
+   - a reading the committed text makes that D205 never makes;
+   - a lever in the capture's moment, the months' order, or the architect's power to rerun an identity.
+2. **D207:** a due hour the pull can lack while the horizon is at or before its start; a pull whose completion a person can time.
+3. **D206:** anything a verdict or the report's sentences rest on outside the compared output; a part of the output two right runs give differently.
+4. **D208:** an event of the horizon in a file the reader skips; a cut at which two hosts' `mmrec cat` can differ.
+
+### Committed criteria: reported, not edited
+
+- **CS2.1's "Fails while the claim holds"** does not list the honest early end. The note is drafted in the report for the advisor, with its argument. Both of the round's readers called it safe.
+- **CS2.1 to CS2.3's "Passes while the claim is false"** still do not list two hosts erring alike. As round 6 said, no revision is recommended.
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the advisor:**
+  - a host list of at least three distinct x86-64 machines (the report, item 2c);
+  - `mmvault`'s fill identity, with VAULT.md's test 10;
+  - `mmrec cat`'s length, with RECORDER.md's test 4 case;
+  - the settled-funding collector as VAULT.md now specifies;
+  - CS2.1's note, reviewed and committed;
+  - this section read on GPT first (D205), then Argon.
+- **By step 2's writer:** test 5's new cases, before the fix.
+- **By steps 6, 7 and 9's writers:** brief 3's step 6 test 13, step 7 test 8 and step 9 test 11; brief 4's step 7 tests 5 and 10 as rewritten.
+- **By the next architect:** O22, O24 and O26 when their measurements come.
+
+### Convergence
+
+**Answered at the causes, and not yet read.** Argon's points are specifications, each conceded. D205 changes the design by reversing a point GPT's own finding produced, so the next round is due on GPT. No open dispute would change what step 5 builds. Steps 6 and 7 wait on D205's read.
