@@ -44,8 +44,13 @@ theorem drain_cfg (s : State) (b : Int) : (drain s b).1.cfg = s.cfg := by
   unfold drain
   exact foldl_cfg drainOne (fun acc w => by simp [drainOne, arriveWish_cfg]) _ _
 
+theorem tickBody_cfg (s : State) (t : Int) : (tickBody s t).1.cfg = s.cfg := by
+  simp [tickBody, withLog_cfg]
+
+theorem aged_cfg (s : State) : (aged s).cfg = s.cfg := rfl
+
 theorem tickAt_cfg (s : State) (t : Int) : (tickAt s t).1.cfg = s.cfg := by
-  simp [tickAt, release_cfg, releaseEffects_cfg, withLog_cfg]
+  simp [tickAt, tickBody_cfg, aged_cfg, release_cfg, releaseEffects_cfg]
 
 theorem fireRec_cfg (n : Nat) (s : State) (acc : Rows) (recs : List TickRecord) :
     (fireRec n s acc recs).1.cfg = s.cfg := by

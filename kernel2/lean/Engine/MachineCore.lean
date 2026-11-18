@@ -666,6 +666,12 @@ def tickCoin (cfg : Config) (time : Int) (c : CoinState) : CoinState × String �
   let view := staleAt cfg.gap (c.quotes.find? (· ≤ seen)) seen
   ({ c with quotes := keepThrough seen c.quotes }, fmtOpt c.price, world, view)
 
+/-- Whether the view holds a coin stale at a tick: the quote it has taken, by the coin's quotes. -/
+def viewMarkAt (cfg : Config) (time : Int) (coins : List CoinState) (c : Nat) : Bool :=
+  match (coins.map (tickCoin cfg time))[c]? with
+  | some m => m.2.2.2
+  | none => false
+
 def clearInterval (v : ViewCoin) : ViewCoin :=
   { v with hi := none, lo := none, traded := 0, srcs := v.srcs.map fun c => { c with queue := [] } }
 
@@ -750,19 +756,26 @@ def stepCount (s : StateOf α) : Nat := (s.log.map (·.steps.length)).getD 0
 
 /-! ### Wishes' arrival (A6) -/
 
-/-- A wish's arrival and the effects it has: the book's `arrive`, read back as effects. -/
+/-- The effects of a wish's arrival at a book: the book's `arrive`, read back as effects. -/
+def arrivalEffects (book : Book) (w : Wish) : List Effect :=
+  let result := arrive book w
+  let cancelledBook := cancelSlot book w.coin w.slot
+  let candidate := prepare cancelledBook w
+  result.2.filterMap fun tag =>
+    if tag == "cancelled:replaced" then
+      (book.orders.find? fun o => o.coin == w.coin && o.slot == w.slot).map fun o => Effect.cancelled o "replaced"
+    else if tag == "placed" then candidate.map Effect.placed
+    else if tag.startsWith "refused:" then candidate.map fun o => Effect.refused o (tag.drop 8).toString
+    else none
+
+/-- A wish's arrival and the effects it has. -/
 def arriveWish (s : StateOf α) (w : Wish) : StateOf α × String :=
   let time := w.arrives
   let book := worldBook s time
   let result := arrive book w
   let cancelledBook := cancelSlot book w.coin w.slot
   let candidate := prepare cancelledBook w
-  let effects : List Effect := result.2.filterMap fun tag =>
-    if tag == "cancelled:replaced" then
-      (book.orders.find? fun o => o.coin == w.coin && o.slot == w.slot).map fun o => Effect.cancelled o "replaced"
-    else if tag == "placed" then candidate.map Effect.placed
-    else if tag.startsWith "refused:" then candidate.map fun o => Effect.refused o (tag.drop 8).toString
-    else none
+  let effects := arrivalEffects book w
   let admitted := result.2.any fun tag => tag == "placed" || tag.startsWith "refused:"
   let step := stepCount s
   let (s1, rows) := emit s time effects
@@ -801,18 +814,21 @@ def wishFor (p : Engine.Lang.Program) (vacct : Acct) (time lambda : Int) (c i : 
     arrives := time + lambda, reduceOnly := slot.reduceOnly,
     tif := match slot.tif with | .gtc => "gtc" | .alo => "alo" | .ioc => "ioc" }
 
-def tickAt [Engine.Lang.Numbers α] (s : StateOf α) (time : Int) : StateOf α × String × TickRecord :=
-  let N : Engine.Lang.NumOps α := Engine.Lang.Numbers.ops
-  let s := releaseEffects (release s time) time
-  let coinIdx := List.range s.coins.length
-  let s := { s with vage := coinIdx.map fun c =>
+/-- Each coin's age counter starts at the tick that first holds its opening order's fill (A5). -/
+def aged (s : StateOf α) : StateOf α :=
+  { s with vage := (List.range s.coins.length).map fun c =>
     match s.vacct.openings.getD c none, s.vage.getD c none with
     | some _, none => some s.mach.count
     | some _, some k => some k
     | none, _ => none }
+
+/-- A tick from the state that has taken what is known by `time`. -/
+def tickBody [Engine.Lang.Numbers α] (s : StateOf α) (time : Int) : StateOf α × String × TickRecord :=
+  let N : Engine.Lang.NumOps α := Engine.Lang.Numbers.ops
+  let coinIdx := List.range s.coins.length
   let marks := s.coins.map (tickCoin s.cfg time)
   let inView (c : Nat) : Bool := match s.view[c]? with | some v => !v.ended | none => false
-  let viewMark (c : Nat) : Bool := match marks[c]? with | some m => m.2.2.2 | none => false
+  let viewMark (c : Nat) : Bool := viewMarkAt s.cfg time s.coins c
   let tick : Engine.Lang.Tick α :=
     { inView := inView, input := sourceValue s, time := time,
       exactInput := fun c name slot => exactIn s time c (viewMark c) name slot }
@@ -857,6 +873,9 @@ def tickAt [Engine.Lang.Numbers α] (s : StateOf α) (time : Int) : StateOf α �
       worlds := l.worlds ++ (coinIdx.filter inView).map fun c =>
         (time, c, sampleAt l.history (time - s.cfg.delta) c) }
   (s'', "".intercalate rows, record)
+
+def tickAt [Engine.Lang.Numbers α] (s : StateOf α) (time : Int) : StateOf α × String × TickRecord :=
+  tickBody (aged (releaseEffects (release s time) time)) time
 
 /-- Fire up to `n` ticks, each after the wishes that arrive before it, keeping each tick's record. -/
 def fireRec [Engine.Lang.Numbers α] : Nat → StateOf α → Rows → List TickRecord → StateOf α × Rows × List TickRecord
