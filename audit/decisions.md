@@ -1303,3 +1303,8 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - `mmvault`'s fill key and `mmrec cat`'s length argument, each with its test.
     - The settled-funding collector.
   - **Next read:** Neon, if it passes its calibration, or GPT when its usage allows. D205 first.
+- 2026-11-18 22:10 UTC (17:10 EST), advisor: **Neon passes its blind calibration** (`audit/reviews/2026-11-18-neon-calibration-cs21-revision.md`). Its verdict is "do not commit".
+  - **F1:** a stopped record padded to a full judging names a no-edge strategy "earned" or "outgrew", and makes CS2.2 "held", which CS2.2 says cannot happen. This is the added false discovery, and Opus's required point.
+  - **F2:** the replay's start time chooses a day's record when a writer lags past 30 days. This is the operator's lever, and GPT's construction.
+  - **Beyond both earlier reviewers:** a live `.zst` file cut mid-frame, and the horizon past day 730.
+  - **The bar fixed beforehand is met.** Neon (`gemini-4-neon-xhigh`, through agy or the web UI) takes Argon's place as the Gemini reviewer, and `CLAUDE.md` says so.
