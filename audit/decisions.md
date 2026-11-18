@@ -1286,3 +1286,8 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - CORE-MATH's worst-case tables, pinned in `data/x4-inputs/`;
     - B4's new reference streams, with MPFR's `exp` and `log`.
   - **Noted:** the builder used `pkill -f`, which killed its own shell. Future briefs repeat the rule.
+- 2026-11-18 22:00 UTC (17:00 EST), advisor: **Gemini's web UI now offers Neon in Argon's place** (the human). Before Neon's findings count (`CLAUDE.md`, Orchestration: a model new to a role is calibrated blind on a settled case), it reads a settled case.
+  - **The case:** the drafted revision to study 2's criteria (round 4's D190), with exactly GPT's materials and prompt, rebuilt from `rearchitecture` `3f911d1` as `neon-calibration.md` (sha256 `178c906f54b2ca28…`).
+  - **The settled answer:** GPT showed that the revision can add a false discovery. The 31-day lag avoids a committed early end, so a lucky crossing becomes "earned". The first attempt's time also chooses a day's record. A fresh Opus at maximum effort missed both.
+  - **Neon passes if** it finds at least one construction by which the revision adds a false discovery, or gives the operator a lever over the verdict, and its verdict is "do not commit". "Commit with changes" without such a construction fails.
+  - **Fixed before** Neon's reply is read.
