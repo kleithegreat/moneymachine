@@ -470,22 +470,33 @@ theorem pack_start {P : Core → Prop} {program header : String} {initial : Stat
   intro e he
   simp [StateOf.core, StateOf.recast, hprev] at he
 
-/-- What an instrumented run over bits ends in: the last state, holding every invariant a closed predicate keeps, and the
-log it made the run of. -/
+theorem startsWith_error (x : String) : ("{\"error\":" ++ x).startsWith "{\"ok\":true" = false := by
+  cases h : ("{\"error\":" ++ x).startsWith "{\"ok\":true"
+  · rfl
+  · exfalso
+    simp only [String.startsWith_string_iff, String.toList_append] at h
+    obtain ⟨t, ht⟩ := h
+    have e1 : "{\"ok\":true".toList = ['{', '"', 'o', 'k', '"', ':', 't', 'r', 'u', 'e'] := by decide +kernel
+    have e2 : "{\"error\":".toList = ['{', '"', 'e', 'r', 'r', 'o', 'r', '"', ':'] := by decide +kernel
+    rw [e1, e2] at ht
+    simp at ht
+
+/-- What an instrumented run over bits ends in: the last state, holding every invariant a closed predicate keeps, with the
+clock run to the horizon's end, and the log it made the run of. -/
 theorem orderRun_pack {P : Core → Prop} (hC : Closed P) {program header : String} {initial : State}
     (h : start program header = .ok initial) (hP : P (initial.recast Engine.Lang.bitsOps).core)
     (moves : List Move) (run : Engine.Orders.Run) (hr : orderRun Engine.Lang.bitsOps initial moves = some run) :
     ∃ (final : State) (l : Log) (rows : Rows), Pack P final ∧ final.log = some l ∧ run = l.toRun rows ∧
+      (∀ t, final.nextTick = some t → final.cfg.stop ≤ t) ∧ (∀ w ∈ final.wishes, final.cfg.stop ≤ w.arrives) ∧
       final = (finishFull (runMoves (initial.recast Engine.Lang.bitsOps) moves).1).1 := by
   have h0 := pack_start (P := P) h hP
   have h1 : Pack P (runMoves (initial.recast Engine.Lang.bitsOps) moves).1 :=
     pack_runMoves hC moves (initial.recast Engine.Lang.bitsOps) Rows.empty h0
-  have h2 : Pack P (finishFull (runMoves (initial.recast Engine.Lang.bitsOps) moves).1).1 := pack_finishFull hC _ h1
   unfold orderRun at hr
   dsimp only at hr
   rcases hrm : runMoves (initial.recast Engine.Lang.bitsOps) moves with ⟨fed1, rows1⟩
-  rw [hrm] at hr
-  dsimp only at hr
+  rw [hrm] at hr h1
+  dsimp only at hr h1
   rcases hff : finishFull fed1 with ⟨final1, rest1, summary1⟩
   rw [hff] at hr
   dsimp only at hr
@@ -495,14 +506,40 @@ theorem orderRun_pack {P : Core → Prop} (hC : Closed P) {program header : Stri
     rw [hl] at hr
     dsimp only at hr
     split at hr
-    · injection hr with hr
-      refine ⟨final1, l, rows1 ++ rest1, ?_, hl, hr.symm, ?_⟩
-      · have : (finishFull fed1).1 = final1 := by rw [hff]
-        have h1' : (runMoves (initial.recast Engine.Lang.bitsOps) moves).1 = fed1 := by rw [hrm]
-        rw [h1'] at h2
-        rw [this] at h2
-        exact h2
-      · rfl
+    · rename_i hsum
+      injection hr with hr
+      cases hrej : fed1.rejected with
+      | some f =>
+        exfalso
+        have : finishFull fed1 = (fed1, Rows.empty, "{\"error\":" ++ errorText f) := by simp [finishFull, hrej]
+        rw [hff] at this
+        have hs : summary1 = "{\"error\":" ++ errorText f := by
+          have := congrArg (fun x => x.2.2) this
+          simpa using this
+        rw [hs, startsWith_error] at hsum
+        exact Bool.false_ne_true hsum
+      | none =>
+        have hfin : (finishFull fed1) = ((settle fed1 fed1.cfg.stop Rows.empty).1, (settle fed1 fed1.cfg.stop Rows.empty).2.1,
+            "{\"ok\":" ++ okText (settle fed1 fed1.cfg.stop Rows.empty).1) := by simp [finishFull, hrej]
+        rw [hff] at hfin
+        have hfinal : final1 = (settleR fed1 fed1.cfg.stop).1 := by
+          have := congrArg (fun x => x.1) hfin
+          simp only [] at this
+          rw [this, (settle_eq fed1 fed1.cfg.stop Rows.empty).1]
+        obtain ⟨hp, hn, hw⟩ := pack_settleR hC fed1 fed1.cfg.stop h1 (Int.le_refl _)
+        rw [← hfinal] at hp hn hw
+        have hcfg : final1.cfg = fed1.cfg := by rw [hfinal]; exact settleR_cfg fed1 _
+        refine ⟨final1, l, rows1 ++ rest1, hp, hl, hr.symm, ?_, ?_, ?_⟩
+        · intro t ht; rw [hcfg]; exact hn t ht
+        · intro w hw'; rw [hcfg]; exact hw w hw'
+        · rfl
     · simp at hr
+
+theorem Closed.and {P Q : Core → Prop} (hP : Closed P) (hQ : Closed Q) : Closed (fun c => P c ∧ Q c) where
+  arrive := fun s w rest b hS hI hF h hb hn hs => ⟨hP.arrive s w rest b hS hI hF h.1 hb hn hs, hQ.arrive s w rest b hS hI hF h.2 hb hn hs⟩
+  tick := fun s time ms hS hI hF h hn ht hs => ⟨hP.tick s time ms hS hI hF h.1 hn ht hs, hQ.tick s time ms hS hI hF h.2 hn ht hs⟩
+  listing := fun s e rules hS hI hF h h1 h2 => ⟨hP.listing s e rules hS hI hF h.1 h1 h2, hQ.listing s e rules hS hI hF h.2 h1 h2⟩
+  prev := fun s e hS hI hF h h1 h2 => ⟨hP.prev s e hS hI hF h.1 h1 h2, hQ.prev s e hS hI hF h.2 h1 h2⟩
+  offer := fun s coin slot parts role hS hI hF h => ⟨hP.offer s coin slot parts role hS hI hF h.1, hQ.offer s coin slot parts role hS hI hF h.2⟩
 
 end Engine.Machine
