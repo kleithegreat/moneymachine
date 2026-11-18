@@ -61,6 +61,7 @@ import Engine.Lang.StepFiveProofs
 import Engine.StepFiveWitnesses
 import Engine.PlacedLaw
 import Engine.R1Streams
+import Engine.S1Law
 
 namespace Engine.Laws
 
@@ -1332,6 +1333,45 @@ theorem r1_witness :
       exact ⟨initial, run, hstart, hrun, h1, h2, f, hf, h3⟩
 
 open Engine.Orders Engine.Machine in
+/-- S1's witness as one boolean, evaluated by the kernel. -/
+def s1WitnessCheck : Bool :=
+  match start step5Program step5Header with
+  | .error _ => false
+  | .ok initial =>
+    match orderRun Engine.Lang.bitsOps initial step5Moves with
+    | none => false
+    | some r =>
+      r.fills.any (fun f => decide (f.units = 123 / 100 ∧ f.before.position 0 = 0)) &&
+      r.steps.any (fun s => decide (s.time = 1775174401500 ∧ s.trigger = .fill 0 (-123 / 100) ∧
+        s.before.position 0 = 123 / 100 ∧ s.ended = [0] ∧ s.before.cycle 0 = 1 ∧ s.after.position 0 = 0 ∧
+        s.after.orders = [] ∧ s.after.cycle 0 = 2))
+
+set_option maxHeartbeats 4000000 in
+theorem s1WitnessCheck_true : s1WitnessCheck = true := by
+  decide +kernel
+
+open Engine.Orders Engine.Machine in
+theorem s1_witness :
+    ∃ (initial : State) (run : Run) (s : CycleStep),
+      start step5Program step5Header = .ok initial ∧
+      orderRun Engine.Lang.bitsOps initial step5Moves = some run ∧
+      (∃ f ∈ run.fills, f.units = 123 / 100 ∧ f.before.position 0 = 0) ∧
+      s ∈ run.steps ∧ s.time = 1775174401500 ∧ s.trigger = .fill 0 (-123 / 100) ∧
+      s.before.position 0 = 123 / 100 ∧ s.ended = [0] ∧ s.before.cycle 0 = 1 ∧
+       s.after.position 0 = 0 ∧ s.after.orders = [] ∧ s.after.cycle 0 = 2 := by
+  have h := s1WitnessCheck_true
+  unfold s1WitnessCheck at h
+  split at h
+  · simp at h
+  · rename_i initial hstart
+    split at h
+    · simp at h
+    · rename_i run hrun
+      simp only [Bool.and_eq_true, List.any_eq_true, decide_eq_true_eq] at h
+      obtain ⟨⟨f, hf, h1, h2⟩, s, hs, h3, h4, h5, h6, h7, h8, h9, h10⟩ := h
+      exact ⟨initial, run, s, hstart, hrun, ⟨f, hf, h1, h2⟩, hs, h3, h4, h5, h6, h7, h8, h9, h10⟩
+
+open Engine.Orders Engine.Machine in
 /-- B3 R1 ★: one wish per slot per deciding tick, none between; arrival at
 sent + lambda, in FIFO order. The three A6 arrival cases, equal live-order
 wishes changing nothing, reduction-first admission order, and the three
@@ -1500,7 +1540,8 @@ theorem S1 :
       s ∈ run.steps ∧ s.time = 1775174401500 ∧ s.trigger = .fill 0 (-123 / 100) ∧
       s.before.position 0 = 123 / 100 ∧ s.ended = [0] ∧ s.before.cycle 0 = 1 ∧
        s.after.position 0 = 0 ∧ s.after.orders = [] ∧ s.after.cycle 0 = 2) := by
-  sorry
+  exact ⟨fun program header initial hs moves run hr => s1_universal hs moves run hr,
+    fun b w hle => Engine.Orders.arrive_stale_before b w hle, s1_witness⟩
 
 /- X4's formulas belong to the law, not to a builder-supplied bounds oracle.
    Counts include the term at N. Only the stated function is proved here;
