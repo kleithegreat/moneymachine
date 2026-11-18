@@ -61,7 +61,7 @@ theorem step_reject (s : State) (e : Event) (h : Faulty (admit s e)) :
   | some f => simp [hr]
   | none =>
     obtain ⟨f, hf⟩ := h
-    simp [hf, State.reject]
+    simp [hf, StateOf.reject]
 
 /-- A number as the rational its integer reading stands for, written as C2 states it. -/
 def readRat (scale : Nat) (number : Number) : Option Rat :=
@@ -466,7 +466,7 @@ theorem rejected_run (state : State) (event : Event) (suffix : List Event)
     unfold feed; rw [h1]
   have h3 : final = (Rows.empty, "{\"error\":" ++ errorText f) := by
     show finish after.1 = _
-    rw [h2]; unfold finish; rw [h1]
+    rw [h2]; unfold finish finishFull; rw [h1]
   have hr0 : rejected.2 = Rows.empty := by rw [hgo, hrows, Rows.append_empty]
   rw [hr0, h2, h3]
   refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, ?_⟩

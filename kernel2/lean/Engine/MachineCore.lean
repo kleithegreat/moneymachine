@@ -734,14 +734,16 @@ def effectRow (s : StateOf α) (time : Int) : Effect → String
   | .cycleEnd coin =>
     "cycle_end\t" ++ toString time ++ "\t" ++ coinName s coin ++ "\t" ++ toString (s.acct.cycle coin) ++ "\n"
 
-/-- The world makes effects at `time`: each is applied to its account and held for the view until `time + δ`. -/
+/-- The world makes one effect at `time`: it is applied to the account and held for the view until `time + δ`. -/
+def emitOne (time : Int) (acc : StateOf α × String) (effect : Effect) : StateOf α × String :=
+  let row := effectRow acc.1 time effect
+  let s' := { acc.1 with acct := acc.1.acct.apply acc.1.cfg.fees time effect,
+                         veffects := acc.1.veffects ++ [⟨time + acc.1.cfg.delta, time, effect⟩],
+                         traceLines := acc.1.traceLines + 1 }
+  (s', acc.2 ++ row)
+
 def emit (s : StateOf α) (time : Int) (effects : List Effect) : StateOf α × String :=
-  effects.foldl (fun (acc : StateOf α × String) effect =>
-    let row := effectRow acc.1 time effect
-    let s' := { acc.1 with acct := acc.1.acct.apply acc.1.cfg.fees time effect,
-                           veffects := acc.1.veffects ++ [⟨time + acc.1.cfg.delta, time, effect⟩],
-                           traceLines := acc.1.traceLines + 1 }
-    (s', acc.2 ++ row)) (s, "")
+  effects.foldl (emitOne time) (s, "")
 
 def stepCount (s : StateOf α) : Nat := (s.log.map (·.steps.length)).getD 0
 
@@ -775,14 +777,16 @@ def arriveWish (s : StateOf α) (w : Wish) : StateOf α × String :=
 /-- A18's order of the wishes that arrive in one millisecond: every `reduce_only` one first, then by coin and slot. -/
 def arrivalKey (w : Wish) : Int × Nat × Nat × Nat := (w.arrives, if w.reduceOnly then 0 else 1, w.coin, w.slot)
 
+def drainOne (acc : StateOf α × String) (w : Wish) : StateOf α × String :=
+  let r := arriveWish acc.1 w
+  (r.1, acc.2 ++ r.2)
+
 /-- Every wish that arrives before `bound`, in time, then A18's order. -/
 def drain (s : StateOf α) (bound : Int) : StateOf α × String :=
   let due := s.wishes.takeWhile fun w => decide (w.arrives < bound)
   let later := s.wishes.dropWhile fun w => decide (w.arrives < bound)
   let ordered := due.mergeSort fun a b => (compare (arrivalKey a) (arrivalKey b)).isLE
-  ordered.foldl (fun (acc : StateOf α × String) w =>
-    let r := arriveWish acc.1 w
-    (r.1, acc.2 ++ r.2)) ({ s with wishes := later }, "")
+  ordered.foldl drainOne ({ s with wishes := later }, "")
 
 /-! ### The clock -/
 

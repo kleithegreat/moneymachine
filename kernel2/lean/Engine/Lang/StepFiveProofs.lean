@@ -33,7 +33,7 @@ theorem L2_units_universal {α : Type} :
 theorem slotEval_wishes_prog (N : NumOps α) {p p' : Program} (hs : p'.slots = p.slots) (ht : p'.types = p.types)
     (hstep : ∀ (t : Tick α) (m : Mach α), Mach.step N p' t m = Mach.step N p t m) (coins : Nat) (t : Tick α)
     (m : Mach α) : (slotEval N p' coins t m).wishes = (slotEval N p coins t m).wishes := by
-  simp only [slotEval, hstep t m, hs, ht]
+  simp only [slotEval, slotEvalAt, hstep t m, hs, ht]
 
 /-- B3 L3: rewrites preserve vals AND exacts at corresponding nodes and probes, and the wishes sent at every tick.
 Float matches need NumOps.Lawful; an exact match needs no such premise. -/
@@ -100,13 +100,13 @@ theorem N1_renaming_universal {α : Type} :
   have hstep := step_rename N ρ p t t' hv hx (hin t t' hi) (Mach.run N p coins ts)
   have hs : (p.rename ρ).slots = p.slots := rfl
   have ht : (p.rename ρ).types = p.types := rfl
-  simp only [slotEval, hstep, hv, hs, ht]
+  simp only [slotEval, slotEvalAt, hstep, hv, hs, ht]
 
 theorem mem_exactValues (N : NumOps α) (p : Program) (coins : Nat) (t : Tick α) (m : Mach α) {c j : Nat}
     {v : Option Rat} :
     (c, j, v) ∈ (slotEval N p coins t m).exactValues ↔
       j < p.nodes.size ∧ (p.nodes[j]!).isToExact = true ∧ c < coins ∧ v = ((Mach.step N p t m).exacts[j]!)[c]! := by
-  simp only [slotEval, List.mem_flatMap, List.mem_filter, List.mem_range, List.mem_map, Prod.mk.injEq]
+  simp only [slotEval, slotEvalAt, List.mem_flatMap, List.mem_filter, List.mem_range, List.mem_map, Prod.mk.injEq]
   constructor
   · rintro ⟨j', ⟨hj, hf⟩, c', hc, rfl, rfl, rfl⟩
     exact ⟨hj, hf, hc, rfl⟩
@@ -117,7 +117,7 @@ theorem mem_whenValues (N : NumOps α) (p : Program) (coins : Nat) (t : Tick α)
     {v : Option Bool} :
     (c, i, v) ∈ (slotEval N p coins t m).whenValues ↔
       c < coins ∧ i < p.slots.size ∧ v = (Mach.step N p t m).whenAt N c p.slots[i]! := by
-  simp only [slotEval, List.mem_flatMap, List.mem_range, List.mem_map, Prod.mk.injEq]
+  simp only [slotEval, slotEvalAt, List.mem_flatMap, List.mem_range, List.mem_map, Prod.mk.injEq]
   constructor
   · rintro ⟨c', hc, i', hi, rfl, rfl, rfl⟩
     exact ⟨hc, hi, rfl⟩
@@ -228,7 +228,7 @@ theorem slotEval_wishes_congr :
     exact ((mem_whenValues N₂ p coins t m₂).1 h1).2.2
   have hagree := exact_cells_agree (N₁ := N₁) (N₂ := N₂) hwf coins t m₁ m₂ hcross
   show (slotEval N₁ p coins t m₁).wishes = (slotEval N₂ p coins t m₂).wishes
-  simp only [slotEval]
+  simp only [slotEval, slotEvalAt]
   simp only [List.flatMap]
   congr 1
   apply List.map_congr_left

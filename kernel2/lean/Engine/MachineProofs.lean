@@ -19,8 +19,33 @@ theorem Rows.append_assoc (a b c : Rows) : a ++ b ++ c = a ++ (b ++ c) := by
 theorem release_cfg (s : State) (t : Int) : (release s t).cfg = s.cfg := by
   simp [release]
 
+theorem releaseEffects_cfg (s : State) (t : Int) : (releaseEffects s t).cfg = s.cfg := by
+  simp [releaseEffects]
+
+theorem withLog_cfg (s : State) (f : Log → Log) : (withLog s f).cfg = s.cfg := rfl
+
+theorem pushHistory_cfg (s : State) (t : Int) : (pushHistory s t).cfg = s.cfg := rfl
+
+theorem foldl_cfg {β : Type} (f : State × String → β → State × String) (hf : ∀ acc b, (f acc b).1.cfg = acc.1.cfg) :
+    ∀ (l : List β) (acc : State × String), (l.foldl f acc).1.cfg = acc.1.cfg := by
+  intro l
+  induction l with
+  | nil => intro acc; rfl
+  | cons b l ih => intro acc; simp only [List.foldl_cons]; rw [ih, hf]
+
+theorem emit_cfg (s : State) (t : Int) (effects : List Engine.World.Effect) : (emit s t effects).1.cfg = s.cfg :=
+  foldl_cfg (emitOne t) (fun _ _ => rfl) effects (s, "")
+
+theorem arriveWish_cfg (s : State) (w : Engine.Orders.Wish) : (arriveWish s w).1.cfg = s.cfg := by
+  unfold arriveWish
+  simp [emit_cfg, withLog_cfg, pushHistory_cfg]
+
+theorem drain_cfg (s : State) (b : Int) : (drain s b).1.cfg = s.cfg := by
+  unfold drain
+  exact foldl_cfg drainOne (fun acc w => by simp [drainOne, arriveWish_cfg]) _ _
+
 theorem tickAt_cfg (s : State) (t : Int) : (tickAt s t).1.cfg = s.cfg := by
-  simp [tickAt, release_cfg]
+  simp [tickAt, release_cfg, releaseEffects_cfg, withLog_cfg]
 
 theorem fireRec_cfg (n : Nat) (s : State) (acc : Rows) (recs : List TickRecord) :
     (fireRec n s acc recs).1.cfg = s.cfg := by
@@ -31,11 +56,11 @@ theorem fireRec_cfg (n : Nat) (s : State) (acc : Rows) (recs : List TickRecord) 
     split
     · rename_i time ms _
       rw [ih]
-      simp [tickAt_cfg]
+      simp [tickAt_cfg, drain_cfg]
     · rfl
 
-theorem fireN_cfg (n : Nat) (s : State) (acc : Rows) : (fireN n s acc).1.cfg = s.cfg := by
-  simp [fireN, fireRec_cfg]
+theorem settle_cfg (s : State) (b : Int) (acc : Rows) : (settle s b acc).1.cfg = s.cfg := by
+  simp [settle, drain_cfg, fireRec_cfg]
 
 theorem withPending_cfg (s : State) (e : Event) (w : Unit → PView) : (withPending s e w).cfg = s.cfg := by
   unfold withPending
@@ -43,11 +68,13 @@ theorem withPending_cfg (s : State) (e : Event) (w : Unit → PView) : (withPend
 
 theorem applyPayload_cfg (s : State) (e : Event) (r : Reading) : (applyPayload s e r).1.cfg = s.cfg := by
   unfold applyPayload
-  split <;> simp [withPending_cfg]
+  split
+  · simp [emit_cfg]
+  all_goals simp [withPending_cfg]
 
 theorem advance_cfg (s : State) (e : Event) (r : Reading) : (advance s e r).1.cfg = s.cfg := by
   unfold advance advanceRec
-  simp [fireRec_cfg, applyPayload_cfg]
+  simp [settle_cfg, applyPayload_cfg, pushHistory_cfg]
 
 theorem reject_cfg (s : State) (c : String) (t : Int) (d : String) : (s.reject c t d).cfg = s.cfg := rfl
 
