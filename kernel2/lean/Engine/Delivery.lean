@@ -376,9 +376,22 @@ theorem tickBody_inputs (τ time : Int) {s u : State} (h : Agree τ s u) (ht : t
   · simp only [tickBody]
     simp only [hsv, hex, hcn, hmark, ← h.cfg, ← h.prog, ← h.view, ← h.mach, ← h.vacct, hlen]
 
+theorem mem_insertWish (w : Wish) : ∀ (l : List Wish) (x : Wish), x ∈ insertWish w l ↔ x = w ∨ x ∈ l := by
+  intro l x
+  induction l with
+  | nil => simp [insertWish]
+  | cons v l ih =>
+    unfold insertWish
+    split
+    · simp
+    · simp only [List.mem_cons, ih]
+      exact or_left_comm
+
 theorem mem_orderWishes (l : List Wish) (x : Wish) : x ∈ orderWishes l ↔ x ∈ l := by
   unfold orderWishes
-  exact List.mem_mergeSort
+  induction l with
+  | nil => simp
+  | cons w l ih => simp only [List.foldr_cons, mem_insertWish, List.mem_cons, ih]
 
 theorem pairwise_arrives (l : List Wish) (a : Int) (h : ∀ w ∈ l, w.arrives = a) :
     l.Pairwise (fun x y => x.arrives ≤ y.arrives) := by

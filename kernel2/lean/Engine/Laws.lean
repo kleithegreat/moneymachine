@@ -59,6 +59,7 @@ import Engine.Delivery
 import Engine.X5
 import Engine.Lang.StepFiveProofs
 import Engine.StepFiveWitnesses
+import Engine.PlacedLaw
 
 namespace Engine.Laws
 
@@ -1200,6 +1201,42 @@ def step5Moves : List Engine.Machine.Move :=
   | _ => []
 
 open Engine.Orders Engine.Machine in
+/-- X1's witness as one boolean, evaluated by the kernel. -/
+def x1WitnessCheck : Bool :=
+  match start step5Program step5Header with
+  | .error _ => false
+  | .ok initial =>
+    match orderRun Engine.Lang.bitsOps initial step5Moves with
+    | none => false
+    | some r => r.placed.any (fun p => decide (p.order.coin = 0 ∧ p.order.slot = 0 ∧ p.order.side = .buy ∧
+        p.value.price = 1000019 / 10000 ∧ p.value.target = some (1239 / 1000) ∧
+        p.order.price = 100 ∧ p.order.target = some (123 / 100)))
+
+set_option maxHeartbeats 4000000 in
+theorem x1WitnessCheck_true : x1WitnessCheck = true := by
+  decide +kernel
+
+open Engine.Orders Engine.Machine in
+theorem x1_witness :
+    ∃ (initial : State) (run : Run) (p : Placement),
+      start step5Program step5Header = .ok initial ∧
+      orderRun Engine.Lang.bitsOps initial step5Moves = some run ∧
+      p ∈ run.placed ∧ p.order.coin = 0 ∧ p.order.slot = 0 ∧ p.order.side = .buy ∧
+      p.value.price = 1000019 / 10000 ∧ p.value.target = some (1239 / 1000) ∧
+      p.order.price = 100 ∧ p.order.target = some (123 / 100) := by
+  have h := x1WitnessCheck_true
+  unfold x1WitnessCheck at h
+  split at h
+  · simp at h
+  · rename_i initial hstart
+    split at h
+    · simp at h
+    · rename_i run hrun
+      simp only [List.any_eq_true, decide_eq_true_eq] at h
+      obtain ⟨p, hp, h1, h2, h3, h4, h5, h6, h7⟩ := h
+      exact ⟨initial, run, p, hstart, hrun, hp, h1, h2, h3, h4, h5, h6, h7⟩
+
+open Engine.Orders Engine.Machine in
 /-- B3 X1 ★: placement rounds the wish's exact price and coin target by the
 rules in force THERE, not at evaluation; close stays close. Agreement on all
 when values and the rationals every exact(·) gives at one tick suffices for equal wishes under
@@ -1241,7 +1278,12 @@ theorem X1 :
       p ∈ run.placed ∧ p.order.coin = 0 ∧ p.order.slot = 0 ∧ p.order.side = .buy ∧
       p.value.price = 1000019 / 10000 ∧ p.value.target = some (1239 / 1000) ∧
       p.order.price = 100 ∧ p.order.target = some (123 / 100)) := by
-  sorry
+  refine ⟨?_, ?_, ?_, x1_witness⟩
+  · intro program header initial _ α N moves run hr
+    exact orderRun_placed N initial moves run hr
+  · exact fun {α} N₁ N₂ p hwf coins t m₁ m₂ => slotEval_wishes_congr N₁ N₂ p hwf coins t m₁ m₂
+  · intro program header initial moves run hs hr
+    exact orderRun_rows hs moves run hr
 
 /- R1 additionally uses the running functions `arrive : Book → Wish →
 Book × List String`, `prepare : Book → Wish → Option Order`,

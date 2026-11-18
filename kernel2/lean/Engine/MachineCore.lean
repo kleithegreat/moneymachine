@@ -796,8 +796,11 @@ def drainOne (acc : StateOf α × String) (w : Wish) : StateOf α × String :=
   (r.1, acc.2 ++ r.2)
 
 /-- A tick's wishes in A18's order, which they keep in the queue. -/
-def orderWishes (sent : List Wish) : List Wish :=
-  sent.mergeSort fun a b => (compare (arrivalKey a) (arrivalKey b)).isLE
+def insertWish (w : Wish) : List Wish → List Wish
+  | [] => [w]
+  | v :: rest => if (compare (arrivalKey w) (arrivalKey v)).isLE then w :: v :: rest else v :: insertWish w rest
+
+def orderWishes (sent : List Wish) : List Wish := sent.foldr insertWish []
 
 /-- Every wish that arrives before `bound`, in the queue's order: by arrival, and within one tick's by A18's. -/
 def drain (s : StateOf α) (bound : Int) : StateOf α × String :=
@@ -1239,38 +1242,55 @@ def walk (scale : Nat) : Rat → List (Nat × Rat) → Rat × Rat
     let others := walk scale (remainder - take) rest
     (take + others.1, take * price + others.2)
 
-/-- The one move by which an order fills: a live order of a slot takes from the offered lots, in order, up to its
-remainder. One fee, one change of the position, of `filled` and of the opening order, one `fill` row, and the cycle's end
-when the position is then zero. An offer to no live order, to an order of remainder zero, or to a coin the world holds
-stale, changes nothing and writes no row. -/
-def offer (s : StateOf α) (coin slot : Nat) (parts : List (Nat × Rat)) (role : Engine.Ledger.Role) :
-    StateOf α × Rows :=
+/-- What an offer takes: the live order, what of it remained, the time (the last fed event's), the units (signed) and the
+price of its one fill, and whether that fill ends the cycle. -/
+structure Taken where
+  order : Engine.Orders.Order
+  remaining : Rat
+  time : Int
+  units : Rat
+  price : Rat
+  ends : Bool
+  deriving Repr
+
+/-- The fill an offer makes, or none: a live order of a slot takes from the offered lots, in order, up to its remainder.
+An offer to no live order, to an order of remainder zero, or to a coin the world holds stale, takes nothing. -/
+def offerPlan (s : StateOf α) (coin slot : Nat) (parts : List (Nat × Rat)) : Option Taken :=
   match s.rejected, s.acct.live coin slot, s.previous with
   | none, some order, some last =>
     let remaining := s.acct.remainder order
     let rules := s.rules.getD coin default
     let taken := walk rules.szDecimals remaining parts
-    if remaining = 0 || staleNow s coin || taken.1 = 0 then (s, Rows.empty) else
+    if remaining = 0 || staleNow s coin || taken.1 = 0 then none else
     let units := match order.side with
       | .buy => taken.1
       | .sell => -taken.1
-    let price := taken.2 / taken.1
-    let time := last.time
-    let before := worldBook s time
     let position := s.acct.position coin
-    let step := stepCount s
-    let (s1, filledRow) := emit s time [Effect.fill order units price role]
-    let ends := position != 0 && position + units == 0
-    let cancels := if ends then (s1.acct.orders.filter (·.coin == coin)).map fun o => Effect.cancelled o "cycle_end"
-      else []
-    let (s2, endRows) := emit s1 time (cancels ++ if ends then [Effect.cycleEnd coin] else [])
-    let s3 := withLog s2 fun l =>
-      { l with
-        fills := l.fills ++ [⟨{ order with remainder := remaining }, before, units, time, step⟩],
-        steps := l.steps ++ [⟨before, worldBook s2 time, .fill coin units, time, if ends then [coin] else []⟩] }
-    let s4 := pushHistory s3 time
-    (s4, ⟨"", filledRow ++ endRows⟩)
-  | _, _, _ => (s, Rows.empty)
+    some ⟨order, remaining, last.time, units, taken.2 / taken.1, position != 0 && position + units == 0⟩
+  | _, _, _ => none
+
+/-- The state after an order's fill: one fee, one change of the position, of `filled` and of the opening order, one
+`fill` row, and the cycle's end when the position is then zero. -/
+def applyOffer (s : StateOf α) (coin : Nat) (p : Taken) (role : Engine.Ledger.Role) : StateOf α × Rows :=
+  let before := worldBook s p.time
+  let step := stepCount s
+  let (s1, filledRow) := emit s p.time [Effect.fill p.order p.units p.price role]
+  let cancels := if p.ends then (s1.acct.orders.filter (·.coin == coin)).map fun o => Effect.cancelled o "cycle_end"
+    else []
+  let (s2, endRows) := emit s1 p.time (cancels ++ if p.ends then [Effect.cycleEnd coin] else [])
+  let s3 := withLog s2 fun l =>
+    { l with
+      fills := l.fills ++ [⟨{ p.order with remainder := p.remaining }, before, p.units, p.time, step⟩],
+      steps := l.steps ++
+        [⟨before, worldBook s2 p.time, .fill coin p.units, p.time, if p.ends then [coin] else []⟩] }
+  (pushHistory s3 p.time, ⟨"", filledRow ++ endRows⟩)
+
+/-- The one move by which an order fills (A7, wall 1): an offer of lots at prices to a slot's live order. -/
+def offer (s : StateOf α) (coin slot : Nat) (parts : List (Nat × Rat)) (role : Engine.Ledger.Role) :
+    StateOf α × Rows :=
+  match offerPlan s coin slot parts with
+  | none => (s, Rows.empty)
+  | some p => applyOffer s coin p role
 
 inductive Move where
   | event (event : Event)
