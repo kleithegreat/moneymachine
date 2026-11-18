@@ -1319,3 +1319,12 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - edge inputs are untested;
     - `x4-hosts.sh` checks only the machine id.
   - **Next, when an account allows:** the test writer hardens test 12, the architect adds the emitter, then the advisor builds the inputs.
+- 2026-11-18 22:41 UTC (17:41 EST), advisor: **Neon's read of round 7: steps 6 and 7 have not converged** (`audit/reviews/2026-11-18-neon-round7.md`).
+  - **Agreed:** D209, the vault fill's key, and D210's safety, though its wording contradicts the handling of published verdicts.
+  - **Disputed as design:**
+    - **D205:** a month's failure changes the next month's pull; the capture is not atomic; running short of hosts becomes a lever.
+    - **D207:** a collector host's clock skew lets a pull lack a due hour.
+    - **D206:** the prefix check and the test's end sit outside the compared output.
+    - **D208:** a block-boundary cut can split two hosts' `mmrec cat`.
+  - **Sizing:** read only the channels a replay uses. Read the 17 coins from an extract made once for each closed file, by a frozen extractor inside the registered build and verified byte for byte by two hosts. Neon gives the five invariants such an extract must prove.
+  - **Next:** the architect's round 8, after TAMU's weekly reset on 2026-11-21 04:00 UTC (11-20 23:00 EST) and after study 1's first session has started.
