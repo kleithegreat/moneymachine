@@ -42,7 +42,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ### Next, in order
 
-1. **Study 2's criteria are committed** (`criteria: study 2`, `a324059`). **Kernel version 2's build** (`kernel2-build`, worktree `../mm-k2`; brief 3): steps 0 to 2 done, Lean laws proved (X2, rounding, the grid, A1, U1), layer 1 clean on all 5,806 vault fills under the venue's printed arithmetic (Fable, D96 to D101). Step 5 is on `kernel2-step5` (`../mm-k2-step5`): the engine is built and its fixtures pass on a scratch-fixed copy, but its tests and laws do not compile (Blockers), and X1, R1, S1, L1a (`Delivery.lean`), L2, L3 and N1 are unproved.
+1. **Study 2's criteria are committed** (`criteria: study 2`, `a324059`). **Kernel version 2's build** (`kernel2-build`, worktree `../mm-k2`; brief 3): steps 0 to 2 done, Lean laws proved (X2, rounding, the grid, A1, U1), layer 1 clean on all 5,806 vault fills under the venue's printed arithmetic (Fable, D96 to D101). Step 5 is on `kernel2-step5` (`../mm-k2-step5`): the engine is built, every step 5 law (X1, X4, X5, R1, S1, L1a, L2, L3, N1) is proved in Lean and `dune build @runtest` passes; open: the style gate (Blockers), the advisor's inputs below, and the review before exit.
    - **Owed by the advisor:** the trades download (certified and listed: `node_fills_by_block`, 181.5 GB, about $16.34, streamed and filtered to the 17 coins, read within $12; waits on Fable's task 0); the vault collector (fills hourly with overlap, 30-day daily re-read, funding daily, fees hourly; spec then build); the reference evaluator's streams on the C6.4 corpus under a hash. Fable's next brief answers GPT's read of layer 1 and O12.
 2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
 3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
@@ -53,7 +53,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ## Blockers
 
-**Kernel step 5** (the test writer's, 2026-11-18): `Laws.lean` builds ticks as `⟨f, g, t⟩` (7 places), which Lean refuses once `Tick` has `exactInput`; R1's `prepare` clause needs `let remainder : Rat`; S1's `| none` sits one column left of its `| some`; `fixtures/orders.lean` uses `at`, `partial`, `prefix` as names, breaks a line after a comma inside `{…}` (120, 535, 696), mixes `Nat` and `Int` (469, 492, 601 on) and splits `else require` (433). None blocks the program. Source certificates that fail, with their clauses, are in `venue/sources.toml` and `audit/decisions.md`: Kalshi, Polymarket and Polymarket US; FRED and ALFRED; IMF; and stage 8's candidates.
+**Kernel step 5** (test writer's): `kernel2/ocaml/test/x4_reference_local.ml:61` fails the `mm2-style` gate (warning 48, `J.from_string` with optional arguments eliminated), so `nix build .#checks.x86_64-linux.mm2-style` fails; a builder may not edit tests. `x4_mpfr_stubs.c` needs `gmp.h`, absent from the dev shell (present in the nix test derivation). Source certificates that fail, with their clauses, are in `venue/sources.toml` and `audit/decisions.md`: Kalshi, Polymarket and Polymarket US; FRED and ALFRED; IMF; and stage 8's candidates.
 
 ## Decisions awaiting the human's review
 
