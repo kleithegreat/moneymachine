@@ -11,12 +11,10 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli <
   - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`). `agent-series` finished C4.5 v3 (`mirror/agent/`).
   - prodesk7 builds test checks as a remote builder, inside `mmtest.slice` (`CLUSTER.md` §6).
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
-- **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` (declared units) and the builder wake-ups run only while the human is logged in. Batch Jobs: study 1's calibration (above). `/tmp` is a 7.8 GB tmpfs that killed `nix develop` shells fill: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
+- **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` (declared units) and the builder wake-ups run only while the human is logged in. Batch Jobs: study 1's calibration (above).
 - **Accounts** (the human, 2026-11-11 and 12):
   - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
-  - **Fable** runs one session at a time, on whichever account is logged in, never two at once.
   - **Argon** runs through the web UI (the human) or `agy`.
-- **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-build` (`study1-build`). Agents that edit at the same time get separate worktrees.
 
 ### Work in progress
 
@@ -39,14 +37,12 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
    - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
    - **The websocket recorder** (`recorder/RECORDER.md`): every perp on every Hyperliquid dex, crypto and builder-deployed stocks, commodities and indices. Built (`mmrec`, OCaml on Jane Street's stack), its tests written first by another session. **Running** since 2026-11-14 03:43 UTC (22:43 EST) as StatefulSet `ws` (image `5cbfbbd` since 06:12 UTC, 01:12 EST), one copy on prodesk7 (PVC `ws`, not mirrored, the human's choice): fast five-level books for all 350 perps, 20-level books for the main dex's 179, trades, asset contexts, listings. Measured 2026-11-15 03:00 UTC (22:00 EST), sizes only: about 2.0 GB a day since the fix (fast books 70%); 385 GB free fills about April to May 2027; two years are 1.5 to 1.75 TB a copy. The fix followed the 04:17 UTC (23:17 EST) crash (`audit/decisions.md`, 05:07 UTC, 00:07 EST). Known: `check` misses the 04:17 UTC (23:17 EST) crash's gaps (both runs share pre-fix files); `events` shows it.
 2. **Erasure pass** (list `audit/erasure/2026-11-12-deletion-list.md`): phases A to E and F12 are done, `ops/shards.py` included.
-   - Tests are 11 flake checks on the remote builders and `nix run .#test` (`CLUSTER.md` §6); the launcher is `nix run .#session`; the timers are `homeManagerModules.default`, imported by dotfiles.
    - Phase A: the thesis track and `ops/crossmachine.py` are gone, archived at `archive/thesis` and `archive/thesis-refreeze`.
    - **Next:** phase F's `agent-real` with study 1's criterion.
-   - **Constraint:** `flake.lock` does not move while study 1 runs on the frozen harness.
 
 ### Next, in order
 
-1. **Study 2's criteria are committed** (`criteria: study 2`, `a324059`). **Kernel version 2's build** (`kernel2-build`, worktree `../mm-k2`; brief 3): steps 0 to 2 done, Lean laws proved (X2, rounding, the grid, A1, U1), layer 1 clean on all 5,806 vault fills under the venue's printed arithmetic (Fable, D96 to D101). Step 3 building. GPT writes ◆ steps' tests and laws, Sonnet builds; local runs capped at 4 GB.
+1. **Study 2's criteria are committed** (`criteria: study 2`, `a324059`). **Kernel version 2's build** (`kernel2-build`, worktree `../mm-k2`; brief 3): steps 0 to 2 done, Lean laws proved (X2, rounding, the grid, A1, U1), layer 1 clean on all 5,806 vault fills under the venue's printed arithmetic (Fable, D96 to D101). Step 5 is on `kernel2-step5` (`../mm-k2-step5`): the engine is built and its fixtures pass on a scratch-fixed copy, but its tests and laws do not compile (Blockers), and X1, R1, S1, L1a (`Delivery.lean`), L2, L3 and N1 are unproved.
    - **Owed by the advisor:** the trades download (certified and listed: `node_fills_by_block`, 181.5 GB, about $16.34, streamed and filtered to the 17 coins, read within $12; waits on Fable's task 0); the vault collector (fills hourly with overlap, 30-day daily re-read, funding daily, fees hourly; spec then build); the reference evaluator's streams on the C6.4 corpus under a hash. Fable's next brief answers GPT's read of layer 1 and O12.
 2. **Sonnet applies `audit/program/paper-changes.md`** (the paper, `docs/findings.md`, the stale files). It is checked against the erasure list for overlaps.
 3. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. The recorders move to OCaml in a side-by-side switchover. Stage 7 stays parked; stages 8 and 9 are superseded.
@@ -57,7 +53,7 @@ Roles: Fable architects, Opus orchestrates, Sonnet builds; Argon (and GPT, when 
 
 ## Blockers
 
-None blocks the program. Source certificates that fail, with their clauses, are in `venue/sources.toml` and `audit/decisions.md`: Kalshi, Polymarket and Polymarket US; FRED and ALFRED; IMF; and stage 8's candidates.
+**Kernel step 5** (the test writer's, 2026-11-18): `Laws.lean` builds ticks as `⟨f, g, t⟩` (7 places), which Lean refuses once `Tick` has `exactInput`; R1's `prepare` clause needs `let remainder : Rat`; S1's `| none` sits one column left of its `| some`; `fixtures/orders.lean` uses `at`, `partial`, `prefix` as names, breaks a line after a comma inside `{…}` (120, 535, 696), mixes `Nat` and `Int` (469, 492, 601 on) and splits `else require` (433). None blocks the program. Source certificates that fail, with their clauses, are in `venue/sources.toml` and `audit/decisions.md`: Kalshi, Polymarket and Polymarket US; FRED and ALFRED; IMF; and stage 8's candidates.
 
 ## Decisions awaiting the human's review
 
