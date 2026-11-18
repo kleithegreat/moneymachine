@@ -242,6 +242,15 @@ A3's admission and C2 say what a market may hold. Of the encoding itself, `feed`
 
 An observation's value may be any double: one that is not finite reads as undefined (A2).
 
+### What a reader puts in a record
+
+**Pinned here** (Argon's finding 3.2, the last pass's round 7). A reader makes a record from the message a line holds, and from nothing of the line's envelope: not the time a frame or a pull was received, not the connection, not the request.
+- A quote's and a trade's `time` are the venue's stamp in the frame, and their `known` is `time + δ`.
+- A row of `fundingHistory` is the funding record of its `coin` at its `time`, naming the hour that time floors to, with its `fundingRate` as X and no oracle price (`a` = 0). Its `known` is its `time` plus the header's funding `lag`, and `premium` is read by nothing. So one row that many pulls served is one record, and the reader counts the copies (A13).
+- A listing, whose source states no time, is timed at the first copy that shows it.
+
+A reader feeds only records with `w_start ≤ time < w_end`, and counts the rest. It reads each file to the length the run's identity holds for it, whole lines only, as `mmrec cat` reads a file cut there (`recorder/RECORDER.md`).
+
 ### The order of a millisecond
 
 A3's order of events is `(time, class, coin, kind, source)`, and events equal in all five keep the order the reader fed them, which is their position in their source. `feed` rejects a record that is before its predecessor in that order.

@@ -128,7 +128,10 @@ those, per channel and hour, and parses only the `channel` and `event` fields.
     `open`, or to the end of the range (`to_ms` empty).
 
   It reads only the envelope fields `recv` and `conn`, and the frame fields `channel` and `event`.
-- **`mmrec cat <file>`** decompresses a recording to stdout. Reading prices is the caller's act, under the rule above.
+- **`mmrec cat <file> [<length>]`** decompresses a recording to stdout, or with a length its first `length` bytes as a
+  file cut there: whole lines only, with the cut reported on stderr and exit 0, since a file still being written is cut
+  wherever it is read. A judged replay reads every file so, to the length its identity holds (`KERNEL.md` A18). Reading
+  prices is the caller's act, under the rule above.
 - **Both read as a stream:** their memory does not grow with a file's size (the first `check` of an hour of fast books
   needed 3.6 GB).
 
@@ -171,7 +174,8 @@ that has not read the code. Kill tests kill the process.
    within an hour writes a new file of that hour, and the earlier file's bytes do not change.
 4. **Compression:**
    - a closed file decompresses, with the `zstd` tool, to exactly the lines written, and its checksum verifies;
-   - a file cut at any byte yields whole lines only, a prefix of those written, and reports the cut; cut where a flush
+   - a file cut at any byte yields whole lines only, a prefix of those written, and reports the cut, and `mmrec cat`
+     given that length on the whole file yields the same lines; cut where a flush
      ended, it yields exactly the lines flushed before the cut;
    - after `kill -9` during writing, every line received more than 2 s before the kill is read back.
 5. **Planning:**

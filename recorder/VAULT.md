@@ -37,9 +37,11 @@ Each run, in this order:
    A daily pull that returns more than 5,000 fills raises an `alarm` event (half the 10,000 the API retains).
 3. **Fees and orders, hourly:** one request each, stored as received.
 
-**Duplicates** are dropped by identity: a fill by `tid`, a funding row by (`coin`, `time`). A run reads only these
-identity fields and `time` of each item, to page and to deduplicate, and nothing else of any item. What a re-read adds
-(items whose identity was not stored before) is counted in its event. The set of stored identities is rebuilt from the stored files at every run; `state.json` holds only the watermark and
+**Identities.** A fill's is (`coin`, `tid`, `oid`), the key the replay of its fills holds it to (a self-trade is two
+fills of one `tid`); a funding row's is (`coin`, `time`). Nothing is dropped: every response is stored whole, and an
+item whose identity was stored before is only not counted as new. A run reads only these identity fields and `time` of
+each item, to page and to count, and nothing else of any item. What a re-read adds (items whose identity was not stored
+before) is counted in its event. The set of stored identities is rebuilt from the stored files at every run; `state.json` holds only the watermark and
 the last daily re-read. A pull event's `items` counts distinct identities.
 
 **The 30 days and the hour of overlap are choices** (brief 3; GPT's R6 on study 2's criteria): nothing says how late
@@ -81,14 +83,14 @@ the collector, its tests' output, or any integrity check.
 Offline, against a fake REST server, written by a session that does not build the collector:
 
 1. **Paging:** 4,500 fills in a range come back as pages of 2,000, 2,000 and a shorter third (502, since each page repeats the last item of the one before), each starting at the last `time`,
-   inclusive; every fill is stored once; the watermark moves to `now` only after the last page.
+   inclusive; every fill is counted once; the watermark moves to `now` only after the last page.
 2. **Overlap:** a fill dated 30 minutes before the watermark, first indexed after the last run, is stored by the next.
 3. **Late fill:** a fill first indexed 29 days after its `time` is stored by the next daily re-read, counted as new in
    its `pull` event; one indexed 31 days late is not (assumption V18).
 4. **Stuck page:** 2,001 fills at one millisecond stop the pull with `stuck`; the watermark does not move; the run
    exits 1.
-5. **Funding:** a re-read over 30 days stores each (`coin`, `time`) once, and the first daily pull starts at
-   2026-11-01; a row present in two re-reads is stored once.
+5. **Funding:** a re-read over 30 days counts each (`coin`, `time`) once, and the first daily pull starts at
+   2026-11-01; a row present in two re-reads is counted once, and both responses are stored.
 6. **Idempotence and kills:** two runs at one `now` add nothing but events; a kill (SIGKILL) at random moments during a
    run, then a run, leaves every response line whole or one truncated last line, a valid `state.json`, and no fill lost
    or duplicated by identity.
@@ -96,8 +98,42 @@ Offline, against a fake REST server, written by a session that does not build th
    watermark unmoved; a 500 or an unreadable body likewise.
 8. **Alarm:** a daily re-read of 5,001 fills raises `alarm`.
 9. **Nothing printed:** no test's output and no event holds an item's price, size, fee or rate.
+10. **Identity:** a self-trade, two fills of one `tid` and two `oid`, is two fills, each counted as new; one fill in two
+    pulls is counted once (the last pass's round 7).
 
 ## Deployment
 
 A CronJob `vault` in `moneymachine-live`, hourly at minute 7, on the recorder's image, mounting the `ws` PVC at the
 recorder's root, with `concurrencyPolicy: Forbid` (`CLUSTER.md`). It does not restart or touch the `ws` StatefulSet.
+
+## Settled funding (`mmvault funding`)
+
+What the forward run needs of the market that the recorder does not hold: each universe coin's settled hourly funding
+(brief 3's table; `audit/program/briefs/4-study-2.md`, step 7, wall 3). Same tool, storage form, pacing, retries and
+forward-window rule as above.
+
+- **Request:** `{"type": "fundingHistory", "coin", "startTime", "endTime"}`, one coin at a time. A page holds at most
+  500 rows; the next starts at the last row's `time`, inclusive. A coin's pull is complete at its first page under 500.
+- **`mmvault funding <root> --coins <file> [--from-ms MS] [--rest-url URL] [--now-ms MS]`** pulls every coin of the
+  file, in its order, from `from` to `now`. Without `--from-ms`, it is the daily pull: 30 days before the last UTC
+  midnight, the first reaching back to `2026-11-01T00:00:00Z`; production runs it once a day. The replay's timer runs
+  it with `--from-ms` at the last published horizon, and kills it at 30 minutes: a pull's timing moves the capture, so
+  the limit is fixed here. Exit 0 when every coin's pull completed, 1 otherwise.
+- **Storage:** `<root>/settled/funding/<YYYYMMDD>/<HH>.<run>.jsonl.zst`, one line a response, and
+  `<root>/settled/events/...`, as above. The `start` event holds `now`, the pull's start, which a replay's horizon is
+  capped at, and the range and coins. One `pull` event per coin holds `complete`. A pull killed before every coin's
+  `pull` event is incomplete.
+- **Identity:** (`coin`, `time`), for counting only, as above. What a replay makes of a row is `KERNEL.md` A18's
+  (what a reader puts in a record): nothing of the envelope reaches it.
+
+**Tests,** offline as above:
+1. **Paging:** 1,200 rows of one coin come back as pages of 500, 500 and 202, each starting at the last `time`,
+   inclusive, and every row is counted once.
+2. **Range:** `--from-ms` 45 days back pulls every coin from there, and the daily pull from 30 days before the last
+   midnight.
+3. **Complete:** a pull killed (SIGKILL) after some coins leaves their `pull` events, no `pull` event for the rest, and
+   every line whole or one truncated last line, and it is incomplete; a 429 five times is an `error`, exit 1.
+4. **Nothing printed:** no output and no event holds a rate.
+
+**Deployment:** a CronJob `settled` beside `vault`, daily at 00:17 UTC, mounting `ws` as `vault` does; the replay's
+timer runs the same image on the same volume.
