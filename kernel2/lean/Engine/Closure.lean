@@ -46,8 +46,10 @@ def Frontier (c : Core) : Prop :=
 
 /-- The moves that change a core, and what an invariant must show of each. -/
 structure Closed (P : Core → Prop) : Prop where
-  drain : ∀ (s : State) (b : Int), Setup s → Clocked s → WishInv s → Frontier s.core → P s.core →
-    (∀ t, s.nextTick = some t → b ≤ t) → b ≤ s.cfg.stop → P (drain s b).1.core
+  arrive : ∀ (s : State) (w : Wish) (rest : List Wish) (b : Int), Setup s →
+    WishInv ({ s with wishes := w :: rest } : State) → Frontier ({ s with wishes := w :: rest } : State).core →
+    P ({ s with wishes := w :: rest } : State).core → w.arrives < b → (∀ t, s.nextTick = some t → b ≤ t) →
+    b ≤ s.cfg.stop → P ({ (arriveWish s w).1 with wishes := rest } : State).core
   tick : ∀ (s : State) (time ms : Int), Setup s → WishInv s → Frontier s.core → P s.core →
     s.nextTick = some time → s.cfg.tickMs = some ms → time < s.cfg.stop →
     P ({ (tickAt s time).1 with nextTick := some (time + ms) } : State).core
@@ -134,11 +136,72 @@ theorem Clocked.of_cfg {s u : State} (h : Clocked s) (hc : u.cfg = s.cfg) : Cloc
   obtain ⟨ms, hms⟩ := h
   exact ⟨ms, by rw [hc]; exact hms⟩
 
+theorem pack_core {P : Core → Prop} {s u : State} (h : Pack P s) (hc : u.core = s.core) : Pack P u := by
+  obtain ⟨hS, hK, hI, hF, hP⟩ := h
+  have e1 : u.cfg = s.cfg := congrArg Core.cfg hc
+  have e2 : u.wishes = s.wishes := congrArg Core.wishes hc
+  have e3 : u.nextTick = s.nextTick := congrArg Core.nextTick hc
+  refine ⟨Setup.of_cfg hS e1, hK.of_cfg e1, ⟨?_, ?_⟩, by rw [hc]; exact hF, by rw [hc]; exact hP⟩
+  · rw [e2]; exact hI.1
+  · intro t ht w hw
+    rw [e3] at ht
+    rw [e2] at hw
+    rw [e1]
+    exact hI.2 t ht w hw
+
+theorem frontier_sublist (s u : State) (hp : u.previous = s.previous) (hn : u.nextTick = s.nextTick)
+    (hw : ∀ x ∈ u.wishes, x ∈ s.wishes) (h : Frontier s.core) : Frontier u.core := by
+  intro e he
+  have := h e (by simpa [StateOf.core, hp] using he)
+  refine ⟨fun t ht => this.1 t (by simpa [StateOf.core, hn] using ht), fun w hw' => this.2 w ?_⟩
+  exact hw w (by simpa [StateOf.core] using hw')
+
+theorem pack_arrivals_aux {P : Core → Prop} (hC : Closed P) (b : Int) (later : List Wish) :
+    ∀ (L : List Wish) (u : State), u.wishes = L ++ later → (∀ x ∈ L, x.arrives < b) → Pack P u →
+      (∀ t, u.nextTick = some t → b ≤ t) → b ≤ u.cfg.stop → Pack P ({ arrivals u L with wishes := later } : State) := by
+  intro L
+  induction L with
+  | nil =>
+    intro u hu _ h _ _
+    exact pack_core h (by simp [arrivals, StateOf.core, hu])
+  | cons w L ih =>
+    intro u hu hlt h hnext hstop
+    have hw : u.wishes = w :: (L ++ later) := by simpa using hu
+    have hcore : ({ u with wishes := w :: (L ++ later) } : State).core = u.core := by simp [StateOf.core, hw]
+    have hpk : Pack P ({ u with wishes := w :: (L ++ later) } : State) := pack_core h hcore
+    obtain ⟨hS, hK, hI, hF, hP⟩ := h
+    have hP' := hC.arrive u w (L ++ later) b hS hpk.2.2.1 hpk.2.2.2.1 hpk.2.2.2.2
+      (hlt w (List.mem_cons_self ..)) hnext hstop
+    have fr := arriveWish_frame u w
+    have hI' : WishInv ({ (arriveWish u w).1 with wishes := L ++ later } : State) := by
+      refine ⟨?_, ?_⟩
+      · have : (L ++ later).Sublist u.wishes := by rw [hw]; exact (List.sublist_cons_self w _)
+        exact hI.1.sublist this
+      · intro t ht x hx
+        have ht' : u.nextTick = some t := by rw [← fr.nextTick]; exact ht
+        have hx' : x ∈ u.wishes := by
+          rw [hw]
+          exact List.mem_cons_of_mem _ (by simpa using hx)
+        have := hI.2 t ht' x hx'
+        rw [fr.cfg]
+        exact this
+    have hF' : Frontier ({ (arriveWish u w).1 with wishes := L ++ later } : State).core := by
+      refine frontier_sublist ({ u with wishes := w :: (L ++ later) } : State) _ fr.previous fr.nextTick ?_ hpk.2.2.2.1
+      intro x hx
+      exact List.mem_cons_of_mem _ (by simpa using hx)
+    have hpk' : Pack P ({ (arriveWish u w).1 with wishes := L ++ later } : State) :=
+      ⟨Setup.of_cfg hS fr.cfg, hK.of_cfg fr.cfg, hI', hF', hP'⟩
+    have := ih _ (by simp) (fun x hx => hlt x (List.mem_cons_of_mem _ hx)) hpk'
+      (fun t ht => hnext t (by rw [← fr.nextTick]; exact ht)) (by rw [fr.cfg]; exact hstop)
+    rw [arrivals_set] at this
+    exact this
+
 theorem pack_drain {P : Core → Prop} (hC : Closed P) (s : State) (b : Int) (h : Pack P s)
     (hb : ∀ t, s.nextTick = some t → b ≤ t) (hs : b ≤ s.cfg.stop) : Pack P (drain s b).1 := by
-  obtain ⟨hS, hK, hI, hF, hP⟩ := h
-  exact ⟨Setup.of_cfg hS (drain_cfg s b), hK.of_cfg (drain_cfg s b), drain_inv s b hI, frontier_drain s b hF,
-    hC.drain s b hS hK hI hF hP hb hs⟩
+  rw [drain_form]
+  have hsplit := List.takeWhile_append_dropWhile (p := fun w : Wish => decide (w.arrives < b)) (l := s.wishes)
+  exact pack_arrivals_aux hC b _ _ s hsplit.symm
+    (fun x hx => by simpa using List.all_eq_true.1 List.all_takeWhile x hx) h hb hs
 
 theorem pack_stepTick {P : Core → Prop} (hC : Closed P) (s : State) (time ms : Int) (h : Pack P s)
     (hn : s.nextTick = some time) (ht : s.cfg.tickMs = some ms) (hstop : time < s.cfg.stop) :
@@ -243,19 +306,6 @@ theorem pack_settleR {P : Core → Prop} (hC : Closed P) (s : State) (b : Int) (
     simp only [] at hw
     rw [hws] at hw
     exact dropWhile_ge b _ hI.1 w hw
-
-theorem pack_core {P : Core → Prop} {s u : State} (h : Pack P s) (hc : u.core = s.core) : Pack P u := by
-  obtain ⟨hS, hK, hI, hF, hP⟩ := h
-  have e1 : u.cfg = s.cfg := congrArg Core.cfg hc
-  have e2 : u.wishes = s.wishes := congrArg Core.wishes hc
-  have e3 : u.nextTick = s.nextTick := congrArg Core.nextTick hc
-  refine ⟨Setup.of_cfg hS e1, hK.of_cfg e1, ⟨?_, ?_⟩, by rw [hc]; exact hF, by rw [hc]; exact hP⟩
-  · rw [e2]; exact hI.1
-  · intro t ht w hw
-    rw [e3] at ht
-    rw [e2] at hw
-    rw [e1]
-    exact hI.2 t ht w hw
 
 theorem applyPayload_previous (s : State) (e : Event) (r : Reading) : (applyPayload s e r).1.previous = s.previous := by
   cases r with

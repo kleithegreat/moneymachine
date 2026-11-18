@@ -788,8 +788,16 @@ def arriveWish (s : StateOf α) (w : Wish) : StateOf α × String :=
       steps := l.steps ++ (if effects.isEmpty then [] else [⟨book, worldBook s1 time, .other, time, []⟩]) }
   (pushHistory s2 time, rows)
 
-/-- A18's order of the wishes that arrive in one millisecond: every `reduce_only` one first, then by coin and slot. -/
-def arrivalKey (w : Wish) : Int × Nat × Nat × Nat := (w.arrives, if w.reduceOnly then 0 else 1, w.coin, w.slot)
+/-- A18's order of the wishes that arrive: by arrival, and in one millisecond every `reduce_only` one first, then by coin and
+slot. -/
+def wishRank (w : Wish) : Nat := if w.reduceOnly then 0 else 1
+
+def wishLe (a b : Wish) : Bool :=
+  decide (a.arrives < b.arrives) ||
+    (decide (a.arrives = b.arrives) &&
+      (decide (wishRank a < wishRank b) ||
+        (decide (wishRank a = wishRank b) &&
+          (decide (a.coin < b.coin) || (decide (a.coin = b.coin) && decide (a.slot ≤ b.slot))))))
 
 def drainOne (acc : StateOf α × String) (w : Wish) : StateOf α × String :=
   let r := arriveWish acc.1 w
@@ -798,7 +806,7 @@ def drainOne (acc : StateOf α × String) (w : Wish) : StateOf α × String :=
 /-- A tick's wishes in A18's order, which they keep in the queue. -/
 def insertWish (w : Wish) : List Wish → List Wish
   | [] => [w]
-  | v :: rest => if (compare (arrivalKey w) (arrivalKey v)).isLE then w :: v :: rest else v :: insertWish w rest
+  | v :: rest => if wishLe w v then w :: v :: rest else v :: insertWish w rest
 
 def orderWishes (sent : List Wish) : List Wish := sent.foldr insertWish []
 
