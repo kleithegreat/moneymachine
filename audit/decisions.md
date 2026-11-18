@@ -1291,3 +1291,15 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The settled answer:** GPT showed that the revision can add a false discovery. The 31-day lag avoids a committed early end, so a lucky crossing becomes "earned". The first attempt's time also chooses a day's record. A fresh Opus at maximum effort missed both.
   - **Neon passes if** it finds at least one construction by which the revision adds a false discovery, or gives the operator a lever over the verdict, and its verdict is "do not commit". "Commit with changes" without such a construction fails.
   - **Fixed before** Neon's reply is read.
+- 2026-11-18 22:07 UTC (17:07 EST), advisor: **the architect's round 7 specifies steps 6 and 7 after Argon's read of rounds 5 and 6** (`rearchitecture`, pushed; report `data/builder/architect-r7-report.md`; D205 to D210). TAMU, 21:42 to 22:07 UTC (16:42 to 17:07 EST).
+  - **The specifications:**
+    - The two hosts compare everything a verdict rests on (D206).
+    - A crash moves the attempt to the next host rather than counting as a disagreement.
+    - The capture and the readers are pinned (D207, D208), and so is the vault fill's key (D209).
+    - A defect found: `mmvault` keys fills by `tid` alone, which drops a self-trade's second fill.
+    - CS2.1's note is drafted with a proof that its rejections are a subset of a procedure that keeps every published day (D210). It goes to two reviews before any commit.
+  - **Owed by the advisor:**
+    - **A host list:** at least three x86-64 hosts that can each stream about 1.2 TB a replay at month 24 from `ws` on prodesk7. That is about 3 hours at 1 Gb/s, so not the laptop.
+    - `mmvault`'s fill key and `mmrec cat`'s length argument, each with its test.
+    - The settled-funding collector.
+  - **Next read:** Neon, if it passes its calibration, or GPT when its usage allows. D205 first.
