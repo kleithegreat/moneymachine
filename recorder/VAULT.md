@@ -39,7 +39,7 @@ Each run, in this order:
 
 **Duplicates** are dropped by identity: a fill by `tid`, a funding row by (`coin`, `time`). A run reads only these
 identity fields and `time` of each item, to page and to deduplicate, and nothing else of any item. What a re-read adds
-(items whose identity was not stored before) is counted in its event. The set of stored identities is rebuilt from the stored files at every run; `state.json` holds only the watermark and
+(items whose identity was not stored before) is counted in its event. The set of stored identities is rebuilt from the stored files at every run. A stored file is read up to its first unreadable point: a truncated last line or frame, as a kill leaves, is skipped silently; any other failure to decode or parse is an `error` event naming the file, and the run goes on without that file's unread identities, whose items may then be stored again (readers merge by identity). Only those failures are caught. `state.json` holds only the watermark and
 the last daily re-read. A pull event's `items` counts distinct identities.
 
 **The 30 days and the hour of overlap are choices** (brief 3; GPT's R6 on study 2's criteria): nothing says how late
@@ -96,6 +96,8 @@ Offline, against a fake REST server, written by a session that does not build th
    watermark unmoved; a 500 or an unreadable body likewise.
 8. **Alarm:** a daily re-read of 5,001 fills raises `alarm`.
 9. **Nothing printed:** no test's output and no event holds an item's price, size, fee or rate.
+10. **Corrupt stored file:** a stored fills file with a corrupt frame before its end gives one `error` event naming it, and
+   the run still pulls and stores; a kill's truncated last line gives no event.
 
 ## Deployment
 
