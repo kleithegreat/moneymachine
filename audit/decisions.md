@@ -1342,3 +1342,13 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **`exp`/`log`:** a fast version needs its own proof of agreement with X4's, so it goes to the architect as a separate question.
   - **Reversal:** none needed; nothing is built yet.
   - **Next passes, one at a time:** the recorder and `mmvault` on `main`, `rearchitecture`'s designs, then the frozen study 1 code, as notes only.
+- 2026-11-19 00:02 UTC (19:02 EST), advisor: **the efficiency audit of the recorders** (`audit/reviews/2026-11-18-neon-efficiency-recorder.md`). It found two defects in the live recorders:
+  - **`mmrec`'s listing pull has no timeout:** a stalled REST response stops discovering new and delisted perps until a restart.
+  - **`mmvault` swallows every exception:** a corrupt file reads as empty, so fills it already holds are stored again.
+
+  **Plans:**
+  - **The defects:** each starts as a failing test (a fake server that stalls; a corrupt stored file), and is fixed at its cause by a builder after the TAMU reset. Both change a live recorder, so the deployment follows `CLUSTER.md` and gets one review.
+  - **`mmvault`'s rescan of all it has stored** becomes incremental when it is next touched. It costs seconds now and grows each hour.
+  - **The layout:** Neon's recommendation, to pack each closed hour into one seekable zstd file per coin beside the live files, which stay unchanged, goes to the architect's round 8 with the replay's size.
+  - **Moving to cohttp:** rejected for now. It rewrites a working live transport to fix two defects that each have a local fix.
+  - **No separate pass on `rearchitecture`'s designs:** round 8 already takes the replay's size, so the third audit is study 1's code, as notes only.
