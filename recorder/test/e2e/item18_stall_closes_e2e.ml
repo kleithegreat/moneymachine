@@ -61,10 +61,17 @@ let () =
     let error_events () =
       List.filter (H.events ~root) ~f:(fun (_, _, event, _) -> String.equal event "error")
     in
+    let has_recording channel = not (List.is_empty (H.recordings (Filename.concat root channel))) in
     let%bind () =
-      H.wait_until ~timeout_s:30. ~what:"the first listings read and a stream on each connection" (fun () ->
-        H.check (not (exited ())) "the process exited";
-        !perp_dexs_seen >= 1 && F.streamed fake ~conn:1 > 0 && F.streamed fake ~conn:2 > 0)
+      H.wait_until
+        ~timeout_s:30.
+        ~what:"the first listings read, a stream on each connection, and their hourly files"
+        (fun () ->
+           H.check (not (exited ())) "the process exited";
+           !perp_dexs_seen >= 1
+           && F.streamed fake ~conn:1 > 0
+           && F.streamed fake ~conn:2 > 0
+           && List.for_all [ "events"; "listings"; "trades" ] ~f:has_recording)
     in
     let%bind before = settled_fds ~pid in
     H.check (!perp_dexs_seen = 1) "the baseline was read after the first stalled request; it is not a baseline";
