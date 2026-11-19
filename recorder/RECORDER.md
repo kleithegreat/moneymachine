@@ -107,6 +107,24 @@ stepping back never reopens a closed file.
     128 KiB short of a cut without saying so (2026-11-14: 3 of 40 random cuts).
 - **Files are append-only.** Nothing rewrites, renames or deletes a recording. A file is written by one run only; at
   the hour's end, or when the run stops, it is closed and never opened again.
+- **Closed-hour per-coin seekable packs (round 8, off the `ws` PVC).** The live writer above never changes. Once a raw
+  `l2Book-fast` or `trades` hour file `F = <HH>.<run>.jsonl.zst` is provably closed (its zstd stream ended cleanly, or a
+  strictly newer hour/run file exists in that channel proving `<run>` died, recorded with `raw_cut = true`) and outside
+  every unreleased protected window, the frozen `mm2 pack` tool (`audit/program/briefs/3-kernel-v2.md`, step 6) packs it
+  1-to-1 on two distinct hosts into a standard Zstd Seekable Format file `<channel>/<YYYYMMDD>/<HH>.<run>.packed.zst`
+  stored on a separate replay/pack volume (never on `prodesk7`'s `ws` PVC, leaving raw files untouched):
+  - frames `0 .. K−1`: one continuous zstd frame (level 9, checksum enabled, no per-second flushes) per distinct coin in
+    lexicographic ASCII order, lines verbatim in exact within-coin receive order (`l2Book-fast` keyed by `msg.data.coin`;
+    `trades` keyed by common `msg.data[*].coin` on non-empty single-coin arrays);
+  - frame `K` (`_other`): every line without a valid single coin (empty/mixed `trades` arrays, missing `"coin"`, or
+    malformed JSON), omitted only if 0 lines;
+  - RFC 8878 skippable frame `0x184D2A5D`: wraps one zstd frame of little-endian `uint16` per-line frame indices so
+    `mm2 unpack-verify` reconstructs `mmrec cat F L_raw` byte-for-byte (and `zstd -dc` / `mmrec cat` skip it cleanly,
+    emitting pure JSONL);
+  - RFC 8878 skippable frame `0x184D2A5F`: canonical JSON coin-index metadata pinning `(raw_comp_len, raw_comp_sha256,
+    raw_cut, raw_jsonl_len, raw_jsonl_sha256, total_lines)` and each frame's `(name, frame_idx, comp_off, comp_len,
+    raw_len, line_count, comp_sha256)`;
+  - RFC 8878 skippable frame `0x184D2A5E`: standard Zstd Seekable Format EOF seek table over frames `0..K`.
 
 ## The forward window
 
