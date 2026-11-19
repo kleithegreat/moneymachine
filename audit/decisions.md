@@ -1270,3 +1270,119 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Next:**
     - GPT updates step 5's tests with every round's list. A Sonnet builder then builds step 5, while the architect's round 7 pins steps 6 and 7.
     - The CS2.1 note waits for its two reviews.
+- 2026-11-18 21:43 UTC (16:43 EST), advisor: **kernel version 2's step 5 is built and its laws proved; the merge waits on its local tests' inputs** (`kernel2-step5` to `7308398`, pushed). The builder ran on TAMU in five sessions, cut by the account's 5-hour window.
+  - **Proved, with no `sorry` and only the three standard axioms:**
+    - X4 (`exp` and `log` by the law's formulas) and X5 (`nearestBits` is IEEE's round-to-nearest-even at every rational);
+    - L1a, over the machine with orders;
+    - L2's units, L3 and N1;
+    - X1, R1 and S1.
+  - **The flake checks** `mm2-tests`, `engine-proofs`, `engine-proofs-fixtures`, `mm2-style` and `mm2` pass.
+  - **The advisor's review:**
+    - The test files were changed only by their writer (GPT's compile fixes, `7ec08ce`) and by two mechanical fixes of the advisor's, each labelled: `Int.ofNat` at two loops, and warning 48's `fun line -> ...`.
+    - All 35 law statements are word for word as written.
+    - The builder added six witness-check lemmas and changed no statement.
+  - **Before the merge into `kernel2-build`**, the local tests `x4_local`, `x4_reference_local` and B4 run. They need the advisor's inputs:
+    - test 12's draw corpus, whose recipe disagrees with the test (to be settled by the test writer and the architect);
+    - CORE-MATH's worst-case tables, pinned in `data/x4-inputs/`;
+    - B4's new reference streams, with MPFR's `exp` and `log`.
+  - **Noted:** the builder used `pkill -f`, which killed its own shell. Future briefs repeat the rule.
+- 2026-11-18 22:00 UTC (17:00 EST), advisor: **Gemini's web UI now offers Neon in Argon's place** (the human). Before Neon's findings count (`CLAUDE.md`, Orchestration: a model new to a role is calibrated blind on a settled case), it reads a settled case.
+  - **The case:** the drafted revision to study 2's criteria (round 4's D190), with exactly GPT's materials and prompt, rebuilt from `rearchitecture` `3f911d1` as `neon-calibration.md` (sha256 `178c906f54b2ca28…`).
+  - **The settled answer:** GPT showed that the revision can add a false discovery. The 31-day lag avoids a committed early end, so a lucky crossing becomes "earned". The first attempt's time also chooses a day's record. A fresh Opus at maximum effort missed both.
+  - **Neon passes if** it finds at least one construction by which the revision adds a false discovery, or gives the operator a lever over the verdict, and its verdict is "do not commit". "Commit with changes" without such a construction fails.
+  - **Fixed before** Neon's reply is read.
+- 2026-11-18 22:07 UTC (17:07 EST), advisor: **the architect's round 7 specifies steps 6 and 7 after Argon's read of rounds 5 and 6** (`rearchitecture`, pushed; report `data/builder/architect-r7-report.md`; D205 to D210). TAMU, 21:42 to 22:07 UTC (16:42 to 17:07 EST).
+  - **The specifications:**
+    - The two hosts compare everything a verdict rests on (D206).
+    - A crash moves the attempt to the next host rather than counting as a disagreement.
+    - The capture and the readers are pinned (D207, D208), and so is the vault fill's key (D209).
+    - A defect found: `mmvault` keys fills by `tid` alone, which drops a self-trade's second fill.
+    - CS2.1's note is drafted with a proof that its rejections are a subset of a procedure that keeps every published day (D210). It goes to two reviews before any commit.
+  - **Owed by the advisor:**
+    - **A host list:** at least three x86-64 hosts that can each stream about 1.2 TB a replay at month 24 from `ws` on prodesk7. That is about 3 hours at 1 Gb/s, so not the laptop.
+    - `mmvault`'s fill key and `mmrec cat`'s length argument, each with its test.
+    - The settled-funding collector.
+  - **Next read:** Neon, if it passes its calibration, or GPT when its usage allows. D205 first.
+- 2026-11-18 22:10 UTC (17:10 EST), advisor: **Neon passes its blind calibration** (`audit/reviews/2026-11-18-neon-calibration-cs21-revision.md`). Its verdict is "do not commit".
+  - **F1:** a stopped record padded to a full judging names a no-edge strategy "earned" or "outgrew", and makes CS2.2 "held", which CS2.2 says cannot happen. This is the added false discovery, and Opus's required point.
+  - **F2:** the replay's start time chooses a day's record when a writer lags past 30 days. This is the operator's lever, and GPT's construction.
+  - **Beyond both earlier reviewers:** a live `.zst` file cut mid-frame, and the horizon past day 730.
+  - **The bar fixed beforehand is met.** Neon (`gemini-4-neon-xhigh`, through agy or the web UI) takes Argon's place as the Gemini reviewer, and `CLAUDE.md` says so.
+- 2026-11-18 22:23 UTC (17:23 EST), advisor: **Neon on test 12's inputs:** test 12 needs hardening and the recipe an update before step 5 merges (`audit/reviews/2026-11-18-neon-x4-inputs.md`).
+  - **The recipe:** keep the test's 1,000,000 draws and change the recipe. Neon gives one: `random.Random(5)`, `exp` and `log` interleaved, raw hex bits, identical to `last_pass_r3` on its first 200,000. The architect's `arithmetic.py.txt` gains an emitter.
+  - **The certification:** CORE-MATH's tables are a test corpus, not a proof that the cap is never reached. Correct rounding where defined is X4 with X5's.
+  - **The glibc list:** computed on one pinned glibc and IFUNC path.
+  - **Test 12's loopholes, for its writer:**
+    - every non-finite result collapses to "undefined";
+    - the engine links beside MPFR, unchecked;
+    - the glibc lists and the input files are barely validated;
+    - edge inputs are untested;
+    - `x4-hosts.sh` checks only the machine id.
+  - **Next, when an account allows:** the test writer hardens test 12, the architect adds the emitter, then the advisor builds the inputs.
+- 2026-11-18 22:41 UTC (17:41 EST), advisor: **Neon's read of round 7: steps 6 and 7 have not converged** (`audit/reviews/2026-11-18-neon-round7.md`).
+  - **Agreed:** D209, the vault fill's key, and D210's safety, though its wording contradicts the handling of published verdicts.
+  - **Disputed as design:**
+    - **D205:** a month's failure changes the next month's pull; the capture is not atomic; running short of hosts becomes a lever.
+    - **D207:** a collector host's clock skew lets a pull lack a due hour.
+    - **D206:** the prefix check and the test's end sit outside the compared output.
+    - **D208:** a block-boundary cut can split two hosts' `mmrec cat`.
+  - **Sizing:** read only the channels a replay uses. Read the 17 coins from an extract made once for each closed file, by a frozen extractor inside the registered build and verified byte for byte by two hosts. Neon gives the five invariants such an extract must prove.
+  - **Next:** the architect's round 8, after TAMU's weekly reset on 2026-11-21 04:00 UTC (11-20 23:00 EST) and after study 1's first session has started.
+- 2026-11-18 23:44 UTC (18:44 EST), advisor: **the efficiency audits** (the human: find code provably equivalent to something much faster or simpler, branch by branch). Neon runs one pass per area, in clean worktrees. Findings are leads, filed under `audit/reviews/`.
+  - **Kernel v2's pass** (`audit/reviews/2026-11-18-neon-efficiency-kernel2.md`): nine findings.
+    - **Confirmed against the code:**
+      - rolling windows copy the whole window every tick;
+      - one coin's mark is looked up by recomputing every coin's;
+      - pending events are inserted by a linear scan.
+    - **Overstated:** a "guaranteed" out-of-memory, though B4 replayed in full.
+  - **Accepted as a step:** after step 5 merges, the architect turns the confirmed findings into one build step, each fix landing only if:
+    - B4 stays bit-identical;
+    - the laws' statements are unchanged;
+    - the speedup is measured.
+  - **`exp`/`log`:** a fast version needs its own proof of agreement with X4's, so it goes to the architect as a separate question.
+  - **Reversal:** none needed; nothing is built yet.
+  - **Next passes, one at a time:** the recorder and `mmvault` on `main`, `rearchitecture`'s designs, then the frozen study 1 code, as notes only.
+- 2026-11-19 00:02 UTC (19:02 EST), advisor: **the efficiency audit of the recorders** (`audit/reviews/2026-11-18-neon-efficiency-recorder.md`). It found two defects in the live recorders:
+  - **`mmrec`'s listing pull has no timeout:** a stalled REST response stops discovering new and delisted perps until a restart.
+  - **`mmvault` swallows every exception:** a corrupt file reads as empty, so fills it already holds are stored again.
+
+  **Plans:**
+  - **The defects:** each starts as a failing test (a fake server that stalls; a corrupt stored file), and is fixed at its cause by a builder after the TAMU reset. Both change a live recorder, so the deployment follows `CLUSTER.md` and gets one review.
+  - **`mmvault`'s rescan of all it has stored** becomes incremental when it is next touched. It costs seconds now and grows each hour.
+  - **The layout:** Neon's recommendation, to pack each closed hour into one seekable zstd file per coin beside the live files, which stay unchanged, goes to the architect's round 8 with the replay's size.
+  - **Moving to cohttp:** rejected for now. It rewrites a working live transport to fix two defects that each have a local fix.
+  - **No separate pass on `rearchitecture`'s designs:** round 8 already takes the replay's size, so the third audit is study 1's code, as notes only.
+- 2026-11-19 00:20 UTC (19:20 EST), advisor: **the audit of study 1's frozen code** (`audit/reviews/2026-11-18-neon-efficiency-study1.md`). Nothing in it changes study 1 while it runs.
+  - **The rolling windows deviate from `DSL.md` on extreme values.** The deviation is deterministic and uses past data only, so it cannot add a false discovery. It stays frozen.
+  - **Parameter-name collisions** appear in none of the 243 recorded programs.
+  - **Kernel v2's architect gets two questions:** what a float window must equal (exact, or a stated algorithm such as Chan's), and the restriction on parameter names. These come before the efficiency step copies the running sums into a ring buffer.
+  - **The three audits are complete:** kernel v2, the recorders and study 1.
+- 2026-11-19 02:02 UTC (21:02 EST), advisor: **the recorder's defects, rounds 1 and 2** (branch `recorder-fixes`; tests and builds by Claude Sonnet through agy, under `ops/agy-write.sh`, which swaps agy's read-only reviewer profile for one build and back).
+  - **Round 1 is done:** spec lines first (492454c), three failing tests from the spec alone, then three fixes, with all 22 recorder tests passing.
+    - The listing request times out.
+    - `mmvault` catches only a decode or parse failure, as one `error` event, and a kill's truncated last line silently.
+    - `connect_tls` closes its socket on failure.
+  - **Round 2 is open:** a timed-out request also closes its connection, through one deadline in `Net`, with the callers' own wrappers deleted.
+    - Item 18 still fails: 12 descriptors against 9. The unfinished fix is saved as a patch, and resumes when agy's quota resets.
+    - Vault test 11 and its clause are removed: `mmvault` exits after a timeout, so its close could not be told from exit (the test writer's finding).
+  - **Before deploying:** Neon reviews the branch's diff. The deployment then bundles every recorder fix into one websocket restart, about a 20 s gap.
+  - **Still owed:**
+    - the recorder's formatting and lint gate;
+    - the six other catch-all handlers the builder listed, each first specified by what it may catch.
+- 2026-11-19 02:02 UTC (21:02 EST), advisor: **B4's new MPFR reference, and B4 on it, run on the three homelab nodes, unattended** (`/var/tmp/mm-b4` on each).
+  - **What runs:** `refmm` is rebuilt from the frozen source (`reference/lean` at `9425093`; `SOURCE_SHA256SUMS` sha256 `8f20ac98…`) by test 13's `x4-reference.sh` with MPFR. B4's executable is built at `kernel2-step5` `7308398`.
+  - **The split:** 14 shards, as `b4_local` partitions them. prodesk5 runs 0–3, gmktec 4–8 and prodesk7 9–13.
+  - **Why the split is safe:** `refmm` evaluates each program alone, so each node generates exactly its shards' items and then runs B4 on them against its own copy of stage 6's reference, checked against `SHA256SUMS` on arrival.
+  - **Checked before launch:**
+    - one 32-item batch: 62 of 64 raw files equal the old glibc reference, and the 2 that differ are the streams of the two items that call `exp`;
+    - one item per market end to end: B4 passes, 3 of 3 streams.
+  - **To finish:** gather the outputs, build one reference with one `SHA256SUMS`, and check each node's files byte for byte against it.
+  - **Caveat:** if hardening test 12 changes its stub, the reference's `oracle_stub_sha256` moves and this run is repeated, about an hour of node time.
+- 2026-11-19 03:17 UTC (22:17 EST), advisor: **Neon is round 8's architect** (the human: "yes have neon architect round 8 now", after saying Neon is comparable to Opus). `CLAUDE.md` now lets Neon be the architect when Claude usage is short.
+  - **The round:** `data/builder/architect-last-pass-r8.txt`.
+    - Neon answers its own round 7 disputes as the architect.
+    - It settles the replay's size: the channels a replay reads, and the 17-coin extract.
+    - It settles kernel v2's open questions: what a float window must equal, parameter names, the efficiency step's plan, a fast `exp`/`log`.
+    - It writes test 12's emitter and hardening list.
+  - **Reviewers:** Neon cannot review this round. A fresh Claude Opus session and GPT read it, once their usage allows.
+  - **Access:** agy write access to `mm-program` and `data/builder` through `ops/agy-write.sh`. It is told to read no market data from 2026-11-01 on, no holdout and no token file.

@@ -47,6 +47,7 @@ Roles: the architect designs, Opus orchestrates, Sonnet builds; GPT and Argon re
 
 1. **Kernel version 2:** step 4 merged into `kernel2-build` (`1f9632d`; B4 in full, all checks). Running: architect round 5 on TAMU (re-deriving the record rule after four rounds; Argon's and both criteria reviews), builders on Cornell (B4's speed `../mm-k2-speed`; the archive reader's catch-all `../mm-k2-archive`), then the style gates. Step 5 waits for round 5's convergence.
 2. **Study 1:** after the first session, the human sets the pace from its measured usage.
+   - **After a reboot**, restart the runner: `systemd-run --user --unit mm-study1` from `../mm-s1-arms` with `CARGO_TARGET_DIR=~/.cache/mm-study1/k`, `TMPDIR=~/.cache/mm-study1/tmp` and only `CLAUDE_CODE_OAUTH_TOKEN_TAMU` (decisions 2026-11-17), then its watcher, which stops it after one result.
 3. **The paper, free-standing and academic** (the human, 2026-11-16): deferred until the human says; written by Opus, reviewed for accuracy only.
 4. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. Stage 7 parked; stages 8 and 9 superseded.
 
