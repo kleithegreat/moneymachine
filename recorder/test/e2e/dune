@@ -17,7 +17,8 @@
   item14_connect_error_e2e
   item15_failures_e2e
   item16_stalled_listings_e2e
-  item17_tls_fd_leak_e2e)
+  item17_tls_fd_leak_e2e
+  item18_stall_closes_e2e)
  (libraries core core_unix core_unix.signal_unix async async_unix async_websocket yojson mmrec rec_support core_unix.filename_unix)
  (preprocess
   (pps ppx_jane))
