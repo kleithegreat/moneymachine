@@ -9,3 +9,5 @@ Same rules as `BUILD-BRIEF.md`: do not edit tests or the spec, no patch around a
 **Run** `nix build --no-link -L .#checks.x86_64-linux.mmrec-tests 2>&1 | tail -40`; every test must pass.
 
 **Report:** commits, the result, anything stopped with its exact obstacle.
+
+**Resuming (2026-11-19).** The first session ran out of quota with its fix uncommitted; it is saved as `BUILD-WIP-2.patch` (apply it with `git apply`). It moves the deadline into `Net.post_status` under `Monitor.protect ~finally:net.close` and deletes both callers' wrappers. The full check then passes everything except **item 18: `open file count 12 after 5 stalled listings requests failed, against 9 before the first`**, so a timed-out TLS connection is not fully closed (perhaps `close` with a read still pending on the TLS pipes). Find the cause from that failing test and fix it there. If item 18 itself is wrong, stop and say why. Vault test 11 was removed with its spec clause: `mmvault` exits after a timeout, so the close is untestable there.
