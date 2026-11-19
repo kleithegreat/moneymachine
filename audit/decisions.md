@@ -1378,3 +1378,11 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - one item per market end to end: B4 passes, 3 of 3 streams.
   - **To finish:** gather the outputs, build one reference with one `SHA256SUMS`, and check each node's files byte for byte against it.
   - **Caveat:** if hardening test 12 changes its stub, the reference's `oracle_stub_sha256` moves and this run is repeated, about an hour of node time.
+- 2026-11-19 03:17 UTC (22:17 EST), advisor: **Neon is round 8's architect** (the human: "yes have neon architect round 8 now", after saying Neon is comparable to Opus). `CLAUDE.md` now lets Neon be the architect when Claude usage is short.
+  - **The round:** `data/builder/architect-last-pass-r8.txt`.
+    - Neon answers its own round 7 disputes as the architect.
+    - It settles the replay's size: the channels a replay reads, and the 17-coin extract.
+    - It settles kernel v2's open questions: what a float window must equal, parameter names, the efficiency step's plan, a fast `exp`/`log`.
+    - It writes test 12's emitter and hardening list.
+  - **Reviewers:** Neon cannot review this round. A fresh Claude Opus session and GPT read it, once their usage allows.
+  - **Access:** agy write access to `mm-program` and `data/builder` through `ops/agy-write.sh`. It is told to read no market data from 2026-11-01 on, no holdout and no token file.
