@@ -39,7 +39,7 @@ Each run, in this order:
 
 **Duplicates** are dropped by identity: a fill by `tid`, a funding row by (`coin`, `time`). A run reads only these
 identity fields and `time` of each item, to page and to deduplicate, and nothing else of any item. What a re-read adds
-(items whose identity was not stored before) is counted in its event. The set of stored identities is rebuilt from the stored files at every run. A stored file is read up to its first unreadable point: a truncated last line or frame, as a kill leaves, is skipped silently; any other failure to decode or parse is an `error` event naming the file, and the run goes on without that file's unread identities, whose items may then be stored again (readers merge by identity). Only those failures are caught. `state.json` holds only the watermark and
+(items whose identity was not stored before) is counted in its event. The set of stored identities is rebuilt from the stored files at every run, reading only `<kind>/<YYYYMMDD>/*.jsonl.zst`. A stored file is read up to its first unreadable point: a truncated last line or frame, as a kill leaves, is skipped silently; any other failure to decode or parse is an `error` event naming the file, and the run goes on without that file's unread identities, whose items may then be stored again (readers merge by identity). Only those failures are caught. `state.json` holds only the watermark and
 the last daily re-read. A pull event's `items` counts distinct identities.
 
 **The 30 days and the hour of overlap are choices** (brief 3; GPT's R6 on study 2's criteria): nothing says how late
@@ -61,7 +61,8 @@ state.json                                 the watermark and the last daily re-r
 - **Events:** `start` (with `user`, `now`, the overlap and the 30 days), one `pull` per kind (`kind`, `from_ms`,
   `to_ms`, `pages`, `items`, `new`, `complete`), `stuck` (a page at the cap that cannot be continued), `alarm`, `error`
   (an HTTP status, a timeout, an unreadable body, with the request), `stop`.
-  A request not answered in full within 30 s is a timeout.
+  A request not answered in full within 30 s of its start (connecting, the TLS handshake and the whole response) is a
+  timeout.
 - **`state.json`** is written to a temporary file and renamed. A kill at any moment leaves either the old or the new
   state and every stored line whole, or one truncated last line that the reader reports and skips.
 
@@ -99,6 +100,9 @@ Offline, against a fake REST server, written by a session that does not build th
 9. **Nothing printed:** no test's output and no event holds an item's price, size, fee or rate.
 10. **Corrupt stored file:** a stored fills file with a corrupt frame before its end gives one `error` event naming it, and
    the run still pulls and stores; a kill's truncated last line gives no event.
+11. **Stalled handshake:** a request whose server accepts the connection and never completes the TLS handshake gives one
+   `error` with `timeout` within 35 s.
+12. **Stray entries:** a subdirectory or a file not named `*.jsonl.zst` under a stored day changes nothing.
 
 ## Deployment
 
