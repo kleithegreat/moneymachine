@@ -14,6 +14,8 @@ type config =
   ; stream_interval_ms : int
   ; tls : tls option  (** serve the websocket over TLS with this certificate *)
   ; fault : conn:int -> fault option  (** how connection [conn] misbehaves, if it does *)
+  ; rest_stall : request:string -> bool
+        (** the server accepts this REST request, starts its answer and never finishes it *)
   }
 
 (** A connection's failure: the server closes the socket on reading the upgrade request, answering nothing; closes it
@@ -32,7 +34,7 @@ and tls =
   ; key_file : string
   }
 
-(** Acks, never closes, never misbehaves, streams nothing, REST answers [{}]. *)
+(** Acks, never closes, never misbehaves, streams nothing, REST answers [{}] and never stalls. *)
 val default_config : config
 
 type t

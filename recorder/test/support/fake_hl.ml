@@ -9,6 +9,7 @@ type config =
   ; stream_interval_ms : int
   ; tls : tls option
   ; fault : conn:int -> fault option
+  ; rest_stall : request:string -> bool
   }
 
 and fault =
@@ -31,6 +32,7 @@ let default_config =
   ; stream_interval_ms = 100
   ; tls = None
   ; fault = (fun ~conn:_ -> None)
+  ; rest_stall = (fun ~request:_ -> false)
   }
 ;;
 
@@ -78,6 +80,12 @@ let serve_rest t config reader writer headers =
   let%bind _ = Reader.really_read reader buffer in
   let request = Bytes.to_string buffer in
   t.rest_requests := request :: !(t.rest_requests);
+  if config.rest_stall ~request
+  then (
+    (* The answer starts and never ends: the headers promise more body than is ever sent. *)
+    Writer.write writer "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 100000\r\n\r\n[";
+    Deferred.never ())
+  else (
   let body = config.rest ~request in
   Writer.write
     writer
@@ -85,7 +93,7 @@ let serve_rest t config reader writer headers =
        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s"
        (String.length body)
        body);
-  Writer.close writer
+  Writer.close writer)
 ;;
 
 let reset writer =
