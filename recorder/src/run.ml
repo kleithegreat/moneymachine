@@ -175,11 +175,7 @@ let rec keep_connected t conn backoff =
 
 let read_listings t =
   let ask body =
-    let%map response =
-      match%bind Clock_ns.with_timeout (Time_ns.Span.of_sec 30.) (Net.post t.config.rest_url ~body) with
-      | `Result response -> return response
-      | `Timeout -> failwith "listings request timed out"
-    in
+    let%map response = Net.post t.config.rest_url ~body in
     let recv_ms = now_ms () in
     File_writer.add t.writer Route.Listings ~recv_ms (Line.of_frame ~recv_ms ~conn:0 response);
     response

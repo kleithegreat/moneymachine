@@ -192,6 +192,8 @@ let rec read_chunks reader acc =
       read_chunks reader (Bytes.to_string chunk :: acc))
 ;;
 
+(** The status and body of a POST, [`Timeout] if not answered in full within 30 s. The connection is closed either
+    way. *)
 let post_status url ~body =
   let url = parse_url url in
   let%bind net = connect url in
@@ -216,11 +218,15 @@ let post_status url ~body =
       in
       status_code status, response
   in
-  Monitor.protect request ~finally:net.close
+  Monitor.protect
+    (fun () -> Clock_ns.with_timeout (Time_ns.Span.of_sec 30.) (request ()))
+    ~finally:net.close
 ;;
 
 let post url ~body =
-  let%map status, response = post_status url ~body in
-  if status <> 200 then failwithf "rest: HTTP status %d" status ();
-  response
+  match%map post_status url ~body with
+  | `Timeout -> failwith "rest: timed out"
+  | `Result (status, response) ->
+    if status <> 200 then failwithf "rest: HTTP status %d" status ();
+    response
 ;;

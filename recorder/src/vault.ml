@@ -21,7 +21,6 @@ let reread_days = 30
 let alarm_fills = 5000
 let pace_s = 1.
 let max_retries = 5
-let timeout_s = 30.
 let kind_name = function Fills -> "fills" | Funding -> "funding"
 let cap = function Fills -> 2000 | Funding -> 500
 
@@ -154,10 +153,7 @@ let pace t =
 let post t ~body =
   let rec attempt retries =
     let%bind () = pace t in
-    let%bind outcome =
-      try_with (fun () ->
-        Clock.with_timeout (Time_float.Span.of_sec timeout_s) (Net.post_status t.config.rest_url ~body))
-    in
+    let%bind outcome = try_with (fun () -> Net.post_status t.config.rest_url ~body) in
     match outcome with
     | Error exn -> fail t ~body (Exn.to_string exn)
     | Ok `Timeout -> fail t ~body "timeout"
