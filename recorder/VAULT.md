@@ -61,6 +61,7 @@ state.json                                 the watermark and the last daily re-r
 - **Events:** `start` (with `user`, `now`, the overlap and the 30 days), one `pull` per kind (`kind`, `from_ms`,
   `to_ms`, `pages`, `items`, `new`, `complete`), `stuck` (a page at the cap that cannot be continued), `alarm`, `error`
   (an HTTP status, a timeout, an unreadable body, with the request), `stop`.
+  A request not answered in full within 30 s is a timeout, and its connection is closed.
 - **`state.json`** is written to a temporary file and renamed. A kill at any moment leaves either the old or the new
   state and every stored line whole, or one truncated last line that the reader reports and skips.
 
@@ -98,6 +99,8 @@ Offline, against a fake REST server, written by a session that does not build th
 9. **Nothing printed:** no test's output and no event holds an item's price, size, fee or rate.
 10. **Corrupt stored file:** a stored fills file with a corrupt frame before its end gives one `error` event naming it, and
    the run still pulls and stores; a kill's truncated last line gives no event.
+11. **Stalled request:** a request the fake accepts and never finishes answering gives one `error` with `timeout` after
+   30 s, and the fake sees its connection closed.
 
 ## Deployment
 

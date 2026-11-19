@@ -17,7 +17,8 @@ Coverage is set by Hyperliquid's own listings, re-read every hour, never by a ha
 1. **Listings, hourly,** by REST (`POST https://api.hyperliquid.xyz/info`): `perpDexs`; `meta` for each dex (`"dex": ""`
    is the main dex); `spotMeta`. Each response is stored verbatim. This is also the only history of lot sizes,
    leverage and margin tiers there will ever be: `meta` serves the current state only (fact pack, open question 6).
-   A request not answered in full within 30 s is a failed one: an `error` event, then the retry any failure gets.
+   A request not answered in full within 30 s fails and its connection is closed: an `error` event, then the retry any
+   failure gets.
 2. **One `allDexsAssetCtxs` subscription:** funding, mark, oracle, open interest and impact prices for every perp on
    every dex.
 3. **For every perp that is listed and not delisted, on every dex:**
@@ -213,3 +214,5 @@ that has not read the code. Kill tests kill the process.
 16. **Stalled listings.** A fake REST server that accepts a listings request and never finishes its answer gives an
     `error` event within 35 s; the process keeps recording and retries.
 17. **No leaked sockets.** Twenty connects that fail TLS's host check leave the process's open file count where it was.
+18. **Stalled requests close.** Five stalled listings requests in a row leave the recorder's open file count where it was
+    before the first.
