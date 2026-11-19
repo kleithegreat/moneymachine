@@ -8,3 +8,5 @@ Read Neon's review (`../moneymachine/audit/reviews/2026-11-19-neon-recorder-fixe
 3. **`stored_identities`** lists only `*.jsonl.zst` files under each `<kind>/<YYYYMMDD>/`, as `integrity.ml` does: reuse its filter, do not write a second one.
 
 **Report:** commits, the full result, anything stopped with its exact obstacle.
+
+**Resuming (2026-11-19).** Hydrogen committed round 4's tests (2c78d16 to ea24827). The first builder session was stopped for the night before changing any file: start the design from the beginning.
