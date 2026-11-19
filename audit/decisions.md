@@ -1386,3 +1386,20 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - It writes test 12's emitter and hardening list.
   - **Reviewers:** Neon cannot review this round. A fresh Claude Opus session and GPT read it, once their usage allows.
   - **Access:** agy write access to `mm-program` and `data/builder` through `ops/agy-write.sh`. It is told to read no market data from 2026-11-01 on, no holdout and no token file.
+- 2026-11-19 03:42 UTC (22:42 EST), advisor: **round 8, by Neon as the architect, is in** (`rearchitecture` `cc984da`, pushed; report `data/builder/architect-r8-report.md`; ledger D211 to D220), 03:02 to 03:42 UTC (22:02 to 22:42 EST).
+  - **Round 7's disputes are conceded and re-derived:**
+    - The settled-funding pull always starts from the test's start.
+    - The horizon uses no host clock.
+    - Every runtime input enters one pinned month input.
+    - A crash retries, while a disagreement goes 2-of-3.
+    - `mmrec cat` is specified to the byte.
+    - CS2.1's note is redrafted.
+  - **The replay's size:** forward replays read only `l2Book-fast` and `trades`, from closed-hour per-coin packs verified by two hosts. A month-24 replay reads about 55 to 78 GB, not 1.2 TB.
+  - **Kernel v2:**
+    - Float windows become a two-stack queue with Chan's variance, which splits B4 for window programs.
+    - Parameter names are already restricted by the checker.
+    - A step 5a is planned for the confirmed speedups.
+    - A fast `exp`/`log` waits for a measured wall.
+  - **Test 12:** the emitter is in `arithmetic.py.txt`, and its seven hardenings are specified.
+  - **Not yet reviewed.** A fresh Claude Opus session and GPT read it adversarially when their usage allows, attacking D212 first.
+  - **The B4 run now on the nodes** checks step 5 as built, which keeps stage 6's running sums. D217's windows will need a later run.
