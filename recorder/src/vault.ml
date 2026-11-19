@@ -80,28 +80,6 @@ let list_dir path =
   | _ -> []
 ;;
 
-(** The decoded text of a recording; what precedes damage if the file is cut or garbled. *)
-let decoded path =
-  let out = Buffer.create 65536 in
-  let reading = Zstd.reader () in
-  (try Zstd.feed reading (In_channel.read_all path) ~f:(Buffer.add_string out) with
-   | _ -> ());
-  Buffer.contents out
-;;
-
-let stored_identities config kind =
-  let seen = String.Hash_set.create () in
-  let dir = Filename.concat (vault_dir config) (kind_name kind) in
-  List.iter (list_dir dir) ~f:(fun date ->
-    List.iter (list_dir (Filename.concat dir date)) ~f:(fun name ->
-      String.split_lines (decoded (String.concat ~sep:"/" [ dir; date; name ]))
-      |> List.iter ~f:(fun line ->
-        match U.to_list (U.member "msg" (Yojson.Safe.from_string line)) with
-        | items -> List.iter items ~f:(fun item -> Hash_set.add seen (identity kind item))
-        | exception _ -> ())));
-  seen
-;;
-
 type t =
   { config : config
   ; writer : File_writer.t
@@ -114,6 +92,50 @@ let record t name json = File_writer.add t.writer name ~recv_ms:t.config.now_ms 
 let event t name fields =
   let line = Event.to_line ~recv_ms:t.config.now_ms ~conn:None (Event.make name fields) in
   record t (route t.config "events") line
+;;
+
+(** The whole lines of a recording up to its first unreadable point, and why it stops there unless it is merely cut: a
+    kill truncates a stream and its last line, which is skipped silently (VAULT.md, Duplicates). *)
+let decoded_lines path =
+  let out = Buffer.create 65536 in
+  let reading = Zstd.reader () in
+  let failure =
+    match Zstd.feed reading (In_channel.read_all path) ~f:(Buffer.add_string out) with
+    | () -> None
+    | exception Failure reason -> Some reason
+  in
+  let text = Buffer.contents out in
+  let lines = String.split_lines text in
+  let whole =
+    if String.is_suffix text ~suffix:"\n" then lines else Option.value (List.drop_last lines) ~default:[]
+  in
+  whole, failure
+;;
+
+let add_identities kind seen lines =
+  List.find_map lines ~f:(fun line ->
+    match List.map (U.to_list (U.member "msg" (Yojson.Safe.from_string line))) ~f:(identity kind) with
+    | identities ->
+      List.iter identities ~f:(Hash_set.add seen);
+      None
+    | exception Yojson.Json_error _ -> Some "unparseable line"
+    | exception U.Type_error _ -> Some "unexpected shape")
+;;
+
+let stored_identities t kind =
+  let seen = String.Hash_set.create () in
+  let dir = Filename.concat (vault_dir t.config) (kind_name kind) in
+  List.iter (list_dir dir) ~f:(fun date ->
+    List.iter (list_dir (Filename.concat dir date)) ~f:(fun name ->
+      let path = String.concat ~sep:"/" [ dir; date; name ] in
+      let lines, decode_failure = decoded_lines path in
+      let failure =
+        match add_identities kind seen lines with
+        | Some _ as parse_failure -> parse_failure
+        | None -> decode_failure
+      in
+      Option.iter failure ~f:(fun reason -> event t "error" [ "file", `String path; "reason", `String reason ])));
+  seen
 ;;
 
 let fail t ~body reason =
@@ -240,8 +262,6 @@ let single t name ~type_ =
 let run config =
   let now = config.now_ms in
   let state = read_state config in
-  let fills_seen = stored_identities config Fills in
-  let funding_seen = stored_identities config Funding in
   let real_ms () = Time_ns.to_int_ns_since_epoch (Time_ns.now ()) / 1_000_000 in
   let t =
     { config
@@ -258,6 +278,8 @@ let run config =
     ; "overlap_ms", `Int overlap_ms
     ; "reread_days", `Int reread_days
     ];
+  let fills_seen = stored_identities t Fills in
+  let funding_seen = stored_identities t Funding in
   let%bind hourly =
     pull t Fills ~seen:fills_seen ~from_:(Int.max first_ms (state.watermark_ms - overlap_ms)) ~to_:now
   in
