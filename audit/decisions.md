@@ -1352,3 +1352,8 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The layout:** Neon's recommendation, to pack each closed hour into one seekable zstd file per coin beside the live files, which stay unchanged, goes to the architect's round 8 with the replay's size.
   - **Moving to cohttp:** rejected for now. It rewrites a working live transport to fix two defects that each have a local fix.
   - **No separate pass on `rearchitecture`'s designs:** round 8 already takes the replay's size, so the third audit is study 1's code, as notes only.
+- 2026-11-19 00:20 UTC (19:20 EST), advisor: **the audit of study 1's frozen code** (`audit/reviews/2026-11-18-neon-efficiency-study1.md`). Nothing in it changes study 1 while it runs.
+  - **The rolling windows deviate from `DSL.md` on extreme values.** The deviation is deterministic and uses past data only, so it cannot add a false discovery. It stays frozen.
+  - **Parameter-name collisions** appear in none of the 243 recorded programs.
+  - **Kernel v2's architect gets two questions:** what a float window must equal (exact, or a stated algorithm such as Chan's), and the restriction on parameter names. These come before the efficiency step copies the running sums into a ring buffer.
+  - **The three audits are complete:** kernel v2, the recorders and study 1.
