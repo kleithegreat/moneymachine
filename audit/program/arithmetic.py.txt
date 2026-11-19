@@ -12,9 +12,12 @@ import hashlib
 import json
 import math
 import os
+import random
 import statistics
+import struct
 import subprocess
 import sys
+from collections.abc import Iterator
 from fractions import Fraction
 from pathlib import Path
 
@@ -1797,6 +1800,58 @@ def last_pass_r2(vault_directory: Path | None) -> None:
     print("    last place, between glibc's own choice of path and its path without FMA; on a CPU without FMA both are that path")
 
 
+def _x4_draw_pairs(count: int) -> Iterator[tuple[float, float]]:
+    """Interleaved binary64 draws for exp and log from one PRNG instance (seed 5).
+
+    Preserves bit-identity with last_pass_r3 on the first 200,000 pairs: per iteration,
+    draw.uniform(-700.0, 700.0) consumes one random(), then 1.0 + draw.random() consumes
+    the next, then draw.randrange(-995, 995) consumes getrandbits(11) rejection-sampled
+    to < 1990.
+    """
+    draw = random.Random(5)
+    for _ in range(count):
+        x = draw.uniform(-700.0, 700.0)
+        y = math.ldexp(1.0 + draw.random(), draw.randrange(-995, 995))
+        yield x, y
+
+
+def emit_x4_draws(out_dir: Path, count: int = 1_000_000) -> tuple[str, str]:
+    """Emit test 12's exp-draws.txt and log-draws.txt (brief 3, step 5, test 12; round 8).
+
+    Writes count LF-terminated 16-character lowercase zero-padded big-endian IEEE binary64
+    hex words per file using _x4_draw_pairs(count), checks finiteness (and y > 0 for log),
+    and prints each file's SHA-256 alongside this script's SHA-256.
+    """
+    if count <= 0:
+        raise ValueError(f"count must be positive, got {count}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    exp_path = out_dir / "exp-draws.txt"
+    log_path = out_dir / "log-draws.txt"
+    exp_hash = hashlib.sha256()
+    log_hash = hashlib.sha256()
+    pack = struct.Struct(">d").pack
+    unpack = struct.Struct(">Q").unpack
+    with exp_path.open("wb") as exp_file, log_path.open("wb") as log_file:
+        for x, y in _x4_draw_pairs(count):
+            if not math.isfinite(x):
+                raise ValueError(f"non-finite exp draw: {x!r}")
+            if not (math.isfinite(y) and y > 0.0):
+                raise ValueError(f"invalid log draw: {y!r}")
+            exp_line = f"{unpack(pack(x))[0]:016x}\n".encode("ascii")
+            log_line = f"{unpack(pack(y))[0]:016x}\n".encode("ascii")
+            exp_file.write(exp_line)
+            log_file.write(log_line)
+            exp_hash.update(exp_line)
+            log_hash.update(log_line)
+    exp_digest = exp_hash.hexdigest()
+    log_digest = log_hash.hexdigest()
+    recipe_digest = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    print(f"recipe_sha256  {recipe_digest}  {Path(__file__).name}")
+    print(f"exp-draws.txt  {exp_digest}  ({count:,} finite binary64 hex lines)")
+    print(f"log-draws.txt  {log_digest}  ({count:,} finite positive binary64 hex lines)")
+    return exp_digest, log_digest
+
+
 def last_pass_r3() -> None:
     """The last pass's round 3 (kernel-v2.md A12, A13, X4; briefs/3-kernel-v2.md, step 5, wall 11, and step 10, test 13;
     briefs/4-study-2.md, steps 1 and 5). How often glibc's exp and log are not the nearest binary64, against Python's decimal
@@ -1804,8 +1859,6 @@ def last_pass_r3() -> None:
     rounding to binary64 is decided, which the code checks). Then the sizes exact rationals reach in held's variance, on a
     bootstrap path and on step 10's simulated null, against the growth of the test ledger's denominators over two years."""
     import decimal
-    import random
-    import struct
     import time
 
     decimal.getcontext().prec = 60
@@ -1822,13 +1875,10 @@ def last_pass_r3() -> None:
     def bits(x: float) -> int:
         return int(struct.unpack("<q", struct.pack("<d", x))[0])
 
-    draw = random.Random(5)
     count = 200_000
     wrong = [0, 0]
     widest = 0
-    for _ in range(count):
-        x = draw.uniform(-700.0, 700.0)
-        y = math.ldexp(1.0 + draw.random(), draw.randrange(-995, 995))
+    for x, y in _x4_draw_pairs(count):
         for index, (libm, correct) in enumerate(((math.exp(x), nearest(decimal.Decimal(x).exp())), (math.log(y), nearest(decimal.Decimal(y).ln())))):
             if libm != correct:
                 wrong[index] += 1
@@ -2007,6 +2057,15 @@ def last_pass_r4() -> None:
 
 
 if __name__ == "__main__":
+    if len(sys.argv) >= 3 and sys.argv[1] == "--emit-x4-draws":
+        out_dir = Path(sys.argv[2])
+        draw_count = 1_000_000
+        if len(sys.argv) == 5 and sys.argv[3] == "--count":
+            draw_count = int(sys.argv[4])
+        elif len(sys.argv) != 3:
+            raise SystemExit("usage: arithmetic.py.txt --emit-x4-draws OUT_DIR [--count N]")
+        emit_x4_draws(out_dir, count=draw_count)
+        raise SystemExit(0)
     print("The yardstick (section 2.1)")
     yardstick()
     print("What an exact test costs (section 2.2)")
