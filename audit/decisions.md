@@ -1357,3 +1357,24 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Parameter-name collisions** appear in none of the 243 recorded programs.
   - **Kernel v2's architect gets two questions:** what a float window must equal (exact, or a stated algorithm such as Chan's), and the restriction on parameter names. These come before the efficiency step copies the running sums into a ring buffer.
   - **The three audits are complete:** kernel v2, the recorders and study 1.
+- 2026-11-19 02:02 UTC (21:02 EST), advisor: **the recorder's defects, rounds 1 and 2** (branch `recorder-fixes`; tests and builds by Claude Sonnet through agy, under `ops/agy-write.sh`, which swaps agy's read-only reviewer profile for one build and back).
+  - **Round 1 is done:** spec lines first (492454c), three failing tests from the spec alone, then three fixes, with all 22 recorder tests passing.
+    - The listing request times out.
+    - `mmvault` catches only a decode or parse failure, as one `error` event, and a kill's truncated last line silently.
+    - `connect_tls` closes its socket on failure.
+  - **Round 2 is open:** a timed-out request also closes its connection, through one deadline in `Net`, with the callers' own wrappers deleted.
+    - Item 18 still fails: 12 descriptors against 9. The unfinished fix is saved as a patch, and resumes when agy's quota resets.
+    - Vault test 11 and its clause are removed: `mmvault` exits after a timeout, so its close could not be told from exit (the test writer's finding).
+  - **Before deploying:** Neon reviews the branch's diff. The deployment then bundles every recorder fix into one websocket restart, about a 20 s gap.
+  - **Still owed:**
+    - the recorder's formatting and lint gate;
+    - the six other catch-all handlers the builder listed, each first specified by what it may catch.
+- 2026-11-19 02:02 UTC (21:02 EST), advisor: **B4's new MPFR reference, and B4 on it, run on the three homelab nodes, unattended** (`/var/tmp/mm-b4` on each).
+  - **What runs:** `refmm` is rebuilt from the frozen source (`reference/lean` at `9425093`; `SOURCE_SHA256SUMS` sha256 `8f20ac98…`) by test 13's `x4-reference.sh` with MPFR. B4's executable is built at `kernel2-step5` `7308398`.
+  - **The split:** 14 shards, as `b4_local` partitions them. prodesk5 runs 0–3, gmktec 4–8 and prodesk7 9–13.
+  - **Why the split is safe:** `refmm` evaluates each program alone, so each node generates exactly its shards' items and then runs B4 on them against its own copy of stage 6's reference, checked against `SHA256SUMS` on arrival.
+  - **Checked before launch:**
+    - one 32-item batch: 62 of 64 raw files equal the old glibc reference, and the 2 that differ are the streams of the two items that call `exp`;
+    - one item per market end to end: B4 passes, 3 of 3 streams.
+  - **To finish:** gather the outputs, build one reference with one `SHA256SUMS`, and check each node's files byte for byte against it.
+  - **Caveat:** if hardening test 12 changes its stub, the reference's `oracle_stub_sha256` moves and this run is repeated, about an hour of node time.
