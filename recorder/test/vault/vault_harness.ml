@@ -69,11 +69,14 @@ type request =
 
 type t =
   { port : int
+  ; scheme : string
   ; stop_server : unit -> unit Deferred.t
   ; mutable fills : fill list
   ; mutable funding : funding_row list
   ; mutable behave : kind:string -> nth:int -> Yojson.Safe.t -> behaviour
   ; mutable log : request list
+  ; mutable accepts : int
+  ; mutable client_hellos : int
   ; on_request : request_start:int option -> kind:string -> unit
   }
 
@@ -185,10 +188,31 @@ let read_body reader =
   Bytes.to_string buffer
 ;;
 
+let drain_until_eof_or_stop ~t ~stopped reader =
+  let buf = Bytes.create 4096 in
+  let seen_first = ref false in
+  let rec loop () =
+    match%bind Reader.read reader buf with
+    | `Eof -> return ()
+    | `Ok n ->
+      if (not !seen_first) && n > 0
+      then (
+        seen_first := true;
+        if Char.equal (Bytes.get buf 0) '\x16' then t.client_hellos <- t.client_hellos + 1);
+      loop ()
+  in
+  Deferred.any [ loop (); Ivar.read stopped ]
+;;
+
 (** A fake [info] endpoint on a free local port. [on_request] runs as each request arrives, before it is answered. *)
-let start ?(on_request = fun ~request_start:_ ~kind:_ -> ()) () =
+let start ?(on_request = fun ~request_start:_ ~kind:_ -> ()) ?tls ?(stall_tls_handshake = false) () =
   let t_ref = ref None in
-  let handler reader writer =
+  let stopped = Ivar.create () in
+  let tls_config =
+    Option.map tls ~f:(fun { Rec_support.Fake_hl.crt_file; key_file } ->
+      Async_ssl.Config.Server.create ~crt_file ~key_file ~ca_file:None ~ca_path:None ())
+  in
+  let http_handler reader writer =
     let%bind body = read_body reader in
     let t = Option.value_exn !t_ref in
     let status, text = answer t body in
@@ -201,15 +225,33 @@ let start ?(on_request = fun ~request_start:_ ~kind:_ -> ()) () =
          text);
     Writer.close writer
   in
+  let handler outer_rd outer_wr =
+    let t = Option.value_exn !t_ref in
+    t.accepts <- t.accepts + 1;
+    if stall_tls_handshake
+    then drain_until_eof_or_stop ~t ~stopped outer_rd
+    else (
+      match tls_config with
+      | None -> http_handler outer_rd outer_wr
+      | Some cfg ->
+        Async_ssl.Tls.wrap_server_connection cfg outer_rd outer_wr ~f:(fun _ r w -> http_handler r w))
+  in
   let where = Tcp.Where_to_listen.bind_to Localhost On_port_chosen_by_os in
   let%map server = Tcp.Server.create ~on_handler_error:`Ignore where (fun _ r w -> handler r w) in
+  let scheme = if stall_tls_handshake || Option.is_some tls then "https" else "http" in
   let t =
     { port = Tcp.Server.listening_on server
-    ; stop_server = (fun () -> Tcp.Server.close server)
+    ; scheme
+    ; stop_server =
+        (fun () ->
+           Ivar.fill_if_empty stopped ();
+           Tcp.Server.close server)
     ; fills = []
     ; funding = []
     ; behave = (fun ~kind:_ ~nth:_ _ -> Normal)
     ; log = []
+    ; accepts = 0
+    ; client_hellos = 0
     ; on_request
     }
   in
@@ -219,7 +261,7 @@ let start ?(on_request = fun ~request_start:_ ~kind:_ -> ()) () =
 
 let stop t = t.stop_server ()
 let set_behaviour t behave = t.behave <- behave
-let rest_url t = sprintf "http://127.0.0.1:%d/info" t.port
+let rest_url t = sprintf "%s://127.0.0.1:%d/info" t.scheme t.port
 let add_fill t ~tid ~time ~visible = t.fills <- { tid; time; visible } :: t.fills
 let add_funding t ~coin ~time ~visible = t.funding <- { coin; ftime = time; fvisible = visible } :: t.funding
 
@@ -246,10 +288,15 @@ let args ~root ~fake ~now_ms =
   [ "run"; root; "--user"; user; "--rest-url"; rest_url fake; "--now-ms"; Int.to_string now_ms ]
 ;;
 
-let run ~root ~fake ~now_ms =
-  let%bind process = Process.create_exn ~prog:mmvault_exe ~args:(args ~root ~fake ~now_ms) () in
-  match%map Clock.with_timeout (Time_float.Span.of_sec 900.) (Process.collect_output_and_wait process) with
-  | `Timeout -> failwith "mmvault run did not finish in 900 s"
+let run_with ?(env = []) ?(timeout_s = 900.) ~root ~fake ~now_ms () =
+  let%bind process =
+    Process.create_exn ~prog:mmvault_exe ~args:(args ~root ~fake ~now_ms) ~env:(`Extend env) ()
+  in
+  match%bind Clock.with_timeout (Time_float.Span.of_sec timeout_s) (Process.collect_output_and_wait process) with
+  | `Timeout ->
+    Signal_unix.send_exn Signal.kill (`Pid (Process.pid process));
+    let%map _ = Process.wait process in
+    failwithf "mmvault run did not finish in %.0f s" timeout_s ()
   | `Result output ->
     let exit_code =
       match output.exit_status with
@@ -257,8 +304,10 @@ let run ~root ~fake ~now_ms =
       | Error (`Exit_non_zero n) -> n
       | Error (`Signal _) -> -1
     in
-    { exit_code; output = output.stdout ^ output.stderr }
+    return { exit_code; output = output.stdout ^ output.stderr }
 ;;
+
+let run ~root ~fake ~now_ms = run_with ~root ~fake ~now_ms ()
 
 let spawn ~root ~fake ~now_ms =
   let%map process = Process.create_exn ~prog:mmvault_exe ~args:(args ~root ~fake ~now_ms) () in
