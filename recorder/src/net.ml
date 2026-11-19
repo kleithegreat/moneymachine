@@ -46,7 +46,7 @@ let close_tcp reader writer () =
 let tls_context : (unit, Error.t) Result.t Ivar.t = Ivar.create ()
 let tls_context_probed = ref false
 
-let connect_tls ~host reader writer =
+let establish_tls ~host reader writer =
   let probing = not !tls_context_probed in
   tls_context_probed := true;
   let net_to_ssl = Reader.pipe reader in
@@ -80,7 +80,11 @@ let connect_tls ~host reader writer =
    | Error error -> Ivar.fill_if_empty tls_context (Error error)
    | Ok _ -> ());
   let session = Or_error.ok_exn session in
-  Or_error.ok_exn (Async_ssl.Ssl.Connection.check_peer_certificate_host session host);
+  (match Async_ssl.Ssl.Connection.check_peer_certificate_host session host with
+   | Ok () -> ()
+   | Error error ->
+     Async_ssl.Ssl.Connection.close session;
+     Error.raise error);
   let%bind app_reader = Reader.of_pipe (Info.of_string "tls") ssl_to_app_r in
   let%map app_writer, `Closed_and_flushed_downstream _ =
     Writer.of_pipe (Info.of_string "tls") app_to_ssl_w
@@ -92,6 +96,14 @@ let connect_tls ~host reader writer =
     close_tcp reader writer ()
   in
   { reader = app_reader; writer = app_writer; close }
+;;
+
+let connect_tls ~host reader writer =
+  match%bind try_with (fun () -> establish_tls ~host reader writer) with
+  | Ok net -> return net
+  | Error exn ->
+    let%bind () = close_tcp reader writer () in
+    raise exn
 ;;
 
 let connect url =
