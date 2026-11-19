@@ -3,6 +3,7 @@
   vault_pulls_e2e
   vault_kill_e2e
   vault_errors_e2e
+  vault_corrupt_stored_e2e
   vault_nothing_printed_e2e)
  (libraries core core_unix core_unix.signal_unix core_unix.sys_unix async async_unix yojson rec_support)
  (preprocess
