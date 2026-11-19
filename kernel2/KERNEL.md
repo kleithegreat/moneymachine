@@ -244,12 +244,13 @@ An observation's value may be any double: one that is not finite reads as undefi
 
 ### What a reader puts in a record
 
-**Pinned here** (Argon's finding 3.2, the last pass's round 7). A reader makes a record from the message a line holds, and from nothing of the line's envelope: not the time a frame or a pull was received, not the connection, not the request.
+**Pinned here** (Argon's finding 3.2, round 7; revised round 8). A reader makes a record from the message a line holds, and from nothing of the line's envelope: not the time a frame or a pull was received, not the connection, not the request.
 - A quote's and a trade's `time` are the venue's stamp in the frame, and their `known` is `time + δ`.
 - A row of `fundingHistory` is the funding record of its `coin` at its `time`, naming the hour that time floors to, with its `fundingRate` as X and no oracle price (`a` = 0). Its `known` is its `time` plus the header's funding `lag`, and `premium` is read by nothing. So one row that many pulls served is one record, and the reader counts the copies (A13).
-- A listing, whose source states no time, is timed at the first copy that shows it.
+- **Placed-decimal equality (round 8):** quotes' prices and sizes, trades' prices and sizes, and `fundingHistory` rates are compared as A18 placed decimals (trailing fractional zeros trimmed, so `"0.0001"` equals `"0.00010"` and `"5.0"` equals `"5"`). Two copies of one event that differ only in decimal trailing zeros, key order, whitespace, unread fields or their lines' envelopes are one item, counted.
+- **Listings (round 8):** a listing's source (`meta`) states no time, so each copy is timed by its line's `recv`. A forward market initializes each universe coin's header rules from the latest listings copy with `recv ≤ w_start` (omitting coins already delisted there, and refusing with `E_HEADER` if no copy `≤ w_start` exists), and emits a `listing` event at the first copy with `w_start < recv < w_end` that differs from the rules in force.
 
-A reader feeds only records with `w_start ≤ time < w_end`, and counts the rest. It reads each file to the length the run's identity holds for it, whole lines only, as `mmrec cat` reads a file cut there (`recorder/RECORDER.md`).
+A reader feeds only records with `w_start ≤ time < w_end`, and counts the rest. For recorder stream channels (`l2Book-fast`, `trades`) only, files of hours strictly before `w_start − 24 h` are not read (assuming host receive time does not lag venue time by more than 24 h); `listings`, `settled/funding`, and `mmvault` files are exempt from this hour skip. It reads each file to the length the run's identity holds for it, verifying the prefix's SHA-256 on the exact bytes read before decompressing or feeding a single event, whole lines only, as `mmrec cat` reads a file cut there (`recorder/RECORDER.md`).
 
 ### The order of a millisecond
 

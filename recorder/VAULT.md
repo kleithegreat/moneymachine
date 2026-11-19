@@ -63,8 +63,10 @@ state.json                                 the watermark and the last daily re-r
 - **Events:** `start` (with `user`, `now`, the overlap and the 30 days), one `pull` per kind (`kind`, `from_ms`,
   `to_ms`, `pages`, `items`, `new`, `complete`), `stuck` (a page at the cap that cannot be continued), `alarm`, `error`
   (an HTTP status, a timeout, an unreadable body, with the request), `stop`.
+- **Atomic pull staging (round 8):** each kind's pull writes its response lines into `<root>/vault/<user>/.tmp/<run>.<kind>.jsonl.zst`, ends the zstd stream cleanly, `fsync`s it, and atomically renames it to `<kind>/<YYYYMMDD>/<HH>.<run>.jsonl.zst` only after that kind's pull completes (and before `state.json` is updated). Events still stream live to `events/`. A kill or failure mid-pull therefore leaves zero partial multi-page files in `<kind>/` for a concurrent capture to snapshot.
 - **`state.json`** is written to a temporary file and renamed. A kill at any moment leaves either the old or the new
-  state and every stored line whole, or one truncated last line that the reader reports and skips.
+  state, every file in `<kind>/` complete and stream-ended, and every event line whole or one truncated last line that
+  the reader reports and skips.
 
 ## Limits
 
@@ -92,8 +94,8 @@ Offline, against a fake REST server, written by a session that does not build th
 5. **Funding:** a re-read over 30 days counts each (`coin`, `time`) once, and the first daily pull starts at
    2026-11-01; a row present in two re-reads is counted once, and both responses are stored.
 6. **Idempotence and kills:** two runs at one `now` add nothing but events; a kill (SIGKILL) at random moments during a
-   run, then a run, leaves every response line whole or one truncated last line, a valid `state.json`, and no fill lost
-   or duplicated by identity.
+   run, then a run, leaves zero partial files in `<kind>/`, every file in `<kind>/` complete and stream-ended, a valid
+   `state.json`, and no fill lost or duplicated by identity.
 7. **Errors:** a 429 retried then answered stores the answer once; five 429s give an `error` and exit 1 with the
    watermark unmoved; a 500 or an unreadable body likewise.
 8. **Alarm:** a daily re-read of 5,001 fills raises `alarm`.
@@ -109,31 +111,42 @@ recorder's root, with `concurrencyPolicy: Forbid` (`CLUSTER.md`). It does not re
 ## Settled funding (`mmvault funding`)
 
 What the forward run needs of the market that the recorder does not hold: each universe coin's settled hourly funding
-(brief 3's table; `audit/program/briefs/4-study-2.md`, step 7, wall 3). Same tool, storage form, pacing, retries and
-forward-window rule as above.
+(brief 3's table; `audit/program/briefs/4-study-2.md`, step 7, wall 3). Same tool, storage form, retries and
+forward-window rule as above, with weight-aware pacing and atomic pull staging (round 8).
 
-- **Request:** `{"type": "fundingHistory", "coin", "startTime", "endTime"}`, one coin at a time. A page holds at most
-  500 rows; the next starts at the last row's `time`, inclusive. A coin's pull is complete at its first page under 500.
+- **Request:** `{"type": "fundingHistory", "coin", "startTime"}` (no `endTime`: the API reads through venue `now`,
+  immune to host wall-clock skew), one coin at a time. A page holds at most 500 rows; the next starts at the last row's
+  `time`, inclusive. A coin's pull is complete at its first page under 500.
+- **Weight pacing:** by `venue/sources.toml`, `fundingHistory` costs `20 + ceil(items / 20)` weight (45 per full 500-row
+  page) under the shared 1,200 weight/min IP limit. `mmvault funding` paces requests to at most **750 weight/min**
+  (3.6 s after a 500-row page, 1.6 s after a small/empty page), leaving 450 weight/min for `mmrec` and `mmvault`.
 - **`mmvault funding <root> --coins <file> [--from-ms MS] [--rest-url URL] [--now-ms MS]`** pulls every coin of the
-  file, in its order, from `from` to `now`. Without `--from-ms`, it is the daily pull: 30 days before the last UTC
-  midnight, the first reaching back to `2026-11-01T00:00:00Z`; production runs it once a day. The replay's timer runs
-  it with `--from-ms` at the last published horizon, and kills it at 30 minutes: a pull's timing moves the capture, so
-  the limit is fixed here. Exit 0 when every coin's pull completed, 1 otherwise.
-- **Storage:** `<root>/settled/funding/<YYYYMMDD>/<HH>.<run>.jsonl.zst`, one line a response, and
-  `<root>/settled/events/...`, as above. The `start` event holds `now`, the pull's start, which a replay's horizon is
-  capped at, and the range and coins. One `pull` event per coin holds `complete`. A pull killed before every coin's
-  `pull` event is incomplete.
+  file, in its order, from `from` through venue `now`. Without `--from-ms`, it is the daily pull: 30 days before the
+  last UTC midnight, the first reaching back to `2026-11-01T00:00:00Z`; production runs it once a day. The replay's
+  timer runs it with **`--from-ms` fixed at `w_start`** (the first judged midnight, constant for the entire study so no
+  step-2 failure changes a pull range and every >30-day-late unheld row or restatement is caught), and kills it at
+  **90 minutes** (a Month-24 full pull of 17 coins × 36 pages is ~39 min at 750 weight/min): a pull's timing moves the
+  capture, so the limit is fixed here. Exit 0 when every coin's pull completed, 1 otherwise.
+- **Storage and atomic staging:** responses of one pull are written into `<root>/settled/.tmp/<run>.funding.jsonl.zst`,
+  stream-ended and `fsync`ed, and atomically renamed to `<root>/settled/funding/<YYYYMMDD>/<HH>.<run>.jsonl.zst` **only
+  when every coin's pull completed**. Events stream live to `<root>/settled/events/<YYYYMMDD>/<HH>.<run>.jsonl.zst` for
+  every attempt (completed, failed or killed) so failed pulls remain auditable. The `start` event holds `now`, the range
+  and coins; one `pull` event per coin holds `complete`; the `stop` event holds `elapsed_ms` measured by
+  `CLOCK_BOOTTIME`. A failed or killed pull leaves zero files in `<root>/settled/funding/`.
 - **Identity:** (`coin`, `time`), for counting only, as above. What a replay makes of a row is `KERNEL.md` A18's
   (what a reader puts in a record): nothing of the envelope reaches it.
 
 **Tests,** offline as above:
-1. **Paging:** 1,200 rows of one coin come back as pages of 500, 500 and 202, each starting at the last `time`,
-   inclusive, and every row is counted once.
-2. **Range:** `--from-ms` 45 days back pulls every coin from there, and the daily pull from 30 days before the last
-   midnight.
-3. **Complete:** a pull killed (SIGKILL) after some coins leaves their `pull` events, no `pull` event for the rest, and
-   every line whole or one truncated last line, and it is incomplete; a 429 five times is an `error`, exit 1.
+1. **Paging and no `endTime`:** 1,200 rows of one coin come back as pages of 500, 500 and 202, each starting at the last
+   `time`, inclusive, with no `endTime` in the request body, and every row is counted once.
+2. **Range and pacing:** `--from-ms` at `w_start` pulls every coin from `w_start`, and the daily pull from 30 days
+   before the last midnight; consecutive 500-row pages keep ≤ 750 weight/min (≥ 3.6 s spacing; testable with a fake clock
+   or recorded inter-request delays).
+3. **Complete and atomic staging:** a pull killed (SIGKILL) after some coins leaves their `pull` events in `events/` and
+   **zero files in `settled/funding/`**, and is incomplete; a 429 five times writes an `error` event, exits 1, and leaves
+   zero files in `settled/funding/`. A completed pull atomically places one stream-ended file in `settled/funding/` and
+   records `CLOCK_BOOTTIME` `elapsed_ms` in `stop`.
 4. **Nothing printed:** no output and no event holds a rate.
 
 **Deployment:** a CronJob `settled` beside `vault`, daily at 00:17 UTC, mounting `ws` as `vault` does; the replay's
-timer runs the same image on the same volume.
+timer runs the same image on the same volume with a single-instance capture lock (`Forbid`).

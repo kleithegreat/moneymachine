@@ -130,8 +130,14 @@ those, per channel and hour, and parses only the `channel` and `event` fields.
   It reads only the envelope fields `recv` and `conn`, and the frame fields `channel` and `event`.
 - **`mmrec cat <file> [<length>]`** decompresses a recording to stdout, or with a length its first `length` bytes as a
   file cut there: whole lines only, with the cut reported on stderr and exit 0, since a file still being written is cut
-  wherever it is read. A judged replay reads every file so, to the length its identity holds (`KERNEL.md` A18). Reading
-  prices is the caller's act, under the rule above.
+  wherever it is read. Passing `-` as `<file>` reads stdin, so remote hosts can stream a prefix without a local copy.
+  With `<length>`, `mmrec cat` reads strictly `length` bytes by looping over short `read()` calls (never `stat()` or
+  `lseek()`; EOF before `length` exits non-zero), drains `ZSTD_decompressStream` completely on every step (looping
+  while input remains or the output buffer filled, so output is byte-identical across local files, pipes and arbitrary
+  read chunk sizes), and treats `length = 0` and a cut inside the trailing 4-byte xxHash32 checksum (1 to 3 checksum
+  bytes after the final block) as `cut` (exit 0); a complete 4-byte checksum that fails verification exits non-zero. A
+  judged replay reads every file so, to the length its identity holds (`KERNEL.md` A18). Reading prices is the caller's
+  act, under the rule above.
 - **Both read as a stream:** their memory does not grow with a file's size (the first `check` of an hour of fast books
   needed 3.6 GB).
 
@@ -177,6 +183,13 @@ that has not read the code. Kill tests kill the process.
    - a file cut at any byte yields whole lines only, a prefix of those written, and reports the cut, and `mmrec cat`
      given that length on the whole file yields the same lines; cut where a flush
      ended, it yields exactly the lines flushed before the cut;
+   - **chunk-size invariance and edge cuts (round 8):** on a multi-block stream with two consecutive flushes whose
+     combined decompressed bytes exceed `ZSTD_DStreamOutSize()`, cut at the exact end of the second flush, `mmrec cat`
+     on the local file and `mmrec cat - <length>` fed over a pipe in 1-byte and 1 KiB reads yield byte-identical output
+     containing every line of both flushes; `length = 0` yields empty stdout, reports `cut` on stderr and exits 0;
+     cutting 1, 2 or 3 bytes into the trailing 4-byte xxHash32 checksum of a closed file emits every whole line, reports
+     `cut` and exits 0, while flipping a bit in a complete 4-byte checksum exits non-zero; EOF before `length` exits
+     non-zero;
    - after `kill -9` during writing, every line received more than 2 s before the kill is read back.
 5. **Planning:**
    - with N perps on D dexes, every non-delisted perp gets `trades` and fast `l2Book`, every main-dex perp also gets
