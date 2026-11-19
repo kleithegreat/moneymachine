@@ -23,14 +23,17 @@ type config =
 
 (** A connection's failure: the server closes the socket on reading the upgrade request, answering nothing; closes it
     after the first bytes of a [101] response; resets it (TCP RST) on reading the upgrade request; answers
-    the upgrade with this HTTP status instead of [101]; or, after the handshake and the first message received, sends
-    the start of a websocket frame and resets the connection (TCP RST) in the middle of it. *)
+    the upgrade with this HTTP status instead of [101]; after the handshake and the first message received, sends
+    the start of a websocket frame and resets the connection (TCP RST) in the middle of it; or, after the TLS and
+    websocket handshakes and initial subscribe, stops streaming and sends a TLS fatal alert record on the TCP
+    socket. *)
 and fault =
   | Close_in_handshake
   | Partial_response
   | Reset_in_handshake
   | Answer_with of int
   | Reset_mid_frame
+  | Tls_fatal_alert
 
 and rest_stall_mode =
   | Stall_tls_handshake
@@ -60,6 +63,9 @@ val received : t -> (int * int * string) list
 
 (** How many stream frames have been sent on [conn]. *)
 val streamed : t -> conn:int -> int
+
+(** Timestamp in ms when a post-handshake fault was injected on [conn], if any. *)
+val fault_at : t -> conn:int -> int option
 
 (** The REST request bodies received, in order. *)
 val rest_requests : t -> string list
