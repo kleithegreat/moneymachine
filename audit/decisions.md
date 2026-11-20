@@ -1403,3 +1403,11 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Test 12:** the emitter is in `arithmetic.py.txt`, and its seven hardenings are specified.
   - **Not yet reviewed.** A fresh Claude Opus session and GPT read it adversarially when their usage allows, attacking D212 first.
   - **The B4 run now on the nodes** checks step 5 as built, which keeps stage 6's running sums. D217's windows will need a later run.
+- 2026-11-20 04:34 UTC (23:34 EST), advisor: **B4 passes on step 5 against the new MPFR reference.** All 14 shards exit 0: **3,120 of 3,120 streams are bit-identical** to the reference, with none refused.
+  - **Where it ran:** `b4_local.exe` built at `kernel2-step5` `7308398` (sha256 `7cec4838…`), on prodesk5, gmktec and prodesk7, 2026-11-19 01:38 to 09:35 UTC (2026-11-18 20:38 to 04:35 EST).
+  - **Stage 6's glibc streams against MPFR:** 57262 stream items differ in all, reported separately as the test requires. They are the `exp`/`log` items where glibc mis-rounds.
+  - **The reference is stored once:** `data/stage6/c64-reference-mpfr/` (24 GB). Its `SHA256SUMS` (sha256 `c4810ea43b3c7196…`) covers `out/`, `manifest.json` and `raw-sha256.json`, with B4's logs and the job's scripts beside them.
+  - **Why the split run counts as one:** every node's own hash lines appear unchanged in the combined list, and the counts add up (6,249 node lines less 6 repeated market files gives 6,243). So each shard compared files byte-identical to the stored reference.
+  - **Cleaned up:** the nodes' working copies.
+  - **Still owed before step 5 merges:** test 12, hardened, and its inputs. If hardening changes the MPFR stub, `oracle_stub_sha256` moves and this run repeats.
+  - **Reversal:** delete the directory; `kit/` rebuilds it in about 8 hours on the three nodes.
