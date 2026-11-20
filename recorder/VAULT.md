@@ -154,4 +154,9 @@ forward-window rule as above, with weight-aware pacing and atomic pull staging (
 4. **Nothing printed:** no output and no event holds a rate.
 
 **Deployment:** a CronJob `settled` beside `vault`, daily at 00:17 UTC, mounting `ws` as `vault` does; the replay's
-timer runs the same image on the same volume with a single-instance capture lock (`Forbid`).
+timer runs the same image on the same volume, and both jobs share one single-instance `settled` lock (`flock` / `Forbid`)
+so an hourly retry overlapping 00:17 never double-spends the 750 weight/min budget (round 9, Opus N2.2). *(Pending human
+choice before building `mmvault funding`, `audit/program/ledger.md` round 9 / Opus F2.2: Option 2 above keeps `--from-ms = w_start`
+and exposes full history to any venue precision change; if the human chooses Option 1 [fetch-once + gap backfill], both
+daily and monthly runs query only missing contiguous hour spans `[H_a, H_b + 3,599,999]` in `[w_start, max(S_c^disk))`
+plus the open tail from `max(S_c^disk) + 1 h`, never re-querying an already-stored `(coin, hour)`.)*
