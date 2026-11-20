@@ -1459,3 +1459,9 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Not checked:** what `ws` writes after the restart. The deployer account cannot exec into pods, and the node's files are not read.
   - **Cleanup:** branch `recorder-fixes` deleted here and on GitHub, its worktree and the round 10 review's worktree removed, and the stopped test 12 run's output deleted.
   - **Reversal:** `ops/live.py apply sha256:8ec90a22… ws vault`, the previous image.
+- 2026-11-20 15:11 UTC (10:11 EST), advisor: **Round 11 (Neon as architect) answers the fresh Opus review of round 10** (`rearchitecture` `8dd30df..4bd1282`, D232 to D235; report `data/builder/architect-r11-report.md`).
+  - **Which twin (D232):** F1 and F2 conceded in full. The integer ball is deleted, replaced by X4's own series carried incrementally in exact integers. Neon's compiled Lean timings: about 2.6 ms an `exp` at |x| up to 700; 13 µs (`exp`) and 15 µs (`log`) at a 1-second trigger's scale, which beats the ball's 38 µs. Test 12 runs about 1 hour a host, and its gate is under 3 hours. B4 runs about 5 to 6 CPU-hours. O26 is narrowed to study 2's trigger, if a fitted one misses B5.
+  - **A twin that passes while wrong (D233, D234):** `@[implemented_by]`, `@[extern]` and `unsafe` fail the proof checks. The compiled code is checked for `@[csimp]` firing, for X3's twin as well as X6's. Every test comparing a function with itself is deleted; references are MPFR, `Engine.Laws` and literal constants.
+  - **Text and roles (D235):** the ball's text errors go with it. Roles come only from `CLAUDE.md`. GPT either writes step 5x's tests or reviews its build, not both.
+  - **Review:** GPT, when its usage returns. The human paused Opus subagents on this account (2026-11-20), and Neon cannot review its own round, so nothing is built until then.
+  - **Reversal:** revert `8dd30df..4bd1282`.

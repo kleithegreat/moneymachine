@@ -46,7 +46,7 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
 ### Next, in order
 
 1. **Kernel version 2:** step 5 built; B4 passes on it (3,120 of 3,120, rerun with the hardened stub); test 12's inputs are `data/x4-inputs/test12/` (root `7bab5c43…`).
-   - **Test 12 is too slow** (15 days a host, exact `exp`/`log`). Round 10 (Neon) planned step 5x, a fast twin proved equal (law X6); a fresh Opus found it sound but larger than its cause (`audit/reviews/2026-11-20-opus-round10.md`), and Neon answers in round 11. Step 5 merges after step 5x passes test 12 and B4.
+   - **Test 12 is too slow** (15 days a host, exact `exp`/`log`). Round 11 (Neon, answering Opus's review) plans step 5x: X4's series carried incrementally, proved equal (law X6), about 1 hour a host; GPT reviews it. Step 5 merges after step 5x passes test 12 and B4.
    - **Rounds 9 to 11** (Neon as architect; H16 Option 1, the human's) await GPT, the only reviewer left for them. CS2.1's note and CS2.2's revision await a fresh Claude and GPT before their commit.
    - **Recorder:** the lint gate and the six catch-alls.
 2. **Study 1:** after the first session, the human sets the pace from its measured usage.
