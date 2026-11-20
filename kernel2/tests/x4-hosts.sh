@@ -23,7 +23,20 @@ case "$exe:$inputs" in /*:/*) ;; *) echo 'absolute paths required' >&2; exit 2;;
 case "$exe$inputs" in *"'"*|*'
 '*) echo 'unsupported path character' >&2; exit 2;; esac
 engine_lib=${MM2_ENGINE_LIB:?MM2_ENGINE_LIB required}
+case "$engine_lib" in /*) ;; *) echo 'MM2_ENGINE_LIB must be an absolute path' >&2; exit 2;; esac
+case "$engine_lib" in *"'"*|*'
+'*) echo 'unsupported path character in MM2_ENGINE_LIB' >&2; exit 2;; esac
 [ -f "$engine_lib" ] || { echo "missing engine archive: $engine_lib" >&2; exit 1; }
+[ -x "$exe" ] || { echo "test executable not executable locally: $exe" >&2; exit 1; }
+[ ! -u "$exe" ] && [ ! -g "$exe" ] || { echo "AT_SECURE executable forbidden: $exe" >&2; exit 1; }
+[ ! "$engine_lib" -nt "$exe" ] || { echo "stale test executable relative to $engine_lib" >&2; exit 1; }
+lean_dir=$(cd "$(dirname "$engine_lib")/../../.." && pwd)
+for olean in "$lean_dir/.lake/build/lib/lean/Engine/Exact.olean" "$lean_dir/.lake/build/lib/lean/Engine/Laws.olean"; do
+  if [ -f "$olean" ] && [ "$olean" -nt "$engine_lib" ]; then
+    echo "stale engine archive $engine_lib relative to $olean (rebuild Engine:static)" >&2
+    exit 1
+  fi
+done
 mm2_bin=${MM2_BIN:-}
 if [ -z "$mm2_bin" ]; then
   if [ -x "$(dirname "$exe")/../bin/mm2.exe" ]; then
@@ -38,6 +51,9 @@ if [ -z "$mm2_bin" ]; then
   fi
 fi
 [ -x "$mm2_bin" ] || { echo "production mm2 not executable: $mm2_bin" >&2; exit 1; }
+case "$mm2_bin" in
+  */_build/*) [ ! "$engine_lib" -nt "$mm2_bin" ] || { echo "stale mm2 binary relative to $engine_lib" >&2; exit 1; } ;;
+esac
 
 check_engine_symbols() {
   target=$1
@@ -84,17 +100,88 @@ if [ -n "$exe_syms" ] && printf '%s\n' "$exe_syms" | grep -Eiq '(crlibm|core_mat
   exit 1
 fi
 
-mkdir -p "$out"
-run_host() {
-  ssh "$1" "set -eu; d=\$(mktemp -d); trap 'rm -f \"\$d/result\"; rmdir \"\$d\"' EXIT; env GLIBC_TUNABLES='$2' '$exe' '$inputs' '$inputs_sha' \"\$d/result\" >&2; cat \"\$d/result\""
+local_exe_sha=$(sha256sum "$exe" | cut -d ' ' -f 1)
+local_lib_sha=$(sha256sum "$engine_lib" | cut -d ' ' -f 1)
+local_sum_sha=$(sha256sum "$inputs/SHA256SUMS" | cut -d ' ' -f 1)
+[ "$local_sum_sha" = "$inputs_sha" ] || {
+  echo "local $inputs/SHA256SUMS ($local_sum_sha) != $inputs_sha" >&2; exit 1;
 }
-run_host "$h1" '' > "$out/host1.tsv"
-run_host "$h2" '' > "$out/host2.tsv"
-run_host "$h1" 'glibc.cpu.hwcaps=-FMA' > "$out/no-fma.tsv"
+
+repo_root=$(cd "$(dirname "$0")/../.." && pwd)
+if [ -f "$repo_root/audit/program/arithmetic.py.txt" ] && grep -q 'def emit_x4_draws' "$repo_root/audit/program/arithmetic.py.txt"; then
+  expected_recipe_sha=$(sha256sum "$repo_root/audit/program/arithmetic.py.txt" | cut -d ' ' -f 1)
+  grep -F "\"$expected_recipe_sha\"" "$inputs/manifest.json" >/dev/null || {
+    echo "manifest.json recipe_sha256 does not match audit/program/arithmetic.py.txt ($expected_recipe_sha)" >&2; exit 1;
+  }
+fi
+
+mkdir -p "$out"
+
+probe_host() {
+  host=$1
+  label=$2
+  info=$(ssh "$host" "set -eu
+    [ -x '$exe' ] && [ ! -u '$exe' ] && [ ! -g '$exe' ]
+    [ -f '$engine_lib' ]
+    [ -f '$inputs/SHA256SUMS' ]
+    exe_sha=\$(sha256sum '$exe' | cut -d ' ' -f 1)
+    lib_sha=\$(sha256sum '$engine_lib' | cut -d ' ' -f 1)
+    sum_sha=\$(sha256sum '$inputs/SHA256SUMS' | cut -d ' ' -f 1)
+    arch=\$(uname -m)
+    kern=\$(uname -r)
+    model=\$(grep -m1 '^model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//')
+    flags=\$(grep -m1 '^flags' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//')
+    printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \"\$exe_sha\" \"\$lib_sha\" \"\$sum_sha\" \"\$arch\" \"\$kern\" \"\$model\" \"\$flags\"
+  ")
+  h_exe=$(printf '%s\n' "$info" | sed -n '1p')
+  h_lib=$(printf '%s\n' "$info" | sed -n '2p')
+  h_sum=$(printf '%s\n' "$info" | sed -n '3p')
+  h_arch=$(printf '%s\n' "$info" | sed -n '4p')
+  h_kern=$(printf '%s\n' "$info" | sed -n '5p')
+  h_model=$(printf '%s\n' "$info" | sed -n '6p')
+  h_flags=$(printf '%s\n' "$info" | sed -n '7p')
+  [ "$h_exe" = "$local_exe_sha" ] || { echo "$label ($host) exe sha256 mismatch: $h_exe != $local_exe_sha" >&2; exit 1; }
+  [ "$h_lib" = "$local_lib_sha" ] || { echo "$label ($host) engine_lib sha256 mismatch: $h_lib != $local_lib_sha" >&2; exit 1; }
+  [ "$h_sum" = "$inputs_sha" ] || { echo "$label ($host) SHA256SUMS mismatch: $h_sum != $inputs_sha" >&2; exit 1; }
+  [ "$h_arch" = "x86_64" ] || { echo "$label ($host) uname -m must be x86_64, got $h_arch" >&2; exit 1; }
+  [ -n "$h_flags" ] || { echo "$label ($host) missing /proc/cpuinfo flags" >&2; exit 1; }
+  if [ "$label" = "host1" ]; then
+    printf '%s\n' "$h_flags" | tr ' ' '\n' | grep -qx 'fma' || {
+      echo "host1 ($host) CPU lacks fma flag; -FMA path test would be a no-op" >&2; exit 1;
+    }
+  fi
+  printf '%s\thost=%s\tuname_m=%s\tkernel=%s\texe=%s\tlib=%s\tsums=%s\tmodel=%s\tflags=%s\n' \
+    "$label" "$host" "$h_arch" "$h_kern" "$h_exe" "$h_lib" "$h_sum" "$h_model" "$h_flags" >> "$out/hosts.txt"
+}
+
+: > "$out/hosts.txt"
+probe_host "$h1" host1
+probe_host "$h2" host2
+
+run_host() {
+  host=$1 tunable=$2 errfile=$3
+  ssh "$host" "set -eu; d=\$(mktemp -d); trap 'rm -f \"\$d/result\"; rmdir \"\$d\"' EXIT; env GLIBC_TUNABLES='$tunable' '$exe' '$inputs' '$inputs_sha' \"\$d/result\" >&2; cat \"\$d/result\"" 2>"$errfile"
+  cat "$errfile" >&2
+}
+run_host "$h1" '' "$out/host1.err" > "$out/host1.tsv"
+run_host "$h2" '' "$out/host2.err" > "$out/host2.tsv"
+run_host "$h1" 'glibc.cpu.hwcaps=-FMA' "$out/no-fma.err" > "$out/no-fma.tsv"
+
+exp_fma=$(grep -m1 "^exp: this host's glibc differs from MPFR" "$out/host1.err" || true)
+exp_nofma=$(grep -m1 "^exp: this host's glibc differs from MPFR" "$out/no-fma.err" || true)
+[ -n "$exp_fma" ] && [ -n "$exp_nofma" ] || {
+  echo 'missing glibc mis-rounding probe line from host1 or no-fma' >&2; exit 1;
+}
+[ "$exp_fma" != "$exp_nofma" ] || {
+  echo "GLIBC_TUNABLES=glibc.cpu.hwcaps=-FMA had no observable effect ($exp_fma)" >&2; exit 1;
+}
+
 cmp "$out/host1.tsv" "$out/host2.tsv"
 cmp "$out/host1.tsv" "$out/no-fma.tsv"
 sha256sum "$out/host1.tsv" "$out/host2.tsv" "$out/no-fma.tsv"
 export MM2_X4_INPUTS="$inputs"
 export MM2_X4_INPUTS_SHA256="$inputs_sha"
+sh "$(dirname "$0")/../ocaml/test/scripts/orders-crossings.sh" \
+  "$(dirname "$0")/../ocaml/test/fixtures/x4-specials.lean"
 sh "$(dirname "$0")/../ocaml/test/scripts/orders-crossings.sh" \
   "$(dirname "$0")/../ocaml/test/fixtures/x4-counts.lean"

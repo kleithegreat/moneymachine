@@ -64,6 +64,8 @@ external offset_q
   = "mm2_test_mpfr_offset"
 
 external runtime_glibc_version : unit -> string = "mm2_test_glibc_version"
+external set_round_mode : int -> unit = "mm2_test_round_mode"
+external get_round_mode : unit -> int = "mm2_test_get_round"
 
 let program =
   {|{"version":2,"tick":1,"decide_every":1,"leverage":1,"sources":[{"name":"vol","unit":"1"}],"params":[],"let":[],"slots":[],"probes":[{"name":"exp","is":{"op":"exp","args":[{"input":"vol"}]}},{"name":"log","is":{"op":"log","args":[{"input":"vol"}]}}]}|}
@@ -385,6 +387,97 @@ let batches output arguments =
       else loop (x :: pending) (n + 1) xs
   in
   loop [] 0 arguments
+;;
+
+let take n xs =
+  let rec loop acc left = function
+    | [] -> List.rev acc
+    | _ when left <= 0 -> List.rev acc
+    | x :: rest -> loop (x :: acc) (left - 1) rest
+  in
+  loop [] n xs
+;;
+
+let eval_probe_bits arguments =
+  let results = ref [] in
+  let run_chunk chunk_args =
+    let count = List.length chunk_args in
+    let market = header ~last:(at ((1000 * (count - 1)) + 1)) () in
+    let state = get (M.start program market) in
+    let events =
+      List.mapi
+        (fun i b -> observation (at (1000 * i)) (Int64.float_of_bits b))
+        chunk_args
+    in
+    let state, early = M.feed state (chunk events) in
+    let last, summary = M.finish state in
+    success (json summary);
+    let ticks =
+      List.filter_map
+        (fun line ->
+           match String.split_on_char '\t' line with
+           | [ "tick"; time; "A"; _; _; _; exp; log ] ->
+             Some (Int64.of_string time, observed exp, observed log)
+           | _ -> None)
+        (lines (early.trace ^ last.trace))
+    in
+    check "rounding-mode check: one tick per argument" (List.length ticks = count);
+    List.iteri
+      (fun i (arg, (time, exp, log)) ->
+         check "rounding-mode check: scheduled tick" (time = at (1000 * i));
+         results := (arg, exp, log) :: !results)
+      (List.combine chunk_args ticks)
+  in
+  let rec loop pending n rest =
+    match rest with
+    | [] -> if pending <> [] then run_chunk (List.rev pending)
+    | x :: xs ->
+      if n = 256
+      then (
+        run_chunk (List.rev pending);
+        loop [ x ] 1 xs)
+      else loop (x :: pending) (n + 1) xs
+  in
+  loop [] 0 arguments;
+  List.rev !results
+;;
+
+let check_rounding_modes sample_args =
+  let sample_rationals =
+    [ "0", "1"
+    ; "1", "1"
+    ; "-1", "1"
+    ; O.rational 3 0 0L
+    ; O.rational 4 0 0L
+    ; O.rational 5 (-1074) 17L
+    ; O.rational 5 1000 42L
+    ]
+  in
+  check "initial IEEE rounding mode must be FE_TONEAREST" (get_round_mode () = 0);
+  let baseline_probes = eval_probe_bits sample_args in
+  let baseline_nearest = List.map Mm2_lean.Exact.nearest_bits sample_rationals in
+  Fun.protect
+    ~finally:(fun () -> set_round_mode 0)
+    (fun () ->
+       List.iter
+         (fun (mode, label) ->
+            set_round_mode mode;
+            check ("rounding mode did not apply: " ^ label) (get_round_mode () = mode);
+            let got_probes = eval_probe_bits sample_args in
+            check
+              ("Exact.exp/log probes must be bit-identical under " ^ label)
+              (got_probes = baseline_probes);
+            let got_nearest = List.map Mm2_lean.Exact.nearest_bits sample_rationals in
+            check
+              ("nearestBits must be bit-identical under " ^ label)
+              (got_nearest = baseline_nearest))
+         [ 1, "FE_UPWARD"; 2, "FE_DOWNWARD"; 3, "FE_TOWARDZERO" ]);
+  check "restored IEEE rounding mode must be FE_TONEAREST" (get_round_mode () = 0);
+  Printf.printf
+    "rounding_modes: %d arguments bit-identical across \
+     FE_TONEAREST/FE_UPWARD/FE_DOWNWARD/FE_TOWARDZERO\n\
+     %!"
+    (List.length sample_args)
 ;;
 
 let self_executable () =
@@ -736,7 +829,7 @@ let () =
         name
         actual
         glibc_sha;
-      values @ listed
+      values, listed
     in
     let exp_hardest_n = ref 0 in
     let log_hardest_n = ref 0 in
@@ -860,7 +953,27 @@ let () =
        && O.eval 1 0L = 0xFFF0000000000000L
        && O.eval 1 Int64.min_int = 0xFFF0000000000000L
        && is_nan_bits (O.eval 1 0xBFF0000000000000L));
-    let arguments = draws 0 @ draws 1 @ hardest @ boundaries @ specials in
+    let exp_draws_all, exp_glibc_all = draws 0 in
+    let log_draws_all, log_glibc_all = draws 1 in
+    let rounding_sample =
+      boundaries
+      @ specials
+      @ take 32 exp_glibc_all
+      @ take 16 log_glibc_all
+      @ take 32 exp_draws_all
+      @ take 32 log_draws_all
+      @ take 32 hardest
+    in
+    check_rounding_modes rounding_sample;
+    let arguments =
+      exp_draws_all
+      @ exp_glibc_all
+      @ log_draws_all
+      @ log_glibc_all
+      @ hardest
+      @ boundaries
+      @ specials
+    in
     let channel = open_out_bin output in
     Fun.protect
       ~finally:(fun () -> close_out channel)

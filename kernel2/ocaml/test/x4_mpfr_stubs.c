@@ -10,6 +10,7 @@
 #include <caml/fail.h>
 #include <caml/memory.h>
 #include <caml/mlvalues.h>
+#include <fenv.h>
 #include <gnu/libc-version.h>
 #endif
 #include <gmp.h>
@@ -376,5 +377,32 @@ CAMLprim value mm2_test_glibc_version(value unit)
 {
   CAMLparam1(unit);
   CAMLreturn(caml_copy_string(gnu_get_libc_version()));
+}
+
+CAMLprim value mm2_test_round_mode(value mode_v)
+{
+  CAMLparam1(mode_v);
+  int m = Int_val(mode_v);
+  int target;
+  if (m == 0) target = FE_TONEAREST;
+  else if (m == 1) target = FE_UPWARD;
+  else if (m == 2) target = FE_DOWNWARD;
+  else if (m == 3) target = FE_TOWARDZERO;
+  else caml_invalid_argument("unknown IEEE rounding mode");
+  if (fesetround(target) != 0 || fegetround() != target)
+    caml_failwith("fesetround failed");
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value mm2_test_get_round(value unit)
+{
+  CAMLparam1(unit);
+  int cur = fegetround();
+  int code = -1;
+  if (cur == FE_TONEAREST) code = 0;
+  else if (cur == FE_UPWARD) code = 1;
+  else if (cur == FE_DOWNWARD) code = 2;
+  else if (cur == FE_TOWARDZERO) code = 3;
+  CAMLreturn(Val_int(code));
 }
 #endif
