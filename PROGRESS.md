@@ -45,8 +45,8 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
 
 ### Next, in order
 
-1. **Kernel version 2:** step 5 built; B4 passed on it (3,120 of 3,120), test 12 hardened (Hydrogen) with inputs in `data/x4-inputs/test12/` (root `7bab5c43…`).
-   - **Overnight 2026-11-20:** test 12 runs here; B4 reruns on the three nodes with the hardened stub (`/var/tmp/mm-b4`, `DONE`). When both pass: `x4-hosts.sh` on two nodes, then merge step 5 into `kernel2-build`.
+1. **Kernel version 2:** step 5 built; B4 passes on it (3,120 of 3,120, rerun with the hardened stub); test 12's inputs are `data/x4-inputs/test12/` (root `7bab5c43…`).
+   - **Test 12 is too slow:** about 2.5 arguments a second, or 15 days a host (exact `exp`/`log`). Neon, as architect (round 10), decides between a twin proved equal and a sharded run; step 5 merges after its answer. The slow run continues here (`~/.cache/mm-k2-t12`).
    - **Round 9** (Neon as architect, D221 to D228; H16 Option 1, the human's) awaits GPT. CS2.1's note and CS2.2's revision await a fresh Claude and GPT before their commit.
    - **Recorder:** after the deploy, the lint gate and the six catch-alls.
 2. **Study 1:** after the first session, the human sets the pace from its measured usage.
