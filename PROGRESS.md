@@ -60,8 +60,6 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
 
 ## Blockers
 
-- **This PC's disk is under the 20% reserve** (15.8% free, 73 GB; `mm-diskguard` has alarmed since at least 2026-11-16). The large regenerable item is the Nix store (97 GB); collecting its garbage is the human's call. Recordings are never deleted.
-
 None blocks the program. Source certificates that fail, with their clauses, are in `venue/sources.toml` and `audit/decisions.md`: Kalshi, Polymarket and Polymarket US; FRED and ALFRED; IMF; and stage 8's candidates.
 
 ## Decisions awaiting the human's review
