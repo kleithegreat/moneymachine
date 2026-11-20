@@ -393,6 +393,142 @@ let self_executable () =
   else Sys.executable_name
 ;;
 
+let is_forbidden_engine_symbol sym =
+  let s = String.lowercase_ascii sym in
+  let base =
+    match String.index_opt s '@' with
+    | Some i -> String.sub s 0 i
+    | None -> s
+  in
+  contains_ci base "mpfr"
+  || contains_ci base "mm2_test_mpfr"
+  || contains_ci base "crlibm"
+  || contains_ci base "core_math"
+  || base = "cr_exp"
+  || base = "cr_log"
+  || List.mem
+       base
+       [ "exp"
+       ; "expf"
+       ; "expl"
+       ; "exp2"
+       ; "exp2f"
+       ; "exp2l"
+       ; "expm1"
+       ; "expm1f"
+       ; "expm1l"
+       ; "log"
+       ; "logf"
+       ; "logl"
+       ; "log2"
+       ; "log2f"
+       ; "log2l"
+       ; "log10"
+       ; "log10f"
+       ; "log10l"
+       ; "log1p"
+       ; "log1pf"
+       ; "log1pl"
+       ; "lean_float_exp"
+       ; "lean_float_log"
+       ; "lean_float_exp2"
+       ; "lean_float_log2"
+       ; "lean_float_log10"
+       ]
+;;
+
+let is_forbidden_mm2_symbol sym =
+  let s = String.lowercase_ascii sym in
+  contains_ci s "mpfr_"
+  || contains_ci s "mm2_test_mpfr"
+  || contains_ci s "crlibm"
+  || contains_ci s "core_math"
+;;
+
+let check_nm_undefined_engine path =
+  let status, out = command "nm" [ "-u"; path ] in
+  check ("nm -u failed on engine object " ^ path) (status = Unix.WEXITED 0);
+  List.iter
+    (fun line ->
+       let trimmed = String.trim line in
+       if String.starts_with ~prefix:"U " trimmed
+       then (
+         let sym = String.trim (String.sub trimmed 2 (String.length trimmed - 2)) in
+         if is_forbidden_engine_symbol sym
+         then failwith ("forbidden symbol reference in engine object " ^ path ^ ": " ^ sym)))
+    (String.split_on_char '\n' out)
+;;
+
+let check_mm2_binary path =
+  let ldd_status, ldd_out = command "ldd" [ path ] in
+  check ("ldd failed on production mm2 " ^ path) (ldd_status = Unix.WEXITED 0);
+  check
+    ("production mm2 must not link libmpfr: " ^ path)
+    (not (contains_ci ldd_out "libmpfr"));
+  let st_u, out_u = command "nm" [ "-u"; path ] in
+  let st_du, out_du = command "nm" [ "-D"; "-u"; path ] in
+  let st_all, out_all = command "nm" [ path ] in
+  check
+    ("unable to inspect symbols of production mm2 " ^ path)
+    (st_u = Unix.WEXITED 0 || st_du = Unix.WEXITED 0 || st_all = Unix.WEXITED 0);
+  let combined =
+    String.concat
+      "\n"
+      [ (if st_u = Unix.WEXITED 0 then out_u else "")
+      ; (if st_du = Unix.WEXITED 0 then out_du else "")
+      ; (if st_all = Unix.WEXITED 0 then out_all else "")
+      ]
+  in
+  List.iter
+    (fun line ->
+       if is_forbidden_mm2_symbol line
+       then failwith ("forbidden MPFR/CORE-MATH/CRlibm symbol in production mm2 " ^ path))
+    (String.split_on_char '\n' combined)
+;;
+
+let check_linkage_hygiene () =
+  let exe = self_executable () in
+  let exe_dir = Filename.dirname exe in
+  let engine_lib =
+    match Sys.getenv_opt "MM2_ENGINE_LIB" with
+    | Some p when p <> "" -> Some p
+    | _ ->
+      let rel =
+        Filename.concat exe_dir "../../../../lean/.lake/build/lib/libengine_Engine.a"
+      in
+      if Sys.file_exists rel then Some (Unix.realpath rel) else None
+  in
+  let mm2_bin =
+    match Sys.getenv_opt "MM2_BIN" with
+    | Some p when p <> "" -> Some p
+    | _ ->
+      let beside_exe = Filename.concat exe_dir "../bin/mm2.exe" in
+      if Sys.file_exists beside_exe
+      then Some (Unix.realpath beside_exe)
+      else (
+        match engine_lib with
+        | Some lib ->
+          let rel =
+            Filename.concat
+              (Filename.dirname lib)
+              "../../../../ocaml/_build/default/bin/mm2.exe"
+          in
+          if Sys.file_exists rel then Some (Unix.realpath rel) else None
+        | None -> None)
+  in
+  let require_hygiene = Sys.getenv_opt "MM2_REQUIRE_HYGIENE" = Some "1" in
+  (match engine_lib with
+   | Some lib -> check_nm_undefined_engine lib
+   | None ->
+     if require_hygiene
+     then failwith "MM2_ENGINE_LIB required for linkage/symbol hygiene check");
+  match mm2_bin with
+  | Some bin -> check_mm2_binary bin
+  | None ->
+    if require_hygiene
+    then failwith "production mm2 binary required for linkage/symbol hygiene check"
+;;
+
 let parse_pinned_tunables manifest =
   let list =
     match field "glibc_tunables" manifest with
@@ -490,6 +626,7 @@ let () =
       | _ -> failwith "usage: x4_local.exe INPUT_DIR INPUTS_SHA256 OUTPUT"
     in
     verify_checksums dir inputs_sha;
+    check_linkage_hygiene ();
     let manifest = json (read (Filename.concat dir "manifest.json")) in
     check
       "the prescribed draw recipe"
