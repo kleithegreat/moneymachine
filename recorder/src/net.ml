@@ -46,9 +46,21 @@ let close_tcp reader writer () =
 let tls_context : (unit, Error.t) Result.t Ivar.t = Ivar.create ()
 let tls_context_probed = ref false
 
-let establish_tls ~host reader writer =
+let connect_tls ~host reader writer =
+  let close_and_raise error =
+    let%bind () = close_tcp reader writer () in
+    Error.raise error
+  in
   let probing = not !tls_context_probed in
   tls_context_probed := true;
+  let%bind () =
+    if probing
+    then return ()
+    else (
+      match%bind Ivar.read tls_context with
+      | Ok () -> return ()
+      | Error error -> close_and_raise error)
+  in
   let net_to_ssl = Reader.pipe reader in
   let ssl_to_net_r, ssl_to_net = Pipe.create () in
   let app_to_ssl_r, app_to_ssl_w = Pipe.create () in
@@ -58,15 +70,7 @@ let establish_tls ~host reader writer =
     Writer.write writer data
   in
   don't_wait_for (Writer.transfer writer ssl_to_net_r to_net);
-  let%bind () =
-    if probing
-    then return ()
-    else (
-      match%map Ivar.read tls_context with
-      | Ok () -> ()
-      | Error error -> Error.raise error)
-  in
-  let%bind session =
+  match%bind
     Async_ssl.Ssl.client
       ~hostname:host
       ~ca_file
@@ -75,35 +79,42 @@ let establish_tls ~host reader writer =
       ~net_to_ssl
       ~ssl_to_net
       ()
-  in
-  (match session with
-   | Error error -> Ivar.fill_if_empty tls_context (Error error)
-   | Ok _ -> ());
-  let session = Or_error.ok_exn session in
-  (match Async_ssl.Ssl.Connection.check_peer_certificate_host session host with
-   | Ok () -> ()
-   | Error error ->
-     Async_ssl.Ssl.Connection.close session;
-     Error.raise error);
-  let%bind app_reader = Reader.of_pipe (Info.of_string "tls") ssl_to_app_r in
-  let%map app_writer, `Closed_and_flushed_downstream _ =
-    Writer.of_pipe (Info.of_string "tls") app_to_ssl_w
-  in
-  let close () =
-    Async_ssl.Ssl.Connection.close session;
-    let%bind () = Writer.close app_writer ~force_close:(Clock_ns.after (Time_ns.Span.of_sec 2.)) in
-    let%bind () = Reader.close app_reader in
-    close_tcp reader writer ()
-  in
-  { reader = app_reader; writer = app_writer; close }
-;;
-
-let connect_tls ~host reader writer =
-  match%bind try_with (fun () -> establish_tls ~host reader writer) with
-  | Ok net -> return net
-  | Error exn ->
-    let%bind () = close_tcp reader writer () in
-    raise exn
+  with
+  | Error error ->
+    Ivar.fill_if_empty tls_context (Error error);
+    close_and_raise error
+  | Ok session ->
+    (match Async_ssl.Ssl.Connection.check_peer_certificate_host session host with
+     | Error error ->
+       Async_ssl.Ssl.Connection.close session;
+       close_and_raise error
+     | Ok () ->
+       let opened = ref false in
+       let app_reader_ref = ref None in
+       upon (Monitor.get_next_error (Monitor.current ())) (fun _ ->
+         if not !opened
+         then (
+           Async_ssl.Ssl.Connection.close session;
+           don't_wait_for
+             (let%bind () =
+                Option.value_map !app_reader_ref ~default:(return ()) ~f:Reader.close
+              in
+              close_tcp reader writer ())));
+       let%bind app_reader = Reader.of_pipe (Info.of_string "tls") ssl_to_app_r in
+       app_reader_ref := Some app_reader;
+       let%map app_writer, `Closed_and_flushed_downstream _ =
+         Writer.of_pipe (Info.of_string "tls") app_to_ssl_w
+       in
+       opened := true;
+       let close () =
+         Async_ssl.Ssl.Connection.close session;
+         let%bind () =
+           Writer.close app_writer ~force_close:(Clock_ns.after (Time_ns.Span.of_sec 2.))
+         in
+         let%bind () = Reader.close app_reader in
+         close_tcp reader writer ()
+       in
+       { reader = app_reader; writer = app_writer; close })
 ;;
 
 let connect url =
