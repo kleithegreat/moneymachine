@@ -15,8 +15,8 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli -
 - **Accounts** (the human, 2026-11-11 and 12):
   - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
   - **The architect** is a fresh Opus 5.5 session at maximum reasoning after Fable's last session, 2026-11-16 (`CLAUDE.md`).
-  - **Neon** (`gemini-4-neon-xhigh`, `agy`) is the Gemini reviewer, and may architect when Claude is short (round 8). agy builds go through `ops/agy-write.sh on DIR | off`; no review runs while it is on.
-- **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-arms` (study 1's arms, at the manifest's commit); `../mm-k2` (`kernel2-build`); `../mm-k2-step5` (`kernel2-step5`); `../mm-recorder-fixes`; a builder's own while it runs. Agents that edit at the same time get separate worktrees.
+  - **Neon** (`gemini-4-neon-xhigh`, `agy`) is the Gemini reviewer, and architected rounds 8 to 11 while Claude was short. **No Opus subagents on this account for now** (the human, 2026-11-20). agy builds go through `ops/agy-write.sh on DIR | off`; no review runs while it is on.
+- **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-arms` (study 1's arms, at the manifest's commit); `../mm-k2` (`kernel2-build`); `../mm-k2-step5` (`kernel2-step5`); a builder's own while it runs. Agents that edit at the same time get separate worktrees.
 
 ### Work in progress
 
@@ -33,10 +33,10 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
      - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years). Criteria committed (`criteria: study 2`, `a324059`; CS2.1 revised `a903317`).
      - **Kernel version 2** (`audit/program/kernel-v2.md`, brief 3; branch `kernel2-build`, worktree `../mm-k2`): steps 0 to 3 built and proved (Lean laws with only the three standard axioms); layer 1 clean on all 5,806 vault fills under the venue's printed arithmetic. Step 4: below.
-     - **Data:** the archive for its 17 coins, 2026-04-03 to 10-31 (26 GB, `ingest/archive.py`); funding history (`data/study2/funding-history/`); the vault's own fills and funding before 11-01 (`data/study2/vault/`); the trade prints (`node_fills_by_block`, V22; `data/hl-archive/fills_by_block/`), complete with a continuous block stream (decisions 2026-11-16 20:27 UTC, 15:27 EST). The C6.4 reference streams are stored under a hash (`data/stage6/c64-reference/`, decisions 2026-11-16).
+     - **Data:** the archive for its 17 coins, 2026-04-03 to 10-31 (26 GB, `ingest/archive.py`); funding history (`data/study2/funding-history/`); the vault's own fills and funding before 11-01 (`data/study2/vault/`); the trade prints (`node_fills_by_block`, V22; `data/hl-archive/fills_by_block/`), with a continuous block stream. The C6.4 reference streams are stored under a hash (`data/stage6/c64-reference/`, decisions 2026-11-16).
      - **The vault collector** (`recorder/VAULT.md`, `mmvault`) runs hourly as CronJob `vault` (`CLUSTER.md`).
    - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
-   - **The websocket recorder** (`recorder/RECORDER.md`): every perp on every Hyperliquid dex, crypto and builder-deployed stocks, commodities and indices. Built (`mmrec`, OCaml on Jane Street's stack), its tests written first by another session. **Running** since 2026-11-14 03:43 UTC (22:43 EST) as StatefulSet `ws` (image `5cbfbbd` since 06:12 UTC, 01:12 EST), one copy on prodesk7 (PVC `ws`, not mirrored, the human's choice): fast five-level books for all 350 perps, 20-level books for the main dex's 179, trades, asset contexts, listings. About 2.0 GB a day (sizes only, 2026-11-15); its volume fills about April to May 2027.
+   - **The websocket recorder** (`recorder/RECORDER.md`): every perp on every Hyperliquid dex, crypto and builder-deployed stocks, commodities and indices. **Running** since 2026-11-14 03:43 UTC (22:43 EST) as StatefulSet `ws` (image `851fc77`, `sha256:9a6e0b2a…` since 2026-11-20 14:57 UTC, 09:57 EST; `vault` likewise), one copy on prodesk7 (PVC `ws`, not mirrored, the human's choice): fast five-level books for all 350 perps, 20-level books for the main dex's 179, trades, asset contexts, listings. About 2.0 GB a day (sizes only); its volume fills about April to May 2027.
 2. **Erasure pass** (list `audit/erasure/2026-11-12-deletion-list.md`): phases A to E and F12 are done, `ops/shards.py` included.
    - Tests are 11 flake checks on the remote builders and `nix run .#test` (`CLUSTER.md` §6); the launcher is `nix run .#session`; the timers are `homeManagerModules.default`, imported by dotfiles.
    - Phase A: the thesis track and `ops/crossmachine.py` are gone, archived at `archive/thesis` and `archive/thesis-refreeze`.
@@ -46,9 +46,9 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
 ### Next, in order
 
 1. **Kernel version 2:** step 5 built; B4 passes on it (3,120 of 3,120, rerun with the hardened stub); test 12's inputs are `data/x4-inputs/test12/` (root `7bab5c43…`).
-   - **Test 12 is too slow** (15 days a host, exact `exp`/`log`). Round 10 (Neon) plans step 5x, a fast twin proved equal (law X6); a fresh Opus reviews it, GPT queued. Step 5 merges after step 5x passes test 12 and B4.
-   - **Round 9** (Neon as architect, D221 to D228; H16 Option 1, the human's) awaits GPT. CS2.1's note and CS2.2's revision await a fresh Claude and GPT before their commit.
-   - **Recorder:** after the deploy, the lint gate and the six catch-alls.
+   - **Test 12 is too slow** (15 days a host, exact `exp`/`log`). Round 10 (Neon) planned step 5x, a fast twin proved equal (law X6); a fresh Opus found it sound but larger than its cause (`audit/reviews/2026-11-20-opus-round10.md`), and Neon answers in round 11. Step 5 merges after step 5x passes test 12 and B4.
+   - **Rounds 9 to 11** (Neon as architect; H16 Option 1, the human's) await GPT, the only reviewer left for them. CS2.1's note and CS2.2's revision await a fresh Claude and GPT before their commit.
+   - **Recorder:** the lint gate and the six catch-alls.
 2. **Study 1:** after the first session, the human sets the pace from its measured usage.
    - **After a reboot**, restart the runner: `systemd-run --user --unit mm-study1` from `../mm-s1-arms`, running `nix develop -c python -m gate.control.runner` with `CARGO_TARGET_DIR=~/.cache/mm-study1/k`, `TMPDIR=~/.cache/mm-study1/tmp`, only `CLAUDE_CODE_OAUTH_TOKEN_TAMU`, output appended to `~/.cache/mm-study1/runner.log`; then its watcher, which stops it after one result.
 3. **The paper, free-standing and academic** (the human, 2026-11-16): deferred until the human says; written by Opus, reviewed for accuracy only.
@@ -60,7 +60,7 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
 
 ## Blockers
 
-- **Recorder deploy needs the human's go:** `recorder-fixes` is in `main` (`57ad215`; reviewed, suite passes); an unattended live deploy was blocked. `ops/live.py push`, `apply <digest> vault` (not near :07), then `ws` (~20 s gap).
+- **This PC's disk is under the 20% reserve** (15.8% free, 73 GB; `mm-diskguard` has alarmed since at least 2026-11-16). The large regenerable item is the Nix store (97 GB); collecting its garbage is the human's call. Recordings are never deleted.
 
 None blocks the program. Source certificates that fail, with their clauses, are in `venue/sources.toml` and `audit/decisions.md`: Kalshi, Polymarket and Polymarket US; FRED and ALFRED; IMF; and stage 8's candidates.
 

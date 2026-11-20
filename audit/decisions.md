@@ -1455,3 +1455,7 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Slow run stopped** at about 73,000 arguments, all equal to MPFR; the twin's test 12 supersedes it.
   - **Review:** a fresh Opus, labeled as such, is reviewing now (`data/builder/opus-r10-review.md`); GPT's review is queued until its usage returns. Neon architected this round, so it cannot review it.
   - **Reversal:** revert `94fff33..dd968b4` on `rearchitecture`.
+- 2026-11-20 15:03 UTC (10:03 EST), advisor at the human's go-ahead ("try the deploy again"): **`recorder-fixes` deployed.** The image `851fc77` (`sha256:9a6e0b2a…`) was applied to the CronJob `vault` and then the StatefulSet `ws`. `ws-0` was running and ready on the new image at 14:57:51 UTC (09:57:51 EST), about 20 s after the old pod stopped, with no restart since.
+  - **Not checked:** what `ws` writes after the restart. The deployer account cannot exec into pods, and the node's files are not read.
+  - **Cleanup:** branch `recorder-fixes` deleted here and on GitHub, its worktree and the round 10 review's worktree removed, and the stopped test 12 run's output deleted.
+  - **Reversal:** `ops/live.py apply sha256:8ec90a22… ws vault`, the previous image.
