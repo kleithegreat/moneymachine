@@ -20,6 +20,11 @@
           - "certification": nonempty citation referencing CORE-MATH, a pinned
             40-char hex commit, exp.wc and log.wc, and honest scope/limits
             (empirical TMD test corpus, not a mechanized exhaustiveness proof)
+          - "glibc_version": nonempty string naming the pinned nixpkgs glibc
+            version/derivation and containing gnu_get_libc_version ()
+          - "glibc_tunables": nonempty GLIBC_TUNABLES string (e.g.
+            "glibc.cpu.hwcaps=-FMA,-AVX,-AVX2,-AVX512F") or nonempty JSON array
+            of GLIBC_TUNABLES strings with at least one explicit tunable path
           - "exp_hardest_count": integer > 0, exact count of `exp ` lines in hardest.txt
           - "log_hardest_count": integer > 0, exact count of `log ` lines in hardest.txt
           - "exp_glibc_count": integer > 0, exact count of lines in exp-glibc.txt
@@ -57,6 +62,8 @@ external offset_q
   -> int
   -> string * string
   = "mm2_test_mpfr_offset"
+
+external runtime_glibc_version : unit -> string = "mm2_test_glibc_version"
 
 let program =
   {|{"version":2,"tick":1,"decide_every":1,"leverage":1,"sources":[{"name":"vol","unit":"1"}],"params":[],"let":[],"slots":[],"probes":[{"name":"exp","is":{"op":"exp","args":[{"input":"vol"}]}},{"name":"log","is":{"op":"log","args":[{"input":"vol"}]}}]}|}
@@ -380,236 +387,348 @@ let batches output arguments =
   loop [] 0 arguments
 ;;
 
-let () =
-  let dir, inputs_sha, output =
-    match Array.to_list Sys.argv with
-    | [ _; dir; inputs_sha; output ] -> dir, inputs_sha, output
-    | _ -> failwith "usage: x4_local.exe INPUT_DIR INPUTS_SHA256 OUTPUT"
-  in
-  verify_checksums dir inputs_sha;
-  let manifest = json (read (Filename.concat dir "manifest.json")) in
-  check
-    "the prescribed draw recipe"
-    (text_field "recipe" manifest = "arithmetic.py.txt:emit_x4_draws");
-  check
-    "recipe_sha256 must match pinned arithmetic.py.txt:emit_x4_draws"
-    (text_field "recipe_sha256" manifest = pinned_recipe_sha256);
-  let cert = text_field "certification" manifest in
-  check
-    "certification must cite CORE-MATH commit, exp.wc/log.wc, and honest scope/limits"
-    (String.length cert >= 80
-     && contains_ci cert "core-math"
-     && contains_ci cert "exp.wc"
-     && contains_ci cert "log.wc"
-     && has_hex_token_n 40 cert
-     && (contains_ci cert "not a "
-         || contains_ci cert "empirical"
-         || contains_ci cert "uncertified"
-         || contains_ci cert "beyond"));
-  O.selfcheck ();
-  nearest ();
-  let exp_spot_checks =
-    [ 0, 0x406581FEF5567DF4L
-    ; 1, 0x4070AA02646EDC5AL
-    ; 2, 0x40827A0A3AFE0E48L
-    ; 17, 0xC05DC85BCFBD4AD0L
-    ; 199999, 0x404D215BFD6798F0L
-    ; 200000, 0xC079B6512C22AD0FL
-    ; 500000, 0xC07DBCC53E55D6FAL
-    ; 999999, 0x40833C6185D818AEL
-    ]
-  in
-  let log_spot_checks =
-    [ 0, 0x678BDE5C08B791F7L
-    ; 1, 0x553D76D4337AD3FCL
-    ; 2, 0x3D5076CE2FAE421CL
-    ; 17, 0x238EF901B84A9970L
-    ; 199999, 0x7832F88153C80339L
-    ; 200000, 0x0F3C8BBA4500E873L
-    ; 500000, 0x26A85BB362371334L
-    ; 999999, 0x13E60820ADE249C0L
-    ]
-  in
-  let draws op =
-    let name = if op = 0 then "exp" else "log" in
-    let draws_path = Filename.concat dir (name ^ "-draws.txt") in
-    let expected_sha =
-      if op = 0 then pinned_exp_draws_sha256 else pinned_log_draws_sha256
-    in
-    check
-      (name ^ "-draws.txt sha256 must match pinned emit_x4_draws")
-      (sha256_of draws_path = expected_sha);
-    let values = read_bits draws_path in
-    check
-      "a million finite arguments of each function"
-      (List.length values = 1_000_000 && List.for_all finite values);
-    check (name ^ "-draws.txt must not be degenerate") (distinct_count values > 999_000);
-    if op = 0
-    then
+let self_executable () =
+  if Sys.file_exists "/proc/self/exe"
+  then Unix.realpath "/proc/self/exe"
+  else Sys.executable_name
+;;
+
+let parse_pinned_tunables manifest =
+  let list =
+    match field "glibc_tunables" manifest with
+    | `String s ->
+      check "glibc_tunables string must be non-empty" (s <> "");
+      [ s ]
+    | `List items ->
+      check "glibc_tunables array must be non-empty" (items <> []);
+      let strs = List.map Yojson.Basic.Util.to_string items in
       check
-        "exp draws must include negative and non-negative arguments in [-700, 700)"
-        (List.for_all
-           (fun b ->
-              let x = Int64.float_of_bits b in
-              x >= -700.0 && x < 700.0)
-           values
-         && List.exists (fun b -> Int64.float_of_bits b < 0.0) values
-         && List.exists (fun b -> Int64.float_of_bits b >= 0.0) values)
-    else
+        "glibc_tunables array must include at least one non-empty tunable path"
+        (List.exists (fun s -> s <> "") strs);
       check
-        "log draws must be strictly positive"
-        (List.for_all (fun b -> Int64.float_of_bits b > 0.0) values);
-    let arr = Array.of_list values in
-    let spots = if op = 0 then exp_spot_checks else log_spot_checks in
-    List.iter
-      (fun (idx, expected) ->
-         check
-           (Printf.sprintf "%s-draws.txt random.Random(5) spot check at %d" name idx)
-           (arr.(idx) = expected))
-      spots;
-    let listed = read_bits (Filename.concat dir (name ^ "-glibc.txt")) in
-    check
-      "complete pinned glibc mismatch list"
-      (List.length listed = int_field (name ^ "_glibc_count") manifest);
-    let actual =
-      List.length
-        (List.filter
+        "glibc_tunables array must not contain duplicates"
+        (distinct_count strs = List.length strs);
+      strs
+    | _ -> failwith "manifest.json: glibc_tunables must be a string or string list"
+  in
+  list
+;;
+
+let host_glibc_scan op values =
+  with_file ".glibc.bin" (fun tmp ->
+    let ch = open_out_bin tmp in
+    let actual = ref 0 in
+    let buf = Bytes.create 8 in
+    Fun.protect
+      ~finally:(fun () -> close_out_noerr ch)
+      (fun () ->
+         List.iter
            (fun b ->
               let x = Int64.float_of_bits b in
               let glibc = Int64.bits_of_float (if op = 0 then exp x else log x) in
+              Bytes.set_int64_le buf 0 glibc;
+              output ch buf 0 8;
               let mpfr = O.eval op b in
-              finite glibc && finite mpfr && glibc <> mpfr)
-           values)
+              if finite glibc && finite mpfr && glibc <> mpfr then incr actual)
+           values);
+    !actual, sha256_of tmp)
+;;
+
+let check_glibc_path_mode op draws_path listed_path =
+  let values = read_bits draws_path in
+  let listed = read_bits listed_path in
+  let tbl = Hashtbl.create (List.length listed + 1) in
+  List.iter (fun b -> Hashtbl.replace tbl b ()) listed;
+  List.iter
+    (fun b ->
+       let x = Int64.float_of_bits b in
+       let glibc = Int64.bits_of_float (if op = 0 then exp x else log x) in
+       let mpfr = O.eval op b in
+       if finite glibc && finite mpfr && glibc <> mpfr && not (Hashtbl.mem tbl b)
+       then
+         failwith
+           (Printf.sprintf
+              "%s: host-observed glibc mis-rounding %s missing from %s"
+              (if op = 0 then "exp" else "log")
+              (show b)
+              listed_path))
+    values
+;;
+
+let run_glibc_path_check tunable op draws_path listed_path =
+  let base_env =
+    Array.to_list (Unix.environment ())
+    |> List.filter (fun kv -> not (String.starts_with ~prefix:"GLIBC_TUNABLES=" kv))
+  in
+  let env =
+    if tunable = ""
+    then Array.of_list base_env
+    else Array.of_list (("GLIBC_TUNABLES=" ^ tunable) :: base_env)
+  in
+  let exe = self_executable () in
+  let argv = [| exe; "--check-glibc-path"; string_of_int op; draws_path; listed_path |] in
+  let pid = Unix.create_process_env exe argv env Unix.stdin Unix.stdout Unix.stderr in
+  let _, status = Unix.waitpid [] pid in
+  check
+    (Printf.sprintf
+       "glibc mismatch check failed under GLIBC_TUNABLES=%S for %s"
+       tunable
+       listed_path)
+    (status = Unix.WEXITED 0)
+;;
+
+let () =
+  match Array.to_list Sys.argv with
+  | [ _; "--check-glibc-path"; op_s; draws_path; listed_path ] ->
+    let op = int_of_string op_s in
+    check "op must be 0 or 1" (op = 0 || op = 1);
+    check_glibc_path_mode op draws_path listed_path
+  | _ ->
+    let dir, inputs_sha, output =
+      match Array.to_list Sys.argv with
+      | [ _; dir; inputs_sha; output ] -> dir, inputs_sha, output
+      | _ -> failwith "usage: x4_local.exe INPUT_DIR INPUTS_SHA256 OUTPUT"
     in
-    Printf.eprintf "%s: this host's glibc differs from MPFR at %d draws\n%!" name actual;
-    values @ listed
-  in
-  let exp_hardest_n = ref 0 in
-  let log_hardest_n = ref 0 in
-  let exp_hardest_finite = ref false in
-  let log_hardest_finite = ref false in
-  let hardest =
-    List.map
-      (fun line ->
-         match String.split_on_char ' ' line with
-         | [ "exp"; word ] when is_hex_n 16 word ->
-           let b = bits word in
-           incr exp_hardest_n;
-           if finite b then exp_hardest_finite := true;
-           b
-         | [ "log"; word ] when is_hex_n 16 word ->
-           let b = bits word in
-           incr log_hardest_n;
-           if finite b then log_hardest_finite := true;
-           b
-         | _ -> failwith "hardest.txt: expected ^(exp|log) [0-9a-f]{16}$")
-      (strict_lines (read (Filename.concat dir "hardest.txt")))
-  in
-  let want_exp_hardest = int_field "exp_hardest_count" manifest in
-  let want_log_hardest = int_field "log_hardest_count" manifest in
-  check
-    "hardest.txt must have positive pinned exp and log counts"
-    (want_exp_hardest > 0
-     && want_log_hardest > 0
-     && !exp_hardest_n = want_exp_hardest
-     && !log_hardest_n = want_log_hardest
-     && !exp_hardest_finite
-     && !log_hardest_finite);
-  let specials =
-    let subnormal_binades =
-      List.init 52 (fun k -> Int64.shift_left 1L k)
-      @ [ 0x0000000000000003L
-        ; 0x00000000000000FFL
-        ; 0x000123456789ABCDL
-        ; 0x0008000000000001L
-        ; 0x000FFFFFFFFFFFFEL
-        ; 0x000FFFFFFFFFFFFFL
-        ; 0x8000000000000001L
-        ; 0x800FFFFFFFFFFFFFL
-        ]
+    verify_checksums dir inputs_sha;
+    let manifest = json (read (Filename.concat dir "manifest.json")) in
+    check
+      "the prescribed draw recipe"
+      (text_field "recipe" manifest = "arithmetic.py.txt:emit_x4_draws");
+    check
+      "recipe_sha256 must match pinned arithmetic.py.txt:emit_x4_draws"
+      (text_field "recipe_sha256" manifest = pinned_recipe_sha256);
+    let cert = text_field "certification" manifest in
+    check
+      "certification must cite CORE-MATH commit, exp.wc/log.wc, and honest scope/limits"
+      (String.length cert >= 80
+       && contains_ci cert "core-math"
+       && contains_ci cert "exp.wc"
+       && contains_ci cert "log.wc"
+       && has_hex_token_n 40 cert
+       && (contains_ci cert "not a "
+           || contains_ci cert "empirical"
+           || contains_ci cert "uncertified"
+           || contains_ci cert "beyond"));
+    let glibc_ver = text_field "glibc_version" manifest in
+    let runtime_ver = runtime_glibc_version () in
+    check
+      ("glibc_version must be non-empty and match runtime glibc " ^ runtime_ver)
+      (glibc_ver <> "" && contains_ci glibc_ver runtime_ver);
+    let pinned_tunables = parse_pinned_tunables manifest in
+    O.selfcheck ();
+    nearest ();
+    let exp_spot_checks =
+      [ 0, 0x406581FEF5567DF4L
+      ; 1, 0x4070AA02646EDC5AL
+      ; 2, 0x40827A0A3AFE0E48L
+      ; 17, 0xC05DC85BCFBD4AD0L
+      ; 199999, 0x404D215BFD6798F0L
+      ; 200000, 0xC079B6512C22AD0FL
+      ; 500000, 0xC07DBCC53E55D6FAL
+      ; 999999, 0x40833C6185D818AEL
+      ]
     in
-    let high_binades =
-      List.init 29 (fun i ->
-        let biased = Int64.shift_left (Int64.of_int (1023 + 995 + i)) 52 in
-        [ biased; Int64.logor biased 0x000A55A55A55A55AL ])
-      |> List.concat
+    let log_spot_checks =
+      [ 0, 0x678BDE5C08B791F7L
+      ; 1, 0x553D76D4337AD3FCL
+      ; 2, 0x3D5076CE2FAE421CL
+      ; 17, 0x238EF901B84A9970L
+      ; 199999, 0x7832F88153C80339L
+      ; 200000, 0x0F3C8BBA4500E873L
+      ; 500000, 0x26A85BB362371334L
+      ; 999999, 0x13E60820ADE249C0L
+      ]
     in
-    [ 0L
-    ; Int64.min_int
-    ; 0x3FF0000000000000L
-    ; 0x4000000000000000L
-    ; 0x7FF0000000000000L
-    ; 0xFFF0000000000000L
-    ; 0x7FF8000000000000L
-    ; 0x7FF0000000000001L
-    ; 0xFFF0000000000001L
-    ; 0xFFF8000000000001L
-    ; 0xBFF0000000000000L
-    ; 0x0010000000000000L
-    ; 0x8010000000000000L
-    ; 0x7FEFFFFFFFFFFFFFL
-    ; 0xFFEFFFFFFFFFFFFFL
-    ; 0x3FEFFFFFFFFFFFFEL
-    ; 0x3FEFFFFFFFFFFFFFL
-    ; 0x3FF0000000000001L
-    ; 0x3FE7FFFFFFFFFFFFL
-    ; 0x3FE8000000000000L
-    ; 0x3FF7FFFFFFFFFFFFL
-    ; 0x3FF8000000000000L
-    ; 0x3C90000000000000L
-    ; 0xBC90000000000000L
-    ; 0x3CA0000000000000L
-    ; 0xBCA0000000000000L
-    ; 0x40862E42FEFA39F1L
-    ; 0x40862F0000000000L
-    ; 0x40862FC000000000L
-    ; 0x40862FFFFFFFFFFFL
-    ; 0xC0874FFFFFFFFFFFL
-    ; 0xC0874910D52D3053L
-    ; 0xC0874910D52D3050L
-    ; 0xC086232BDD7ABCD4L
-    ; Int64.bits_of_float 710.
-    ; Int64.bits_of_float (-746.)
-    ; Int64.bits_of_float (-745.13)
-    ; Int64.bits_of_float (-745.)
-    ; Int64.bits_of_float (-744.5)
-    ; Int64.bits_of_float (-744.)
-    ; Int64.bits_of_float (-743.)
-    ; Int64.bits_of_float (-738.75)
-    ; Int64.bits_of_float (-732.25)
-    ; Int64.bits_of_float (-725.)
-    ; Int64.bits_of_float (-718.5)
-    ; Int64.bits_of_float (-712.)
-    ; Int64.bits_of_float (-709.)
-    ; Int64.bits_of_float (-708.5)
-    ; Int64.bits_of_float (-708.4)
-    ]
-    @ subnormal_binades
-    @ high_binades
-  in
-  check "MPFR exp zero exactly one" (O.eval 0 0L = 0x3FF0000000000000L);
-  check "MPFR log one exactly zero" (O.eval 1 0x3FF0000000000000L = 0L);
-  let is_nan_bits b =
-    Int64.logand b 0x7FF0000000000000L = 0x7FF0000000000000L
-    && Int64.logand b 0x000FFFFFFFFFFFFFL <> 0L
-  in
-  let boundaries = read_bits (Filename.concat dir "boundaries.txt") in
-  check
-    "the six boundary neighbours are MPFR's"
-    (boundaries = Array.to_list (O.boundaries ()));
-  check
-    "MPFR boundary[1] overflows to +inf"
-    (O.eval 0 (List.nth boundaries 1) = 0x7FF0000000000000L);
-  check
-    "MPFR exp(+inf) = +inf, log(+-0) = -inf, log(-1) = NaN"
-    (O.eval 0 0x7FF0000000000000L = 0x7FF0000000000000L
-     && O.eval 1 0L = 0xFFF0000000000000L
-     && O.eval 1 Int64.min_int = 0xFFF0000000000000L
-     && is_nan_bits (O.eval 1 0xBFF0000000000000L));
-  let arguments = draws 0 @ draws 1 @ hardest @ boundaries @ specials in
-  let channel = open_out_bin output in
-  Fun.protect ~finally:(fun () -> close_out channel) (fun () -> batches channel arguments);
-  Printf.printf
-    "X4: %d arguments, both declared-source probes equal MPFR\n%!"
-    (List.length arguments)
+    let draws op =
+      let name = if op = 0 then "exp" else "log" in
+      let draws_path = Filename.concat dir (name ^ "-draws.txt") in
+      let expected_sha =
+        if op = 0 then pinned_exp_draws_sha256 else pinned_log_draws_sha256
+      in
+      check
+        (name ^ "-draws.txt sha256 must match pinned emit_x4_draws")
+        (sha256_of draws_path = expected_sha);
+      let values = read_bits draws_path in
+      check
+        "a million finite arguments of each function"
+        (List.length values = 1_000_000 && List.for_all finite values);
+      check (name ^ "-draws.txt must not be degenerate") (distinct_count values > 999_000);
+      if op = 0
+      then
+        check
+          "exp draws must include negative and non-negative arguments in [-700, 700)"
+          (List.for_all
+             (fun b ->
+                let x = Int64.float_of_bits b in
+                x >= -700.0 && x < 700.0)
+             values
+           && List.exists (fun b -> Int64.float_of_bits b < 0.0) values
+           && List.exists (fun b -> Int64.float_of_bits b >= 0.0) values)
+      else
+        check
+          "log draws must be strictly positive"
+          (List.for_all (fun b -> Int64.float_of_bits b > 0.0) values);
+      let arr = Array.of_list values in
+      let spots = if op = 0 then exp_spot_checks else log_spot_checks in
+      List.iter
+        (fun (idx, expected) ->
+           check
+             (Printf.sprintf "%s-draws.txt random.Random(5) spot check at %d" name idx)
+             (arr.(idx) = expected))
+        spots;
+      let listed_path = Filename.concat dir (name ^ "-glibc.txt") in
+      let listed = read_bits listed_path in
+      let want_count = int_field (name ^ "_glibc_count") manifest in
+      check "complete pinned glibc mismatch list" (List.length listed = want_count);
+      if op = 0 then check "exp_glibc_count must be positive" (want_count > 0);
+      check (name ^ "-glibc.txt entries must be finite") (List.for_all finite listed);
+      check
+        (name ^ "-glibc.txt entries must be distinct")
+        (distinct_count listed = List.length listed);
+      let values_tbl = Hashtbl.create 1_000_000 in
+      List.iter (fun b -> Hashtbl.replace values_tbl b ()) values;
+      check
+        (name ^ "-glibc.txt must be a subset of " ^ name ^ "-draws.txt")
+        (List.for_all (fun b -> Hashtbl.mem values_tbl b) listed);
+      List.iter
+        (fun tunable -> run_glibc_path_check tunable op draws_path listed_path)
+        pinned_tunables;
+      let actual, glibc_sha = host_glibc_scan op values in
+      Printf.eprintf
+        "%s: this host's glibc differs from MPFR at %d draws (glibc_sha256=%s)\n%!"
+        name
+        actual
+        glibc_sha;
+      values @ listed
+    in
+    let exp_hardest_n = ref 0 in
+    let log_hardest_n = ref 0 in
+    let exp_hardest_finite = ref false in
+    let log_hardest_finite = ref false in
+    let hardest =
+      List.map
+        (fun line ->
+           match String.split_on_char ' ' line with
+           | [ "exp"; word ] when is_hex_n 16 word ->
+             let b = bits word in
+             incr exp_hardest_n;
+             if finite b then exp_hardest_finite := true;
+             b
+           | [ "log"; word ] when is_hex_n 16 word ->
+             let b = bits word in
+             incr log_hardest_n;
+             if finite b then log_hardest_finite := true;
+             b
+           | _ -> failwith "hardest.txt: expected ^(exp|log) [0-9a-f]{16}$")
+        (strict_lines (read (Filename.concat dir "hardest.txt")))
+    in
+    let want_exp_hardest = int_field "exp_hardest_count" manifest in
+    let want_log_hardest = int_field "log_hardest_count" manifest in
+    check
+      "hardest.txt must have positive pinned exp and log counts"
+      (want_exp_hardest > 0
+       && want_log_hardest > 0
+       && !exp_hardest_n = want_exp_hardest
+       && !log_hardest_n = want_log_hardest
+       && !exp_hardest_finite
+       && !log_hardest_finite);
+    let specials =
+      let subnormal_binades =
+        List.init 52 (fun k -> Int64.shift_left 1L k)
+        @ [ 0x0000000000000003L
+          ; 0x00000000000000FFL
+          ; 0x000123456789ABCDL
+          ; 0x0008000000000001L
+          ; 0x000FFFFFFFFFFFFEL
+          ; 0x000FFFFFFFFFFFFFL
+          ; 0x8000000000000001L
+          ; 0x800FFFFFFFFFFFFFL
+          ]
+      in
+      let high_binades =
+        List.init 29 (fun i ->
+          let biased = Int64.shift_left (Int64.of_int (1023 + 995 + i)) 52 in
+          [ biased; Int64.logor biased 0x000A55A55A55A55AL ])
+        |> List.concat
+      in
+      [ 0L
+      ; Int64.min_int
+      ; 0x3FF0000000000000L
+      ; 0x4000000000000000L
+      ; 0x7FF0000000000000L
+      ; 0xFFF0000000000000L
+      ; 0x7FF8000000000000L
+      ; 0x7FF0000000000001L
+      ; 0xFFF0000000000001L
+      ; 0xFFF8000000000001L
+      ; 0xBFF0000000000000L
+      ; 0x0010000000000000L
+      ; 0x8010000000000000L
+      ; 0x7FEFFFFFFFFFFFFFL
+      ; 0xFFEFFFFFFFFFFFFFL
+      ; 0x3FEFFFFFFFFFFFFEL
+      ; 0x3FEFFFFFFFFFFFFFL
+      ; 0x3FF0000000000001L
+      ; 0x3FE7FFFFFFFFFFFFL
+      ; 0x3FE8000000000000L
+      ; 0x3FF7FFFFFFFFFFFFL
+      ; 0x3FF8000000000000L
+      ; 0x3C90000000000000L
+      ; 0xBC90000000000000L
+      ; 0x3CA0000000000000L
+      ; 0xBCA0000000000000L
+      ; 0x40862E42FEFA39F1L
+      ; 0x40862F0000000000L
+      ; 0x40862FC000000000L
+      ; 0x40862FFFFFFFFFFFL
+      ; 0xC0874FFFFFFFFFFFL
+      ; 0xC0874910D52D3053L
+      ; 0xC0874910D52D3050L
+      ; 0xC086232BDD7ABCD4L
+      ; Int64.bits_of_float 710.
+      ; Int64.bits_of_float (-746.)
+      ; Int64.bits_of_float (-745.13)
+      ; Int64.bits_of_float (-745.)
+      ; Int64.bits_of_float (-744.5)
+      ; Int64.bits_of_float (-744.)
+      ; Int64.bits_of_float (-743.)
+      ; Int64.bits_of_float (-738.75)
+      ; Int64.bits_of_float (-732.25)
+      ; Int64.bits_of_float (-725.)
+      ; Int64.bits_of_float (-718.5)
+      ; Int64.bits_of_float (-712.)
+      ; Int64.bits_of_float (-709.)
+      ; Int64.bits_of_float (-708.5)
+      ; Int64.bits_of_float (-708.4)
+      ]
+      @ subnormal_binades
+      @ high_binades
+    in
+    check "MPFR exp zero exactly one" (O.eval 0 0L = 0x3FF0000000000000L);
+    check "MPFR log one exactly zero" (O.eval 1 0x3FF0000000000000L = 0L);
+    let is_nan_bits b =
+      Int64.logand b 0x7FF0000000000000L = 0x7FF0000000000000L
+      && Int64.logand b 0x000FFFFFFFFFFFFFL <> 0L
+    in
+    let boundaries = read_bits (Filename.concat dir "boundaries.txt") in
+    check
+      "the six boundary neighbours are MPFR's"
+      (boundaries = Array.to_list (O.boundaries ()));
+    check
+      "MPFR boundary[1] overflows to +inf"
+      (O.eval 0 (List.nth boundaries 1) = 0x7FF0000000000000L);
+    check
+      "MPFR exp(+inf) = +inf, log(+-0) = -inf, log(-1) = NaN"
+      (O.eval 0 0x7FF0000000000000L = 0x7FF0000000000000L
+       && O.eval 1 0L = 0xFFF0000000000000L
+       && O.eval 1 Int64.min_int = 0xFFF0000000000000L
+       && is_nan_bits (O.eval 1 0xBFF0000000000000L));
+    let arguments = draws 0 @ draws 1 @ hardest @ boundaries @ specials in
+    let channel = open_out_bin output in
+    Fun.protect
+      ~finally:(fun () -> close_out channel)
+      (fun () -> batches channel arguments);
+    Printf.printf
+      "X4: %d arguments, both declared-source probes equal MPFR\n%!"
+      (List.length arguments)
 ;;

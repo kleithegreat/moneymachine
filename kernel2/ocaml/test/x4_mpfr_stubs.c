@@ -10,6 +10,7 @@
 #include <caml/fail.h>
 #include <caml/memory.h>
 #include <caml/mlvalues.h>
+#include <gnu/libc-version.h>
 #endif
 #include <gmp.h>
 #include <mpfr.h>
@@ -369,5 +370,11 @@ CAMLprim value mm2_test_mpfr_offset(value pair, value num_v, value den_v, value 
   out = return_mpq(q);
   mpq_clears(q, delta, (mpq_ptr)0);
   CAMLreturn(out);
+}
+
+CAMLprim value mm2_test_glibc_version(value unit)
+{
+  CAMLparam1(unit);
+  CAMLreturn(caml_copy_string(gnu_get_libc_version()));
 }
 #endif
