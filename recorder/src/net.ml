@@ -117,12 +117,17 @@ let connect_tls ~host reader writer =
        { reader = app_reader; writer = app_writer; close })
 ;;
 
-let connect url =
+let connect ?(connected = ignore) url =
   let where = Tcp.Where_to_connect.of_host_and_port { host = url.host; port = url.port } in
   let%bind _socket, reader, writer = Tcp.connect where in
-  if url.tls
-  then connect_tls ~host:url.host reader writer
-  else return { reader; writer; close = close_tcp reader writer }
+  let tcp = { reader; writer; close = close_tcp reader writer } in
+  connected tcp;
+  if (not url.tls) || Writer.is_closed writer
+  then return tcp
+  else (
+    let%map net = connect_tls ~host:url.host reader writer in
+    connected net;
+    net)
 ;;
 
 let rec read_headers reader acc =
@@ -175,10 +180,8 @@ let upgrade url (net : t) =
 let websocket url ~connected =
   let url = parse_url url in
   let establish () =
-    let%bind net = connect url in
-    connected net;
-    let%map ws = upgrade url net in
-    ws
+    let%bind net = connect ~connected url in
+    upgrade url net
   in
   match%bind Clock_ns.with_timeout (Time_ns.Span.of_sec 30.) (establish ()) with
   | `Result ws -> return ws
@@ -207,31 +210,49 @@ let rec read_chunks reader acc =
     way. *)
 let post_status url ~body =
   let url = parse_url url in
-  let%bind net = connect url in
-  let request () =
-    Writer.write
-      net.writer
-      (sprintf
-         "POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s"
-         url.path
-         url.host
-         (String.length body)
-         body);
-    match%bind Reader.read_line net.reader with
-    | `Eof -> failwith "rest: eof"
-    | `Ok status ->
-      let%bind headers = read_headers net.reader [] in
-      let headers = Option.value_or_thunk headers ~default:(fun () -> failwith "rest: eof") in
-      let%map response =
-        match header headers "transfer-encoding" with
-        | Some "chunked" -> read_chunks net.reader []
-        | _ -> Reader.contents net.reader
-      in
-      status_code status, response
+  let transport = ref None in
+  let over = ref false in
+  let connected net =
+    if !over then don't_wait_for (net.close ()) else transport := Some net
   in
-  Monitor.protect
-    (fun () -> Clock_ns.with_timeout (Time_ns.Span.of_sec 30.) (request ()))
-    ~finally:net.close
+  let request () =
+    let%bind net = connect ~connected url in
+    if !over
+    then Deferred.never ()
+    else (
+      Writer.write
+        net.writer
+        (sprintf
+           "POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s"
+           url.path
+           url.host
+           (String.length body)
+           body);
+      match%bind Reader.read_line net.reader with
+      | `Eof -> failwith "rest: eof"
+      | `Ok status ->
+        let%bind headers = read_headers net.reader [] in
+        let headers = Option.value_or_thunk headers ~default:(fun () -> failwith "rest: eof") in
+        let%map response =
+          match header headers "transfer-encoding" with
+          | Some "chunked" -> read_chunks net.reader []
+          | _ -> Reader.contents net.reader
+        in
+        status_code status, response)
+  in
+  let%bind outcome =
+    try_with ~extract_exn:true ~rest:(`Call ignore) (fun () ->
+      Clock_ns.with_timeout (Time_ns.Span.of_sec 30.) (request ()))
+  in
+  over := true;
+  let%map () =
+    match !transport with
+    | None -> return ()
+    | Some net -> net.close ()
+  in
+  match outcome with
+  | Ok res -> res
+  | Error exn -> raise exn
 ;;
 
 let post url ~body =
