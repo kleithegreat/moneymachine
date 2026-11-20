@@ -1430,3 +1430,10 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **For the human:** pulling funding from `w_start` means any venue change to old rows ends the study.
   - **Accepted:** 2-of-3 gives no lever; D219 and D220 hold; no eighth loophole in test 12.
   - **Next:** the architect re-derives the horizon and the rest in round 9. GPT reads round 9 rather than round 8, to save its usage.
+- 2026-11-20 06:58 UTC (01:58 EST), the human: **H16, Option 1: `mmvault funding` fetches each (coin, hour) once, then backfills gaps** ("go with option 1").
+  - **What the study claims about:** funding as Hyperliquid first served it, the same capture-once meaning as the websocket recordings.
+  - **What it survives:** a venue reformatting old rows, such as more digits. Under Option 2 that would have ended the study at day 1.
+  - **What it cannot see:** a retroactive correction of a rate already fetched. None with a differing value has been observed; the pilot's 24 revisions had identical values.
+  - **Matches the committed spec** (`e691341`): "fetches settled funding for the judged days it does not yet hold".
+  - **Monthly pull:** about 30 s, against about 39 minutes under Option 2.
+  - **Next:** the architect, Neon, rewrites `VAULT.md` and brief 4's step 7 to Option 1 alone, deleting Option 2.
