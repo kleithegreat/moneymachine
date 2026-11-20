@@ -55,12 +55,38 @@ def count (isLog : Bool) (x : Rat) : IO (Nat × Nat) := do
   let boundaries ← IO.FS.readFile (dir ++ "/boundaries.txt")
   inputs := inputs ++ (boundaries.splitOn "\n").flatMap (fun s =>
     if s.isEmpty then [] else [(false, s), (true, s)])
-  let specials := ["0000000000000000", "8000000000000000", "3ff0000000000000",
-    "4000000000000000", "bff0000000000000", "4086300000000000",
-    "c087500000000000", "c087400000000000"]
-  inputs := inputs ++ specials.flatMap (fun s => [(false, s), (true, s)])
-  for (isLog, s) in inputs do
-    let b ← word s
+  let subnormalSpecials : List UInt64 :=
+    (List.range 52).map (fun k => (1 : UInt64) <<< k.toUInt64) ++
+    [ 0x0000000000000003, 0x00000000000000FF, 0x000123456789ABCD
+    , 0x0008000000000001, 0x000FFFFFFFFFFFFE, 0x000FFFFFFFFFFFFF
+    , 0x8000000000000001, 0x800FFFFFFFFFFFFF ]
+  let highSpecials : List UInt64 :=
+    (List.range 29).flatMap (fun i =>
+      let biased : UInt64 := (1023 + 995 + i).toUInt64 <<< (52 : UInt64)
+      [biased, biased ||| 0x000A55A55A55A55A])
+  let specialWords : List UInt64 :=
+    [ 0x0000000000000000, 0x8000000000000000, 0x3FF0000000000000, 0x4000000000000000
+    , 0x7FF0000000000000, 0xFFF0000000000000, 0x7FF8000000000000, 0x7FF0000000000001
+    , 0xFFF0000000000001, 0xFFF8000000000001, 0xBFF0000000000000, 0x0010000000000000
+    , 0x8010000000000000, 0x7FEFFFFFFFFFFFFF, 0xFFEFFFFFFFFFFFFF, 0x3FEFFFFFFFFFFFFE
+    , 0x3FEFFFFFFFFFFFFF, 0x3FF0000000000001, 0x3FE7FFFFFFFFFFFF, 0x3FE8000000000000
+    , 0x3FF7FFFFFFFFFFFF, 0x3FF8000000000000, 0x3C90000000000000, 0xBC90000000000000
+    , 0x3CA0000000000000, 0xBCA0000000000000, 0x40862E42FEFA39F1, 0x40862F0000000000
+    , 0x40862FC000000000, 0x40862FFFFFFFFFFF, 0xC0874FFFFFFFFFFF, 0xC0874910D52D3053
+    , 0xC0874910D52D3050, 0xC086232BDD7ABCD4
+    , (710 : Float).toBits, (-746 : Float).toBits, (-745.13 : Float).toBits
+    , (-745 : Float).toBits, (-744.5 : Float).toBits, (-744 : Float).toBits
+    , (-743 : Float).toBits, (-738.75 : Float).toBits, (-732.25 : Float).toBits
+    , (-725 : Float).toBits, (-718.5 : Float).toBits, (-712 : Float).toBits
+    , (-709 : Float).toBits, (-708.5 : Float).toBits, (-708.4 : Float).toBits
+    ] ++ subnormalSpecials ++ highSpecials
+  let mut bitsInputs : List (Bool × UInt64) := []
+  for s in inputs do
+    let b ← word s.2
+    bitsInputs := (s.1, b) :: bitsInputs
+  for b in specialWords do
+    bitsInputs := (false, b) :: (true, b) :: bitsInputs
+  for (isLog, b) in bitsInputs.reverse do
     if let some x := Engine.Exact.decode b then
       if (isLog && 0 < x) || (!isLog && -746 < x && x < 710) then
         let (n, first) ← count isLog x

@@ -296,6 +296,24 @@ let () =
   in
   check "certified hardest arguments are not empty" (hardest <> []);
   let specials =
+    let subnormal_binades =
+      List.init 52 (fun k -> Int64.shift_left 1L k)
+      @ [ 0x0000000000000003L
+        ; 0x00000000000000FFL
+        ; 0x000123456789ABCDL
+        ; 0x0008000000000001L
+        ; 0x000FFFFFFFFFFFFEL
+        ; 0x000FFFFFFFFFFFFFL
+        ; 0x8000000000000001L
+        ; 0x800FFFFFFFFFFFFFL
+        ]
+    in
+    let high_binades =
+      List.init 29 (fun i ->
+        let biased = Int64.shift_left (Int64.of_int (1023 + 995 + i)) 52 in
+        [ biased; Int64.logor biased 0x000A55A55A55A55AL ])
+      |> List.concat
+    in
     [ 0L
     ; Int64.min_int
     ; 0x3FF0000000000000L
@@ -304,12 +322,50 @@ let () =
     ; 0xFFF0000000000000L
     ; 0x7FF8000000000000L
     ; 0x7FF0000000000001L
+    ; 0xFFF0000000000001L
     ; 0xFFF8000000000001L
     ; 0xBFF0000000000000L
+    ; 0x0010000000000000L
+    ; 0x8010000000000000L
+    ; 0x7FEFFFFFFFFFFFFFL
+    ; 0xFFEFFFFFFFFFFFFFL
+    ; 0x3FEFFFFFFFFFFFFEL
+    ; 0x3FEFFFFFFFFFFFFFL
+    ; 0x3FF0000000000001L
+    ; 0x3FE7FFFFFFFFFFFFL
+    ; 0x3FE8000000000000L
+    ; 0x3FF7FFFFFFFFFFFFL
+    ; 0x3FF8000000000000L
+    ; 0x3C90000000000000L
+    ; 0xBC90000000000000L
+    ; 0x3CA0000000000000L
+    ; 0xBCA0000000000000L
+    ; 0x40862E42FEFA39F1L
+    ; 0x40862F0000000000L
+    ; 0x40862FC000000000L
+    ; 0x40862FFFFFFFFFFFL
+    ; 0xC0874FFFFFFFFFFFL
+    ; 0xC0874910D52D3053L
+    ; 0xC0874910D52D3050L
+    ; 0xC086232BDD7ABCD4L
     ; Int64.bits_of_float 710.
     ; Int64.bits_of_float (-746.)
+    ; Int64.bits_of_float (-745.13)
+    ; Int64.bits_of_float (-745.)
+    ; Int64.bits_of_float (-744.5)
     ; Int64.bits_of_float (-744.)
+    ; Int64.bits_of_float (-743.)
+    ; Int64.bits_of_float (-738.75)
+    ; Int64.bits_of_float (-732.25)
+    ; Int64.bits_of_float (-725.)
+    ; Int64.bits_of_float (-718.5)
+    ; Int64.bits_of_float (-712.)
+    ; Int64.bits_of_float (-709.)
+    ; Int64.bits_of_float (-708.5)
+    ; Int64.bits_of_float (-708.4)
     ]
+    @ subnormal_binades
+    @ high_binades
   in
   check "MPFR exp zero exactly one" (O.eval 0 0L = 0x3FF0000000000000L);
   check "MPFR log one exactly zero" (O.eval 1 0x3FF0000000000000L = 0L);
