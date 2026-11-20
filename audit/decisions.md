@@ -1386,3 +1386,47 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
     - It writes test 12's emitter and hardening list.
   - **Reviewers:** Neon cannot review this round. A fresh Claude Opus session and GPT read it, once their usage allows.
   - **Access:** agy write access to `mm-program` and `data/builder` through `ops/agy-write.sh`. It is told to read no market data from 2026-11-01 on, no holdout and no token file.
+- 2026-11-19 03:42 UTC (22:42 EST), advisor: **round 8, by Neon as the architect, is in** (`rearchitecture` `cc984da`, pushed; report `data/builder/architect-r8-report.md`; ledger D211 to D220), 03:02 to 03:42 UTC (22:02 to 22:42 EST).
+  - **Round 7's disputes are conceded and re-derived:**
+    - The settled-funding pull always starts from the test's start.
+    - The horizon uses no host clock.
+    - Every runtime input enters one pinned month input.
+    - A crash retries, while a disagreement goes 2-of-3.
+    - `mmrec cat` is specified to the byte.
+    - CS2.1's note is redrafted.
+  - **The replay's size:** forward replays read only `l2Book-fast` and `trades`, from closed-hour per-coin packs verified by two hosts. A month-24 replay reads about 55 to 78 GB, not 1.2 TB.
+  - **Kernel v2:**
+    - Float windows become a two-stack queue with Chan's variance, which splits B4 for window programs.
+    - Parameter names are already restricted by the checker.
+    - A step 5a is planned for the confirmed speedups.
+    - A fast `exp`/`log` waits for a measured wall.
+  - **Test 12:** the emitter is in `arithmetic.py.txt`, and its seven hardenings are specified.
+  - **Not yet reviewed.** A fresh Claude Opus session and GPT read it adversarially when their usage allows, attacking D212 first.
+  - **The B4 run now on the nodes** checks step 5 as built, which keeps stage 6's running sums. D217's windows will need a later run.
+- 2026-11-20 04:34 UTC (23:34 EST), advisor: **B4 passes on step 5 against the new MPFR reference.** All 14 shards exit 0: **3,120 of 3,120 streams are bit-identical** to the reference, with none refused.
+  - **Where it ran:** `b4_local.exe` built at `kernel2-step5` `7308398` (sha256 `7cec4838…`), on prodesk5, gmktec and prodesk7, 2026-11-19 01:38 to 09:35 UTC (2026-11-18 20:38 to 04:35 EST).
+  - **Stage 6's glibc streams against MPFR:** 57262 stream items differ in all, reported separately as the test requires. They are the `exp`/`log` items where glibc mis-rounds.
+  - **The reference is stored once:** `data/stage6/c64-reference-mpfr/` (24 GB). Its `SHA256SUMS` (sha256 `c4810ea43b3c7196…`) covers `out/`, `manifest.json` and `raw-sha256.json`, with B4's logs and the job's scripts beside them.
+  - **Why the split run counts as one:** every node's own hash lines appear unchanged in the combined list, and the counts add up (6,249 node lines less 6 repeated market files gives 6,243). So each shard compared files byte-identical to the stored reference.
+  - **Cleaned up:** the nodes' working copies.
+  - **Still owed before step 5 merges:** test 12, hardened, and its inputs. If hardening changes the MPFR stub, `oracle_stub_sha256` moves and this run repeats.
+  - **Reversal:** delete the directory; `kit/` rebuilds it in about 8 hours on the three nodes.
+- 2026-11-20 05:06 UTC (00:06 EST), advisor: **round 8 has not converged: a fresh Opus at maximum effort broke the horizon** (`audit/reviews/2026-11-20-opus-round8.md`).
+  - **D212, the horizon from the last quote, the capture's duration and an hour's margin, is wrong at its cause.** It infers a clock instead of reading what the capture holds. Four constructions:
+    - one future-stamped quote ends the study;
+    - a stopped recorder loses a valid day;
+    - `D_capture` is unbounded;
+    - a short page passes as a complete pull.
+
+    Reading each coin's coverage from the capture needs no clock and never moves backwards.
+  - **Also changes what is built:**
+    - the packer's "closed" condition rests on host-clock run ids;
+    - raw and packed reads of one hour must feed identical events;
+    - a refusal every host agrees on has no state;
+    - the protected-windows file and the host environment are not pinned.
+  - **Text only:**
+    - D215's note also changes CS2.2's committed text, so CS2.2 needs its own dated revision (reported, not edited);
+    - D217's claim that the split phase moves a sum by only O(1) ULP is false. The sum can change by 100%, though no study 2 outcome changes.
+  - **For the human:** pulling funding from `w_start` means any venue change to old rows ends the study.
+  - **Accepted:** 2-of-3 gives no lever; D219 and D220 hold; no eighth loophole in test 12.
+  - **Next:** the architect re-derives the horizon and the rest in round 9. GPT reads round 9 rather than round 8, to save its usage.
