@@ -28,6 +28,12 @@ type report =
   }
 [@@deriving sexp_of, equal]
 
+(** The sorted entry names in [path], or [[]] if it is not a directory. *)
+val list_dir : string -> string list
+
+(** [HH.jsonl.zst] (run -1, the earlier form) or [HH.<run>.jsonl.zst]: the hour's digits and the run. *)
+val hour_and_run_of_name : string -> (string * int) option
+
 (** The report for the hours [from_] to [to_] inclusive, each [YYYYMMDDHH], for every channel under [root]. *)
 val check : root:string -> from_:string -> to_:string -> report
 

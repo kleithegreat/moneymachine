@@ -31,7 +31,6 @@ let list_dir path =
   | _ -> []
 ;;
 
-(** [HH.jsonl.zst] (run -1, the earlier form) or [HH.<run>.jsonl.zst]: the hour's digits and the run. *)
 let hour_and_run_of_name name =
   let open Option.Let_syntax in
   let%bind stem = String.chop_suffix name ~suffix in

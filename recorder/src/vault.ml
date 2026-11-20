@@ -73,12 +73,6 @@ let write_state config state =
   Core_unix.rename ~src:temporary ~dst:(state_path config)
 ;;
 
-let list_dir path =
-  match Sys_unix.is_directory path with
-  | `Yes -> Sys_unix.ls_dir path
-  | _ -> []
-;;
-
 type t =
   { config : config
   ; writer : File_writer.t
@@ -124,16 +118,19 @@ let add_identities kind seen lines =
 let stored_identities t kind =
   let seen = String.Hash_set.create () in
   let dir = Filename.concat (vault_dir t.config) (kind_name kind) in
-  List.iter (list_dir dir) ~f:(fun date ->
-    List.iter (list_dir (Filename.concat dir date)) ~f:(fun name ->
-      let path = String.concat ~sep:"/" [ dir; date; name ] in
-      let lines, decode_failure = decoded_lines path in
-      let failure =
-        match add_identities kind seen lines with
-        | Some _ as parse_failure -> parse_failure
-        | None -> decode_failure
-      in
-      Option.iter failure ~f:(fun reason -> event t "error" [ "file", `String path; "reason", `String reason ])));
+  List.iter (Integrity.list_dir dir) ~f:(fun date ->
+    List.iter (Integrity.list_dir (Filename.concat dir date)) ~f:(fun name ->
+      if Option.is_some (Integrity.hour_and_run_of_name name)
+      then (
+        let path = String.concat ~sep:"/" [ dir; date; name ] in
+        let lines, decode_failure = decoded_lines path in
+        let failure =
+          match add_identities kind seen lines with
+          | Some _ as parse_failure -> parse_failure
+          | None -> decode_failure
+        in
+        Option.iter failure ~f:(fun reason ->
+          event t "error" [ "file", `String path; "reason", `String reason ]))));
   seen
 ;;
 
