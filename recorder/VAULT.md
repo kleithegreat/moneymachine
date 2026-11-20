@@ -112,51 +112,121 @@ recorder's root, with `concurrencyPolicy: Forbid` (`CLUSTER.md`). It does not re
 
 What the forward run needs of the market that the recorder does not hold: each universe coin's settled hourly funding
 (brief 3's table; `audit/program/briefs/4-study-2.md`, step 7, wall 3). Same tool, storage form, retries and
-forward-window rule as above, with weight-aware pacing and atomic pull staging (round 8).
+forward-window rule as above, with **fetch-once per `(coin, hour)` + gap backfill** (human decision H16,
+`audit/decisions.md` 2026-11-20; matching the committed spec `e691341`, *"fetches settled funding for the judged days it
+does not yet hold"*), weight-aware pacing, a shared single-instance lock, and atomic pull staging.
 
-- **Request:** `{"type": "fundingHistory", "coin", "startTime"}` (no `endTime`: the API reads through venue `now`,
-  immune to host wall-clock skew), one coin at a time. A page holds at most 500 rows; the next starts at the last row's
-  `time`, inclusive. A coin's pull stops at its first page under 500 (note: this is the pagination stop rule only; actual
-  per-coin funding coverage through the replay horizon is verified directly from the captured rows by `study2 forward`,
-  `audit/program/briefs/4-study-2.md` step 7 wall 3, so a short API page holds the horizon back conservatively rather
-  than overshooting).
-- **Weight pacing:** by `venue/sources.toml`, `fundingHistory` costs `20 + ceil(items / 20)` weight (45 per full 500-row
-  page) under the shared 1,200 weight/min IP limit. `mmvault funding` paces requests to at most **750 weight/min**
-  (3.6 s after a 500-row page, 1.6 s after a small/empty page), leaving 450 weight/min for `mmrec` and `mmvault`.
-- **`mmvault funding <root> --coins <file> [--from-ms MS] [--rest-url URL] [--now-ms MS]`** pulls every coin of the
-  file, in its order, from `from` through venue `now`. Without `--from-ms`, it is the daily pull: 30 days before the
-  last UTC midnight, the first reaching back to `2026-11-01T00:00:00Z`; production runs it once a day. The replay's
-  timer runs it with **`--from-ms` fixed at `w_start`** (the first judged midnight, constant for the entire study so no
-  step-2 failure changes a pull range and every >30-day-late unheld row or restatement is caught), and kills it at
-  **90 minutes** (a Month-24 full pull of 17 coins × 36 pages is ~39 min at 750 weight/min): a pull's timing moves the
-  capture, so the limit is fixed here. Exit 0 when every coin's pull completed, 1 otherwise.
+**Why fetch-once + gap backfill, and its one cost.** Every `(coin, hour)` already stored in `<root>/settled/funding/`
+is never queried again, by either the daily job or the monthly timer. That gives settled funding the same capture-once
+semantics as the websocket `l2Book-fast` and `trades` recordings, keeps monthly pulls to ~30 s (~30 KB), keeps Step 1
+decoupled from Step 2 (reading only `<root>/settled/funding/`, never publication state), backfills any missing
+historical hour regardless of age, and lets study 2 survive benign venue changes to historical `fundingHistory` rows
+(such as more significant digits) without ending at Day 1. **Its one cost:** a retroactive venue correction of an
+already-fetched funding hour is never fetched or seen (zero differing value restatements have been observed on
+Hyperliquid; the pilot's 24 revisions held identical values). If two stored files in `<root>/settled/funding/` ever
+hold differing rows for one `(coin, hour)`, `KERNEL.md` A18 still rejects the second.
+
+- **Invocation and floor:** `mmvault funding <root> --coins <file> [--from-ms MS] [--rest-url URL] [--now-ms MS]`
+  processes every coin in `<file>` (plain text, one coin name per non-empty trimmed line, in file order; an empty list
+  exits 1). `--from-ms MS` (non-negative integer epoch ms) sets the whole-hour lower bound
+  `floor_ms = from_ms - (from_ms mod 3_600_000)`. Without `--from-ms` (the daily `settled` CronJob), `floor_ms`
+  defaults to `2026-11-01T00:00:00Z` (`1_793_491_200_000`). The replay's monthly timer passes `--from-ms` fixed at
+  `w_start` (the first judged midnight, constant for the entire study). `--now-ms` fixes only the event/filename clock
+  for tests and never sets any API query bound. Exit 0 when every coin's gap spans and open tail completed and the
+  staged file was atomically renamed and directory-`fsync`ed; exit 1 otherwise.
+- **Shared lock:** before scanning disk or making any request, `mmvault funding` acquires an exclusive `flock` on
+  `<root>/settled/.lock` and holds it until after the atomic rename and destination directory `fsync` (released on exit
+  or crash). Overlapping daily and monthly runs serialize automatically: the second waits for the first to finish
+  committing, then scans the updated disk so it never double-spends the weight budget or re-fetches hours the first
+  just stored.
+- **Disk scan (`S_c^disk`, fail-closed):** under the lock, `mmvault funding` reads every completed file in
+  `<root>/settled/funding/<YYYYMMDD>/<HH>.<run>.jsonl.zst` (sorted by path). If any existing file fails clean zstd
+  decompression or holds malformed JSON or a non-array `msg`, the run logs an `error` event, writes nothing to
+  `<root>/settled/funding/`, and exits 1 (never silently skipping a corrupt file to re-fetch stored hours). For each
+  element of each `msg` array, it reads `"coin"` (string) and `"time"` (non-negative integer ms) and checks that
+  `"fundingRate"` is a string (never printing or logging it), records `(coin, time)` in the stored-identity set (for
+  counting `new`), and for every coin `c` in `--coins` adds `H = time - (time mod 3_600_000)` to `S_c^disk` whenever
+  `H >= floor_ms`.
+- **Per-coin query plan (gap backfill + open tail):** for each coin `c` in `--coins`, in file order:
+  1. If `S_c^disk` is empty: issue no gap queries, and run the **open-tail** query starting at `startTime = floor_ms`
+     with **no `endTime`**.
+  2. If `S_c^disk` is non-empty: let `H_max(c) = max(S_c^disk)` and let the missing historical hours be
+     `M_c = { H in [floor_ms, H_max(c)) : H is a whole UTC hour and H not in S_c^disk }`, partitioned into maximal
+     contiguous whole-hour spans `[H_a, H_b]` in ascending order of `H_a`.
+     - **Gap backfill:** for each span `[H_a, H_b]` in ascending order, paginate
+       `{"type": "fundingHistory", "coin": c, "startTime": start, "endTime": H_b + 3_599_999}` from `start = H_a`.
+       Because every valid settlement for hour `H` has `time in [H, H + 3_599_999]` (`KERNEL.md` A18, `late < 1 h`) and
+       Hyperliquid's `startTime` and `endTime` are inclusive, `[H_a, H_b + 3_599_999]` covers every row flooring to
+       `[H_a, H_b]` (exact hour edges and late stamps alike) with zero overlap with `H_a - 1 h` or `H_b + 1 h`.
+     - **Open tail:** after all gap spans, paginate `{"type": "fundingHistory", "coin": c, "startTime": start}` (with
+       **no `endTime`**: the API reads through venue `now`, immune to host wall-clock skew) from
+       `start = H_max(c) + 3_600_000`. Even if a wild future row ever landed in `S_c^disk`, the maximal missing span
+       `[next_real_hour, H_wild - 1 h]` fetches every real new hour through venue `now` and stops at the first page
+       under 500 without looping over future hours, and the open tail returns `[]` in one request.
+- **Pagination and validation:** each page holds at most 500 rows. Every response must be a JSON array whose rows each
+  have `"coin" = c`, integer `"time" >= start` (and `<= endTime` on a gap span), and string `"fundingRate"`; any HTTP
+  error (after up to 5 retries with backoff on 429), timeout, unreadable body, or row-validation failure logs an
+  `error` event, stops immediately, leaves zero files in `<root>/settled/funding/`, and exits 1. Every valid response
+  (even `[]`) is spliced byte for byte into the staged file. Pagination of a span or open tail stops at its first page
+  under 500 rows (this is the pagination stop rule only; actual per-coin funding coverage through the replay horizon is
+  verified directly from captured rows by `study2 forward`, `audit/program/briefs/4-study-2.md` step 7 wall 3, so a
+  short API page holds the horizon back conservatively and the next run's open tail or gap backfill fetches the rest).
+  On a 500-row page whose last row has timestamp `last_time`: if `last_time <= start`, the pull emits a `stuck` event,
+  stops immediately, leaves zero files in `<root>/settled/funding/`, and exits 1; otherwise the next page starts at
+  `last_time`, inclusive (keeping the same `endTime` on a gap span, or no `endTime` on the open tail).
+- **Weight pacing and timeout:** by `venue/sources.toml`, `fundingHistory` costs `20 + ceil(items / 20)` weight (45 per
+  full 500-row page, 20 per empty page, 22 per 24-row daily page) under the shared 1,200 weight/min IP limit.
+  `mmvault funding` paces consecutive requests to at most **750 weight/min** (waiting `(20 + ceil(prev_items / 20)) / 12.5`
+  seconds after the previous response: 3.6 s after a 500-row page, 1.6 s after a 0-row page), leaving 450 weight/min
+  for `mmrec` and `mmvault`. A normal daily or monthly pull of 17 coins is 17 single-page requests (~30 s, ~30 KB; a
+  full 31-day month with no prior daily pulls is 34 pages, ~2 min). The replay's timer kills `mmvault funding` at
+  **15 minutes** (covering ~250 full pages, ~10 months of missed backfill plus 429 backoff, while always clearing before
+  the next whole-hour firing; a pull's timing moves the capture, so the limit is fixed here).
 - **Storage and atomic staging:** responses of one pull are written into `<root>/settled/.tmp/<run>.funding.jsonl.zst`,
-  stream-ended and `fsync`ed, and atomically renamed to `<root>/settled/funding/<YYYYMMDD>/<HH>.<run>.jsonl.zst` **only
-  when every coin's pull completed**, followed by `fsync` of the destination directory `<root>/settled/funding/<YYYYMMDD>/`
-  before `mmvault funding` exits 0 (so the rename is durable across power cuts on any filesystem before `Capture_k` lists
-  the file). Events stream live to `<root>/settled/events/<YYYYMMDD>/<HH>.<run>.jsonl.zst` for
-  every attempt (completed, failed or killed) so failed pulls remain auditable. The `start` event holds `now`, the range
-  and coins; one `pull` event per coin holds `complete`; `stop` ends the attempt. A failed or killed pull leaves zero
-  files in `<root>/settled/funding/`.
-- **Identity:** (`coin`, `time`), for counting only, as above. What a replay makes of a row is `KERNEL.md` A18's
-  (what a reader puts in a record): nothing of the envelope reaches it.
+  stream-ended cleanly and `fsync`ed, and atomically renamed to `<root>/settled/funding/<YYYYMMDD>/<HH>.<run>.jsonl.zst`
+  **only when every coin's gap spans and open tail completed**, followed by `fsync` of the destination directory
+  `<root>/settled/funding/<YYYYMMDD>/` before `mmvault funding` exits 0 (so the rename is durable across power cuts on
+  any filesystem before `Capture_k` lists the file). Events stream live to
+  `<root>/settled/events/<YYYYMMDD>/<HH>.<run>.jsonl.zst` for every attempt (completed, failed, stuck or killed) so
+  failed pulls remain auditable. The `start` event holds `now`, `floor_ms` and `coins`; one `pull` event per coin holds
+  `coin`, `gaps` (count of gap spans queried), `pages`, `items`, `new` and `complete`; `stuck` and `error` record
+  failures; `stop` ends the attempt (`ok`). A failed, stuck or killed pull leaves zero files in
+  `<root>/settled/funding/`.
+- **Identity:** `(coin, time)`, for counting `items` and `new` only, as above. What a replay makes of a row is
+  `KERNEL.md` A18's (what a reader puts in a record): nothing of the envelope reaches it.
 
-**Tests,** offline as above:
-1. **Paging and no `endTime`:** 1,200 rows of one coin come back as pages of 500, 500 and 202, each starting at the last
-   `time`, inclusive, with no `endTime` in the request body, and every row is counted once.
-2. **Range and pacing:** `--from-ms` at `w_start` pulls every coin from `w_start`, and the daily pull from 30 days
-   before the last midnight; consecutive 500-row pages keep ≤ 750 weight/min (≥ 3.6 s spacing; testable with a fake clock
-   or recorded inter-request delays).
-3. **Complete and atomic staging:** a pull killed (SIGKILL) after some coins leaves their `pull` events in `events/` and
-   **zero files in `settled/funding/`**, and is incomplete; a 429 five times writes an `error` event, exits 1, and leaves
-   zero files in `settled/funding/`. A completed pull atomically places one stream-ended file in `settled/funding/` and
-   `fsync`s the destination directory before exiting 0.
-4. **Nothing printed:** no output and no event holds a rate.
+**Tests,** offline against a fake REST server, written by a session that does not build the collector:
+1. **Cold start, paging and no `endTime` on open tail:** with an empty `settled/funding/` directory and `--from-ms` at
+   `w_start` (and separately without `--from-ms`, verifying default floor `2026-11-01T00:00:00Z`), 1,200 hourly rows of
+   one coin come back as pages of 500, 500 and 202, starting at `floor_ms` and then each page's last `time`, inclusive,
+   with **no `endTime`** in the request body; every row is counted once (`items = 1200`, `new = 1200`).
+2. **Fetch-once and open-tail advance:** after a run stores hours `H_0 .. H_23` (including rows stamped on exact hour
+   edges and late at `H_23 + 3_599_999`), a second run sends only `startTime = H_24` (with no `endTime`) and never
+   re-queries `H_0 .. H_23`. If the fake server changes the rate or adds precision digits to `H_0 .. H_23` between runs,
+   the second run never queries them, stores only `H_24 ..`, and leaves `H_0 .. H_23` untouched on disk.
+3. **Contiguous gap backfill, exact boundaries, short pages and wild future row:** given stored files holding
+   `H_0 .. H_4`, `H_8 .. H_10` and `H_14 .. H_15` (and also a >30-day-old gap when `H_max > floor_ms + 720 h`, plus a
+   case where `floor_ms` itself is missing while `floor_ms + 1 h` is stored), the next run issues exact gap requests
+   `[H_5, H_7 + 3_599_999]` (receiving rows stamped at `H_5` exact and `H_7 + 3_599_999` late) and
+   `[H_11, H_13 + 3_599_999]`, followed by open tail `startTime = H_16` (no `endTime`), and zero requests touching
+   already-stored hours; a subsequent run sends only the new open tail. A >500-hour gap paginates inside
+   `[H_a, H_b + 3_599_999]` cleanly; a short page (`< 500`) inside a gap or open tail leaves the unreturned hours for the
+   next run to fetch; a single wild future row (e.g., year 2030) in `settled/funding/` still lets the missing span
+   `[H_today, H_wild - 1 h]` fetch every real new hour through venue `now` in one paginated call and stop.
+4. **Weight pacing:** consecutive 500-row pages keep ≤ 750 weight/min (≥ 3.6 s spacing) and empty pages keep ≥ 1.6 s
+   spacing (testable with a fake clock or recorded inter-request delays).
+5. **Complete, atomic staging, fail-closed errors and shared lock:** a pull killed (`SIGKILL`) after some coins leaves
+   their `pull` events in `events/` and **zero files in `settled/funding/`**, and is incomplete; five 429s, a 500, an
+   out-of-range/wrong-coin row, or a stuck 500-row page (`last_time <= start`) writes an `error` or `stuck` event, exits
+   1, and leaves zero files in `settled/funding/`; a corrupt/truncated file already in `settled/funding/` fails closed
+   (`error` event, exits 1, zero new files) rather than silently re-fetching stored hours; a completed pull atomically
+   places one stream-ended file in `settled/funding/` and `fsync`s the destination directory before exiting 0; two
+   concurrent `mmvault funding` runs on the same `<root>` serialize on `<root>/settled/.lock` so the second waits for
+   the first to commit and does not re-query hours the first already fetched.
+6. **Nothing printed:** no output and no event holds a rate.
 
-**Deployment:** a CronJob `settled` beside `vault`, daily at 00:17 UTC, mounting `ws` as `vault` does; the replay's
-timer runs the same image on the same volume, and both jobs share one single-instance `settled` lock (`flock` / `Forbid`)
-so an hourly retry overlapping 00:17 never double-spends the 750 weight/min budget (round 9, Opus N2.2). *(Pending human
-choice before building `mmvault funding`, `audit/program/ledger.md` round 9 / Opus F2.2: Option 2 above keeps `--from-ms = w_start`
-and exposes full history to any venue precision change; if the human chooses Option 1 [fetch-once + gap backfill], both
-daily and monthly runs query only missing contiguous hour spans `[H_a, H_b + 3,599,999]` in `[w_start, max(S_c^disk))`
-plus the open tail from `max(S_c^disk) + 1 h`, never re-querying an already-stored `(coin, hour)`.)*
+**Deployment:** a CronJob `settled` beside `vault`, daily at 00:17 UTC (19:17 EST) (no `--from-ms`, default floor
+`2026-11-01T00:00:00Z`), mounting `ws` as `vault` does (`concurrencyPolicy: Forbid`); the replay's timer runs the same
+image on the same volume with `--from-ms <w_start>` and a 15-minute kill limit. Both serialize on `<root>/settled/.lock`
+(`flock`) so an hourly retry overlapping 00:17 never double-spends the 750 weight/min budget or double-fetches a missing
+hour.
