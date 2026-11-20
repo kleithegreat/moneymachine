@@ -36,7 +36,7 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
      - **Data:** the archive for its 17 coins, 2026-04-03 to 10-31 (26 GB, `ingest/archive.py`); funding history (`data/study2/funding-history/`); the vault's own fills and funding before 11-01 (`data/study2/vault/`); the trade prints (`node_fills_by_block`, V22; `data/hl-archive/fills_by_block/`), complete with a continuous block stream (decisions 2026-11-16 20:27 UTC, 15:27 EST). The C6.4 reference streams are stored under a hash (`data/stage6/c64-reference/`, decisions 2026-11-16).
      - **The vault collector** (`recorder/VAULT.md`, `mmvault`) runs hourly as CronJob `vault` (`CLUSTER.md`).
    - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
-   - **The websocket recorder** (`recorder/RECORDER.md`): every perp on every Hyperliquid dex, crypto and builder-deployed stocks, commodities and indices. Built (`mmrec`, OCaml on Jane Street's stack), its tests written first by another session. **Running** since 2026-11-14 03:43 UTC (22:43 EST) as StatefulSet `ws` (image `5cbfbbd` since 06:12 UTC, 01:12 EST), one copy on prodesk7 (PVC `ws`, not mirrored, the human's choice): fast five-level books for all 350 perps, 20-level books for the main dex's 179, trades, asset contexts, listings. Measured 2026-11-15 03:00 UTC (22:00 EST), sizes only: about 2.0 GB a day since the fix (fast books 70%); 385 GB free fills about April to May 2027; two years are 1.5 to 1.75 TB a copy.
+   - **The websocket recorder** (`recorder/RECORDER.md`): every perp on every Hyperliquid dex, crypto and builder-deployed stocks, commodities and indices. Built (`mmrec`, OCaml on Jane Street's stack), its tests written first by another session. **Running** since 2026-11-14 03:43 UTC (22:43 EST) as StatefulSet `ws` (image `5cbfbbd` since 06:12 UTC, 01:12 EST), one copy on prodesk7 (PVC `ws`, not mirrored, the human's choice): fast five-level books for all 350 perps, 20-level books for the main dex's 179, trades, asset contexts, listings. About 2.0 GB a day (sizes only, 2026-11-15); its volume fills about April to May 2027.
 2. **Erasure pass** (list `audit/erasure/2026-11-12-deletion-list.md`): phases A to E and F12 are done, `ops/shards.py` included.
    - Tests are 11 flake checks on the remote builders and `nix run .#test` (`CLUSTER.md` §6); the launcher is `nix run .#session`; the timers are `homeManagerModules.default`, imported by dotfiles.
    - Phase A: the thesis track and `ops/crossmachine.py` are gone, archived at `archive/thesis` and `archive/thesis-refreeze`.
@@ -45,10 +45,10 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
 
 ### Next, in order
 
-1. **Kernel version 2:** step 5 built and proved on `kernel2-step5`, not merged.
-   - **B4 on its MPFR reference** runs unattended on prodesk5, gmktec and prodesk7 (`/var/tmp/mm-b4`, `DONE` when finished; decisions 2026-11-19). To finish: gather, one `SHA256SUMS`, byte-check each node's files.
-   - **Round 8** (Neon as architect, D211 to D220) awaits a fresh Opus and GPT review. Then: test 12 hardened and its inputs, step 5 merges, step 5a.
-   - **`recorder-fixes`:** round 4's tests are in (Hydrogen); its builder (Argon) resumes from `BUILD-BRIEF-4.md`, then a review on another model, then one deploy.
+1. **Kernel version 2:** step 5 built; B4 passed on it (3,120 of 3,120), test 12 hardened (Hydrogen) with inputs in `data/x4-inputs/test12/` (root `7bab5c43…`).
+   - **Overnight 2026-11-20:** test 12 runs here; B4 reruns on the three nodes with the hardened stub (`/var/tmp/mm-b4`, `DONE`). When both pass: `x4-hosts.sh` on two nodes, then merge step 5 into `kernel2-build`.
+   - **Round 9** (Neon as architect, D221 to D228; H16 Option 1, the human's) awaits GPT. CS2.1's note and CS2.2's revision await a fresh Claude and GPT before their commit.
+   - **Recorder:** after the deploy, the lint gate and the six catch-alls.
 2. **Study 1:** after the first session, the human sets the pace from its measured usage.
    - **After a reboot**, restart the runner: `systemd-run --user --unit mm-study1` from `../mm-s1-arms`, running `nix develop -c python -m gate.control.runner` with `CARGO_TARGET_DIR=~/.cache/mm-study1/k`, `TMPDIR=~/.cache/mm-study1/tmp`, only `CLAUDE_CODE_OAUTH_TOKEN_TAMU`, output appended to `~/.cache/mm-study1/runner.log`; then its watcher, which stops it after one result.
 3. **The paper, free-standing and academic** (the human, 2026-11-16): deferred until the human says; written by Opus, reviewed for accuracy only.
@@ -59,6 +59,8 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
 - Stages 0–6 exited (stage 4 on 2026-11-08: `audit/stage4/exit.md`); recorder handoff done. Findings and audit links: `docs/whitepaper.tex`, §17; current qualifications below.
 
 ## Blockers
+
+- **Recorder deploy needs the human's go:** `recorder-fixes` is in `main` (`57ad215`; reviewed, suite passes); an unattended live deploy was blocked. `ops/live.py push`, `apply <digest> vault` (not near :07), then `ws` (~20 s gap).
 
 None blocks the program. Source certificates that fail, with their clauses, are in `venue/sources.toml` and `audit/decisions.md`: Kalshi, Polymarket and Polymarket US; FRED and ALFRED; IMF; and stage 8's candidates.
 

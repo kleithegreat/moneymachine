@@ -8,7 +8,10 @@ type config =
   ; stream : (conn:int -> seq:int -> string) option
   ; stream_interval_ms : int
   ; tls : tls option
+  ; rest_tls : tls option
   ; fault : conn:int -> fault option
+  ; rest_stall : request:string -> bool
+  ; rest_fault : unit -> rest_stall_mode option
   }
 
 and fault =
@@ -17,6 +20,12 @@ and fault =
   | Reset_in_handshake
   | Answer_with of int
   | Reset_mid_frame
+  | Tls_fatal_alert
+
+and rest_stall_mode =
+  | Stall_tls_handshake
+  | Stall_before_status_line
+  | Stall_in_chunked_body
 
 and tls =
   { crt_file : string
@@ -30,7 +39,10 @@ let default_config =
   ; stream = None
   ; stream_interval_ms = 100
   ; tls = None
+  ; rest_tls = None
   ; fault = (fun ~conn:_ -> None)
+  ; rest_stall = (fun ~request:_ -> false)
+  ; rest_fault = (fun () -> None)
   }
 ;;
 
@@ -39,10 +51,13 @@ type t =
   ; ws_port : int
   ; rest_port : int
   ; ws_scheme : string
+  ; rest_scheme : string
+  ; stopped : unit Ivar.t
   ; accepts : (int * int) list ref
   ; received : (int * int * string) list ref
   ; rest_requests : string list ref
   ; streamed : (int, int) Hashtbl.t
+  ; faults_at : (int, int) Hashtbl.t
   }
 
 let now_ms () = Time_ns.to_int_ns_since_epoch (Time_ns.now ()) / 1_000_000
@@ -72,20 +87,45 @@ let ack_frame subscription =
         ])
 ;;
 
-let serve_rest t config reader writer headers =
+let wait_eof_or_stop t reader =
+  let buf = Bytes.create 4096 in
+  let rec drain () =
+    match%bind Reader.read reader buf with
+    | `Eof -> return ()
+    | `Ok _ -> drain ()
+  in
+  Deferred.any [ drain (); Ivar.read t.stopped ]
+;;
+
+let serve_rest t config ~fault reader writer headers =
   let length = Option.value_map (header headers "content-length") ~default:0 ~f:Int.of_string in
   let buffer = Bytes.create length in
   let%bind _ = Reader.really_read reader buffer in
   let request = Bytes.to_string buffer in
   t.rest_requests := request :: !(t.rest_requests);
-  let body = config.rest ~request in
-  Writer.write
-    writer
-    (sprintf
-       "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s"
-       (String.length body)
-       body);
-  Writer.close writer
+  match fault with
+  | Some Stall_before_status_line | Some Stall_tls_handshake -> wait_eof_or_stop t reader
+  | Some Stall_in_chunked_body ->
+    Writer.write
+      writer
+      "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n1\r\n[\r\n";
+    let%bind () = Writer.flushed writer in
+    wait_eof_or_stop t reader
+  | None ->
+    if config.rest_stall ~request
+    then (
+      (* The answer starts and never ends: the headers promise more body than is ever sent. *)
+      Writer.write writer "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 100000\r\n\r\n[";
+      Deferred.never ())
+    else (
+      let body = config.rest ~request in
+      Writer.write
+        writer
+        (sprintf
+           "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s"
+           (String.length body)
+           body);
+      Writer.close writer)
 ;;
 
 let reset writer =
@@ -100,7 +140,7 @@ let reset_mid_frame writer =
   reset writer
 ;;
 
-let serve_ws t config reader writer headers conn =
+let serve_ws t config ~outer_wr reader writer headers conn =
   let key = Option.value_exn (header headers "sec-websocket-key") in
   let accept = Websocket.sec_websocket_accept_header_value ~sec_websocket_key:key in
   Writer.write
@@ -111,8 +151,10 @@ let serve_ws t config reader writer headers conn =
   let ws = Websocket.create ~role:Server reader writer in
   let rd, wr = Websocket.pipes ws in
   let finished = Ivar.create () in
+  let stop_stream = Ivar.create () in
   let subscribed = ref false in
   let resetting = ref false in
+  let alert_scheduled = ref false in
   let send text = if not (Pipe.is_closed wr) then Pipe.write_without_pushback wr text in
   let close () =
     Pipe.close wr;
@@ -123,7 +165,7 @@ let serve_ws t config reader writer headers conn =
   Option.iter config.stream ~f:(fun stream ->
     let seq = ref 0 in
     Clock_ns.every
-      ~stop:(Ivar.read finished)
+      ~stop:(Deferred.any [ Ivar.read finished; Ivar.read stop_stream ])
       (Time_ns.Span.of_int_ms config.stream_interval_ms)
       (fun () ->
          if !subscribed
@@ -131,6 +173,23 @@ let serve_ws t config reader writer headers conn =
            incr seq;
            Hashtbl.set t.streamed ~key:conn ~data:!seq;
            send (stream ~conn ~seq:!seq))));
+  let trigger_tls_alert () =
+    if not !alert_scheduled
+    then (
+      alert_scheduled := true;
+      don't_wait_for
+        (let%bind () = after (Time_float.Span.of_ms 400.) in
+         Ivar.fill_if_empty stop_stream ();
+         let%bind () = Writer.flushed writer in
+         let%bind () = after (Time_float.Span.of_ms 50.) in
+         match outer_wr with
+         | None -> failwith "Tls_fatal_alert requires tls = Some ..."
+         | Some raw_wr ->
+           let%bind () = Writer.flushed raw_wr in
+           Hashtbl.set t.faults_at ~key:conn ~data:(now_ms ());
+           Writer.write raw_wr "\x15\x03\x03\x00\x02\x02\x50";
+           Writer.flushed raw_wr))
+  in
   let handle text =
     t.received := (conn, now_ms (), text) :: !(t.received);
     if Poly.equal (config.fault ~conn) (Some Reset_mid_frame)
@@ -140,20 +199,21 @@ let serve_ws t config reader writer headers conn =
         resetting := true;
         don't_wait_for (reset_mid_frame writer)))
     else (
-    match json_of_text text with
-    | Some (`Assoc fields) ->
-      (match List.Assoc.find fields ~equal:String.equal "method" with
-       | Some (`String "subscribe") ->
-         subscribed := true;
-         let subscription =
-           Option.value (List.Assoc.find fields ~equal:String.equal "subscription") ~default:`Null
-         in
-         if config.ack_subscriptions then send (ack_frame subscription)
-       | Some (`String "ping") -> if config.ack_subscriptions then send {|{"channel":"pong"}|}
-       | _ -> ())
-    | _ -> ())
+      match json_of_text text with
+      | Some (`Assoc fields) ->
+        (match List.Assoc.find fields ~equal:String.equal "method" with
+         | Some (`String "subscribe") ->
+           subscribed := true;
+           let subscription =
+             Option.value (List.Assoc.find fields ~equal:String.equal "subscription") ~default:`Null
+           in
+           if config.ack_subscriptions then send (ack_frame subscription);
+           if Poly.equal (config.fault ~conn) (Some Tls_fatal_alert) then trigger_tls_alert ()
+         | Some (`String "ping") -> if config.ack_subscriptions then send {|{"channel":"pong"}|}
+         | _ -> ())
+      | _ -> ())
   in
-  let%bind () = Pipe.iter_without_pushback rd ~f:handle in
+  let%bind () = Deferred.any [ Pipe.iter_without_pushback rd ~f:handle; Ivar.read t.stopped ] in
   close ();
   Writer.close writer
 ;;
@@ -161,7 +221,7 @@ let serve_ws t config reader writer headers conn =
 let start config =
   let t_ref = ref None in
   let counter = ref 0 in
-  let handler reader writer =
+  let ws_or_rest_handler ~outer_wr reader writer =
     let t = Option.value_exn !t_ref in
     let%bind headers = read_headers reader [] in
     let is_upgrade =
@@ -185,46 +245,96 @@ let start config =
           writer
           (sprintf "HTTP/1.1 %d Refused\r\nContent-Length: 0\r\nConnection: close\r\n\r\n" code);
         Writer.close writer
-      | Some Reset_mid_frame | None -> serve_ws t config reader writer headers conn)
-    else serve_rest t config reader writer headers
+      | Some (Reset_mid_frame | Tls_fatal_alert) | None ->
+        serve_ws t config ~outer_wr reader writer headers conn)
+    else (
+      let fault = config.rest_fault () in
+      serve_rest t config ~fault reader writer headers)
+  in
+  let rest_tls_config =
+    Option.map config.rest_tls ~f:(fun { crt_file; key_file } ->
+      Async_ssl.Config.Server.create ~crt_file ~key_file ~ca_file:None ~ca_path:None ())
+  in
+  let rest_handler outer_rd outer_wr =
+    let t = Option.value_exn !t_ref in
+    let fault = config.rest_fault () in
+    match fault with
+    | Some Stall_tls_handshake -> wait_eof_or_stop t outer_rd
+    | _ ->
+      let run reader writer =
+        let%bind headers = read_headers reader [] in
+        serve_rest t config ~fault reader writer headers
+      in
+      (match rest_tls_config with
+       | None -> run outer_rd outer_wr
+       | Some tls_config ->
+         Async_ssl.Tls.wrap_server_connection tls_config outer_rd outer_wr ~f:(fun _ r w -> run r w))
   in
   let where = Tcp.Where_to_listen.bind_to Localhost On_port_chosen_by_os in
-  let%bind plain = Tcp.Server.create ~on_handler_error:`Ignore where (fun _ r w -> handler r w) in
-  let%map servers, ws_port, ws_scheme =
-    match config.tls with
-    | None -> return ([ plain ], Tcp.Server.listening_on plain, "ws")
-    | Some { crt_file; key_file } ->
-      let tls_config = Async_ssl.Config.Server.create ~crt_file ~key_file ~ca_file:None ~ca_path:None () in
-      let%map secure =
-        Async_ssl.Tls.listen
-          tls_config
-          where
-          ~on_handler_error:`Ignore
-          ~f:(fun _ _ reader writer -> handler reader writer)
+  let%map servers, ws_port, ws_scheme, rest_port, rest_scheme =
+    match config.tls, config.rest_tls with
+    | None, None ->
+      let%map plain =
+        Tcp.Server.create ~on_handler_error:`Ignore where (fun _ r w -> ws_or_rest_handler ~outer_wr:None r w)
       in
-      [ plain; secure ], Tcp.Server.listening_on secure, "wss"
+      let port = Tcp.Server.listening_on plain in
+      [ plain ], port, "ws", port, "http"
+    | ws_tls, rest_tls ->
+      let%bind ws_server, ws_scheme =
+        match ws_tls with
+        | None ->
+          let%map plain =
+            Tcp.Server.create ~on_handler_error:`Ignore where (fun _ r w -> ws_or_rest_handler ~outer_wr:None r w)
+          in
+          plain, "ws"
+        | Some { crt_file; key_file } ->
+          let tls_config = Async_ssl.Config.Server.create ~crt_file ~key_file ~ca_file:None ~ca_path:None () in
+          let%map secure =
+            Tcp.Server.create ~on_handler_error:`Ignore where (fun _ outer_rd outer_wr ->
+              Async_ssl.Tls.wrap_server_connection tls_config outer_rd outer_wr ~f:(fun _ r w ->
+                ws_or_rest_handler ~outer_wr:(Some outer_wr) r w))
+          in
+          secure, "wss"
+      in
+      let%map rest_server =
+        Tcp.Server.create ~on_handler_error:`Ignore where (fun _ r w -> rest_handler r w)
+      in
+      let rest_scheme = if Option.is_some rest_tls then "https" else "http" in
+      ( [ ws_server; rest_server ]
+      , Tcp.Server.listening_on ws_server
+      , ws_scheme
+      , Tcp.Server.listening_on rest_server
+      , rest_scheme )
   in
   let t =
     { servers
     ; ws_port
-    ; rest_port = Tcp.Server.listening_on plain
+    ; rest_port
     ; ws_scheme
+    ; rest_scheme
+    ; stopped = Ivar.create ()
     ; accepts = ref []
     ; received = ref []
     ; rest_requests = ref []
     ; streamed = Hashtbl.create (module Int)
+    ; faults_at = Hashtbl.create (module Int)
     }
   in
   t_ref := Some t;
   t
 ;;
 
-let stop t = Deferred.List.iter ~how:`Sequential t.servers ~f:Tcp.Server.close
+let stop t =
+  Ivar.fill_if_empty t.stopped ();
+  Deferred.List.iter ~how:`Sequential t.servers ~f:Tcp.Server.close
+;;
+
 let ws_url t = sprintf "%s://127.0.0.1:%d/ws" t.ws_scheme t.ws_port
-let rest_url t = sprintf "http://127.0.0.1:%d/info" t.rest_port
+let rest_url t = sprintf "%s://127.0.0.1:%d/info" t.rest_scheme t.rest_port
 let accepts t = List.rev !(t.accepts)
 let received t = List.rev !(t.received)
 let streamed t ~conn = Option.value (Hashtbl.find t.streamed conn) ~default:0
+let fault_at t ~conn = Hashtbl.find t.faults_at conn
 let rest_requests t = List.rev !(t.rest_requests)
 
 let subscribed_on t ~conn =

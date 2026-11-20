@@ -41,7 +41,11 @@ Each run, in this order:
 fills of one `tid`); a funding row's is (`coin`, `time`). Nothing is dropped: every response is stored whole, and an
 item whose identity was stored before is only not counted as new. A run reads only these identity fields and `time` of
 each item, to page and to count, and nothing else of any item. What a re-read adds (items whose identity was not stored
-before) is counted in its event. The set of stored identities is rebuilt from the stored files at every run; `state.json` holds only the watermark and
+before) is counted in its event. The set of stored identities is rebuilt from the stored files at every run, reading
+only `<kind>/<YYYYMMDD>/*.jsonl.zst`. A stored file is read up to its first unreadable point: a truncated last line or
+frame, as a kill leaves, is skipped silently; any other failure to decode or parse is an `error` event naming the file,
+and the run goes on without that file's unread identities, whose items may then be stored again (readers merge by
+identity). Only those failures are caught. `state.json` holds only the watermark and
 the last daily re-read. A pull event's `items` counts distinct identities.
 
 **The 30 days and the hour of overlap are choices** (brief 3; GPT's R6 on study 2's criteria): nothing says how late
@@ -63,6 +67,8 @@ state.json                                 the watermark and the last daily re-r
 - **Events:** `start` (with `user`, `now`, the overlap and the 30 days), one `pull` per kind (`kind`, `from_ms`,
   `to_ms`, `pages`, `items`, `new`, `complete`), `stuck` (a page at the cap that cannot be continued), `alarm`, `error`
   (an HTTP status, a timeout, an unreadable body, with the request), `stop`.
+  A request not answered in full within 30 s of its start (connecting, the TLS handshake and the whole response) is a
+  timeout.
 - **Atomic pull staging (round 8, fsync directory round 9):** each kind's pull writes its response lines into `<root>/vault/<user>/.tmp/<run>.<kind>.jsonl.zst`, ends the zstd stream cleanly, `fsync`s it, atomically renames it to `<kind>/<YYYYMMDD>/<HH>.<run>.jsonl.zst` only after that kind's pull completes, and `fsync`s the destination directory `<kind>/<YYYYMMDD>/` before `state.json` is updated. Events still stream live to `events/`. A kill or failure mid-pull therefore leaves zero partial multi-page files in `<kind>/` for a concurrent capture to snapshot.
 - **`state.json`** is written to a temporary file and renamed. A kill at any moment leaves either the old or the new
   state, every file in `<kind>/` complete and stream-ended, and every event line whole or one truncated last line that
@@ -100,7 +106,12 @@ Offline, against a fake REST server, written by a session that does not build th
    watermark unmoved; a 500 or an unreadable body likewise.
 8. **Alarm:** a daily re-read of 5,001 fills raises `alarm`.
 9. **Nothing printed:** no test's output and no event holds an item's price, size, fee or rate.
-10. **Identity:** a self-trade, two fills of one `tid` and two `oid`, is two fills, each counted as new; one fill in two
+10. **Corrupt stored file:** a stored fills file with a corrupt frame before its end gives one `error` event naming it, and
+    the run still pulls and stores; a kill's truncated last line gives no event.
+11. **Stalled handshake:** a request whose server accepts the connection and never completes the TLS handshake gives one
+    `error` with `timeout` within 35 s.
+12. **Stray entries:** a subdirectory or a file not named `*.jsonl.zst` under a stored day changes nothing.
+13. **Identity:** a self-trade, two fills of one `tid` and two `oid`, is two fills, each counted as new; one fill in two
     pulls is counted once (the last pass's round 7).
 
 ## Deployment

@@ -1437,3 +1437,9 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Matches the committed spec** (`e691341`): "fetches settled funding for the judged days it does not yet hold".
   - **Monthly pull:** about 30 s, against about 39 minutes under Option 2.
   - **Next:** the architect, Neon, rewrites `VAULT.md` and brief 4's step 7 to Option 1 alone, deleting Option 2.
+- 2026-11-20 07:53 UTC (02:53 EST), advisor: **`recorder-fixes` merged into `main`** (`57ad215`).
+  - **Reviews:** Neon on round 2. A fresh Opus on round 4's `045b4fb` ran the suite twice in its own worktree: "deploy as is" (`audit/reviews/2026-11-20-opus-recorder-fixes.md`).
+  - **Tests:** the full suite passes on the merge.
+  - **Not deployed:** the classifier blocked building and pushing the live image while the human slept. The deploy waits for the human's go-ahead (`PROGRESS.md`, Blockers). The live recorders keep running the old code, which has the original defects and no new ones.
+  - **Reviewer's notes, not acted on:** item 20's reason names a broken pipe rather than the TLS alert, and `connect_tls` has three cleanup paths where the `connected` callback would do. Neither changes an outcome.
+  - **Reversal:** revert the merge.

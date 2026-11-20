@@ -77,6 +77,9 @@ val hour_of_ms : int -> string
     on a truncated file. *)
 val zstd_lenient_decode : string -> string
 
+(** Raw lossless decompression of in-memory zstd bytes without trimming a trailing partial line. *)
+val decode_lossless : string -> string
+
 (** Environment variables that make a child process's clock read [at_ms] now and run on from there (libfaketime,
     which must be on PATH). *)
 val faketime_env : at_ms:int -> (string * string) list
