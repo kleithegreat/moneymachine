@@ -107,24 +107,32 @@ stepping back never reopens a closed file.
     128 KiB short of a cut without saying so (2026-11-14: 3 of 40 random cuts).
 - **Files are append-only.** Nothing rewrites, renames or deletes a recording. A file is written by one run only; at
   the hour's end, or when the run stops, it is closed and never opened again.
-- **Closed-hour per-coin seekable packs (round 8, off the `ws` PVC).** The live writer above never changes. Once a raw
-  `l2Book-fast` or `trades` hour file `F = <HH>.<run>.jsonl.zst` is provably closed (its zstd stream ended cleanly, or a
-  strictly newer hour/run file exists in that channel proving `<run>` died, recorded with `raw_cut = true`) and outside
+- **Closed-hour per-coin seekable packs (round 8, revised round 9, off the `ws` PVC).** The live writer above never changes. Once a raw
+  `l2Book-fast` or `trades` hour file `F = <HH>.<run>.jsonl.zst` is provably closed (**if and only if its zstd stream ended cleanly**
+  with a valid trailing 4-byte xxHash32 checksum and zero trailing bytes at EOF; never inferred from `<run>` ids, which come from
+  the host wall clock — truncated/cut killed-run files are **never** packed and stay raw) and outside
   every unreleased protected window, the frozen `mm2 pack` tool (`audit/program/briefs/3-kernel-v2.md`, step 6) packs it
   1-to-1 on two distinct hosts into a standard Zstd Seekable Format file `<channel>/<YYYYMMDD>/<HH>.<run>.packed.zst`
   stored on a separate replay/pack volume (never on `prodesk7`'s `ws` PVC, leaving raw files untouched):
-  - frames `0 .. K−1`: one continuous zstd frame (level 9, checksum enabled, no per-second flushes) per distinct coin in
-    lexicographic ASCII order, lines verbatim in exact within-coin receive order (`l2Book-fast` keyed by `msg.data.coin`;
-    `trades` keyed by common `msg.data[*].coin` on non-empty single-coin arrays);
-  - frame `K` (`_other`): every line without a valid single coin (empty/mixed `trades` arrays, missing `"coin"`, or
-    malformed JSON), omitted only if 0 lines;
-  - RFC 8878 skippable frame `0x184D2A5D`: wraps one zstd frame of little-endian `uint16` per-line frame indices so
-    `mm2 unpack-verify` reconstructs `mmrec cat F L_raw` byte-for-byte (and `zstd -dc` / `mmrec cat` skip it cleanly,
-    emitting pure JSONL);
+  - `mm2 pack` refuses any unended/truncated raw stream (`R_UNCLOSED`, writing no output) and refuses any file whose hour
+    directory or any event timestamp lies in an unreleased protected window (`R_PROTECTED`, writing no output and emitting
+    **only** the code `R_PROTECTED` and file path — never a line, timestamp, coin name, or count);
+  - frames `0 .. K−1`: one continuous zstd frame (single-threaded, pinned level 9, checksum enabled, no per-second flushes)
+    per distinct coin in lexicographic ASCII order, lines verbatim in exact within-coin receive order, classified by one shared
+    RFC 8259 JSON routing function `Coin_route.classify_line` (`l2Book-fast` keyed by decoded `msg.data.coin`; `trades` keyed
+    by common decoded `msg.data[*].coin` on non-empty single-coin arrays);
+  - frame `K` (`_other`): every line where `classify_line` returns `Other` (empty/mixed `trades` arrays, missing/non-string/empty
+    `"coin"`, or malformed JSON), omitted only if 0 lines;
+  - RFC 8878 skippable frame `0x184D2A5D`: wraps one zstd frame of little-endian `uint16` per-line frame indices (`_order`) so
+    `mm2 unpack-verify` reconstructs `mmrec cat F` byte-for-byte and checks whole-pack purity across every frame `0..K` (and so
+    the packed reader restores exact raw line indices for A3 ties whenever `_other` is non-empty, while `zstd -dc` / `mmrec cat`
+    skip it cleanly, emitting pure JSONL);
   - RFC 8878 skippable frame `0x184D2A5F`: canonical JSON coin-index metadata pinning `(raw_comp_len, raw_comp_sha256,
-    raw_cut, raw_jsonl_len, raw_jsonl_sha256, total_lines)` and each frame's `(name, frame_idx, comp_off, comp_len,
-    raw_len, line_count, comp_sha256)`;
+    raw_jsonl_len, raw_jsonl_sha256, total_lines)` and each frame's `(name, frame_idx, comp_off, comp_len, raw_len,
+    line_count, comp_sha256)` plus `_order`'s `(comp_off, comp_len, comp_sha256)`;
   - RFC 8878 skippable frame `0x184D2A5E`: standard Zstd Seekable Format EOF seek table over frames `0..K`.
+  - Because `mm2 pack` is a deterministic function of raw bytes, re-packing a lost/corrupted `.packed.zst` on two hosts from the
+    hash-verified raw file on `ws` reproduces the pinned `.packed.zst` bytes identically (packs are never overwritten in place).
 
 ## The forward window
 
