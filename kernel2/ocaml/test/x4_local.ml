@@ -2,7 +2,10 @@
    Builder supplies ONLY the existing Mm2_lean.Machine.start/feed/finish and
    A18 chunks (events_support.ml), and Mm2_lean.Exact.nearest_bits :
    (string * string) -> int64. exp/log are tested as declared-source probes,
-   not through new engine exports. Non-finite probe results must be undefined.
+   not through new engine exports. Non-finite probe results collapse to "-"
+   in A19 traces; exact raw 64-bit non-finite results (+inf, -inf, canonical NaN)
+   of Engine.Exact.exp/log are verified directly without None collapse by
+   fixtures/x4-specials.lean and fixtures/x4-counts.lean.
    MPFR/GMP are test-only inputs from pinned nixpkgs (x4_mpfr_stubs.c).
 
    INPUT_DIR/SHA256SUMS pins manifest.json and all six argument files:
@@ -202,7 +205,16 @@ let run_batch output arguments =
        List.iter
          (fun (op, got) ->
             let wanted = expected op argument in
-            check "no finite-domain result is X4's cap NaN" (got = wanted);
+            (match wanted with
+             | Some b ->
+               check
+                 "finite probe result must equal MPFR bit-for-bit (never cap NaN)"
+                 (got = Some b)
+             | None ->
+               check
+                 "non-finite probe result must be undefined (raw 64-bit bits checked by \
+                  x4-specials/x4-counts)"
+                 (got = None));
             Printf.fprintf
               output
               "%d\t%s\t%s\n"
@@ -369,10 +381,23 @@ let () =
   in
   check "MPFR exp zero exactly one" (O.eval 0 0L = 0x3FF0000000000000L);
   check "MPFR log one exactly zero" (O.eval 1 0x3FF0000000000000L = 0L);
+  let is_nan_bits b =
+    Int64.logand b 0x7FF0000000000000L = 0x7FF0000000000000L
+    && Int64.logand b 0x000FFFFFFFFFFFFFL <> 0L
+  in
   let boundaries = read_bits (Filename.concat dir "boundaries.txt") in
   check
     "the six boundary neighbours are MPFR's"
     (boundaries = Array.to_list (O.boundaries ()));
+  check
+    "MPFR boundary[1] overflows to +inf"
+    (O.eval 0 (List.nth boundaries 1) = 0x7FF0000000000000L);
+  check
+    "MPFR exp(+inf) = +inf, log(+-0) = -inf, log(-1) = NaN"
+    (O.eval 0 0x7FF0000000000000L = 0x7FF0000000000000L
+     && O.eval 1 0L = 0xFFF0000000000000L
+     && O.eval 1 Int64.min_int = 0xFFF0000000000000L
+     && is_nan_bits (O.eval 1 0xBFF0000000000000L));
   let arguments = draws 0 @ draws 1 @ hardest @ boundaries @ specials in
   let channel = open_out_bin output in
   Fun.protect ~finally:(fun () -> close_out channel) (fun () -> batches channel arguments);

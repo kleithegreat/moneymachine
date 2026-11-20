@@ -33,28 +33,105 @@ def count (isLog : Bool) (x : Rat) : IO (Nat × Nat) := do
       return (n, first)
   throw (IO.userError "X4 cap reached without a deciding count")
 
+def posInfBits : UInt64 := 0x7FF0000000000000
+def negInfBits : UInt64 := 0xFFF0000000000000
+def nanBits : UInt64 := 0x7FF8000000000000
+
+def checkEntry (verifyRaw : Bool) (isLog : Bool) (b : UInt64) : IO (Option (Nat × Nat)) := do
+  let engineOut := fun () => if isLog then Engine.Exact.log b else Engine.Exact.exp b
+  match Engine.Exact.decode b with
+  | none =>
+    let expected :=
+      if b == posInfBits then posInfBits
+      else if !isLog && b == negInfBits then 0
+      else nanBits
+    let got := engineOut ()
+    unless got == expected do
+      throw (IO.userError s!"raw non-finite mismatch (isLog={isLog}, input={b}): got {got}, expected {expected}")
+    return none
+  | some x =>
+    if isLog then
+      if x == 0 then
+        let got := engineOut ()
+        unless got == negInfBits do
+          throw (IO.userError s!"raw log(0) mismatch: got {got}, expected {negInfBits}")
+        return none
+      else if x < 0 then
+        let got := engineOut ()
+        unless got == nanBits do
+          throw (IO.userError s!"raw log(negative) mismatch: got {got}, expected {nanBits}")
+        return none
+      else
+        let (n, first) ← count true x
+        let wanted := Engine.Exact.nearestBits (Engine.Laws.logLoAt x n)
+        if verifyRaw || wanted == posInfBits || wanted == negInfBits || wanted == nanBits then do
+          let got := engineOut ()
+          unless got == wanted do
+            throw (IO.userError s!"raw log mismatch (input={b}): got {got}, expected {wanted}")
+        return some (n, first)
+    else
+      if 710 ≤ x then
+        let got := engineOut ()
+        unless got == posInfBits do
+          throw (IO.userError s!"raw exp(>=710) mismatch: got {got}, expected {posInfBits}")
+        return none
+      else if x ≤ -746 then
+        let got := engineOut ()
+        unless got == 0 do
+          throw (IO.userError s!"raw exp(<=-746) mismatch: got {got}, expected 0")
+        return none
+      else
+        let (n, first) ← count false x
+        let wanted := Engine.Exact.nearestBits (Engine.Laws.expLoAt x n)
+        if verifyRaw || wanted == posInfBits || wanted == negInfBits || wanted == nanBits then do
+          let got := engineOut ()
+          unless got == wanted do
+            throw (IO.userError s!"raw exp mismatch (input={b}): got {got}, expected {wanted}")
+        return some (n, first)
+
 #eval show IO Unit from do
   let some dir ← IO.getEnv "MM2_X4_INPUTS" | throw (IO.userError "MM2_X4_INPUTS required")
   let mut maximum := 0
   let mut beyond := 0
   let mut total := 0
-  let mut inputs : List (Bool × String) := []
-  for (isLog, name) in [(false, "exp"), (true, "log")] do
+  for (_, name) in [(false, "exp"), (true, "log")] do
     for suffix in ["-draws.txt", "-glibc.txt"] do
       let text ← IO.FS.readFile (dir ++ "/" ++ name ++ suffix)
-      inputs := inputs ++ (text.splitOn "\n").flatMap (fun s =>
-        if s.isEmpty then [] else [(isLog, s), (!isLog, s)])
+      for s in text.splitOn "\n" do
+        if !s.isEmpty then
+          let b ← word s
+          for isLog in [false, true] do
+            if let some (n, first) ← checkEntry false isLog b then
+              maximum := max maximum n
+              if first < n then beyond := beyond + 1
+              total := total + 1
   let hardest ← IO.FS.readFile (dir ++ "/hardest.txt")
   for line in hardest.splitOn "\n" do
     if !line.isEmpty then
       match line.splitOn " " with
       | [name, s] =>
         unless name == "exp" || name == "log" do throw (IO.userError "bad hardest operation")
-        inputs := inputs ++ [(false, s), (true, s)]
+        let b ← word s
+        for isLog in [false, true] do
+          if let some (n, first) ← checkEntry true isLog b then
+            maximum := max maximum n
+            if first < n then beyond := beyond + 1
+            total := total + 1
       | _ => throw (IO.userError "bad hardest argument")
   let boundaries ← IO.FS.readFile (dir ++ "/boundaries.txt")
-  inputs := inputs ++ (boundaries.splitOn "\n").flatMap (fun s =>
-    if s.isEmpty then [] else [(false, s), (true, s)])
+  let boundaryLines := (boundaries.splitOn "\n").filter (fun s => !s.isEmpty)
+  unless boundaryLines.length == 6 do throw (IO.userError "boundaries.txt must have 6 entries")
+  let b1 ← word (boundaryLines[1]!)
+  unless b1 == 0x40862E42FEFA39F0 do throw (IO.userError "boundaries[1] must be 0x40862e42fefa39f0")
+  unless Engine.Exact.exp b1 == posInfBits do
+    throw (IO.userError "boundaries[1] exp did not return exact +inf")
+  for s in boundaryLines do
+    let b ← word s
+    for isLog in [false, true] do
+      if let some (n, first) ← checkEntry true isLog b then
+        maximum := max maximum n
+        if first < n then beyond := beyond + 1
+        total := total + 1
   let subnormalSpecials : List UInt64 :=
     (List.range 52).map (fun k => (1 : UInt64) <<< k.toUInt64) ++
     [ 0x0000000000000003, 0x00000000000000FF, 0x000123456789ABCD
@@ -80,16 +157,9 @@ def count (isLog : Bool) (x : Rat) : IO (Nat × Nat) := do
     , (-725 : Float).toBits, (-718.5 : Float).toBits, (-712 : Float).toBits
     , (-709 : Float).toBits, (-708.5 : Float).toBits, (-708.4 : Float).toBits
     ] ++ subnormalSpecials ++ highSpecials
-  let mut bitsInputs : List (Bool × UInt64) := []
-  for s in inputs do
-    let b ← word s.2
-    bitsInputs := (s.1, b) :: bitsInputs
   for b in specialWords do
-    bitsInputs := (false, b) :: (true, b) :: bitsInputs
-  for (isLog, b) in bitsInputs.reverse do
-    if let some x := Engine.Exact.decode b then
-      if (isLog && 0 < x) || (!isLog && -746 < x && x < 710) then
-        let (n, first) ← count isLog x
+    for isLog in [false, true] do
+      if let some (n, first) ← checkEntry true isLog b then
         maximum := max maximum n
         if first < n then beyond := beyond + 1
         total := total + 1

@@ -57,10 +57,25 @@ def expectFinite (name : String) (actual : UInt64) : IO Unit := do
   expect "exp nextafter(-746, 0) underflows" (Engine.Exact.exp 0xC0874FFFFFFFFFFF) 0
   expect "exp nextafter(c0874910d52d3052, -inf) underflows" (Engine.Exact.exp 0xC0874910D52D3053) 0
   expect "exp boundary 0 finite" (Engine.Exact.exp 0x40862E42FEFA39EF) 0x7FEFFFFFFFFFFF2A
+  expect "exp boundary 1 overflows to +inf" (Engine.Exact.exp 0x40862E42FEFA39F0) 0x7FF0000000000000
+  for interior in ([0x40862E42FEFA39F1, 0x40862E42FEFA39FF, 0x40862E4300000000,
+                    0x40862F0000000000, 0x40862FC000000000, 0x40862FFFFFFFFFFE,
+                    0x40862FFFFFFFFFFF, 0x4086300000000000] : List UInt64) do
+    expect "exp interior overflow is +inf, not cap NaN" (Engine.Exact.exp interior) 0x7FF0000000000000
+    expectFinite "log on exp-overflow interior is finite" (Engine.Exact.log interior)
+  expectFinite "log boundary 1 finite" (Engine.Exact.log 0x40862E42FEFA39F0)
   expect "exp boundary 2 subnormal" (Engine.Exact.exp 0xC086232BDD7ABCD3) 0x000FFFFFFFFFFE7C
   expect "exp boundary 3 normal" (Engine.Exact.exp 0xC086232BDD7ABCD2) 0x001000000000007C
   expect "exp boundary 4 zero" (Engine.Exact.exp 0xC0874910D52D3052) 0
   expect "exp boundary 5 min subnormal" (Engine.Exact.exp 0xC0874910D52D3051) 1
+  -- Non-finite boundary and special raw checks for both ops
+  expect "exp underflow below boundary 4" (Engine.Exact.exp 0xC0874910D52D3053) 0
+  expect "log of -inf is canonical NaN" (Engine.Exact.log 0xFFF0000000000000) 0x7FF8000000000000
+  expect "log of -0 is -inf" (Engine.Exact.log 0x8000000000000000) 0xFFF0000000000000
+  expect "log of +0 is -inf" (Engine.Exact.log 0x0000000000000000) 0xFFF0000000000000
+  expect "log of -DBL_MAX is canonical NaN" (Engine.Exact.log 0xFFEFFFFFFFFFFFFF) 0x7FF8000000000000
+  expect "log of -746 is canonical NaN" (Engine.Exact.log (-746 : Float).toBits) 0x7FF8000000000000
+  expect "exp of -746 is +0" (Engine.Exact.exp (-746 : Float).toBits) 0
   -- Subnormal and extreme-exponent log inputs
   expect "log 2^-1074" (Engine.Exact.log 0x0000000000000001) 0xC0874385446D71C3
   expect "log max_subnormal" (Engine.Exact.log 0x000FFFFFFFFFFFFF) 0xC086232BDD7ABCD2
