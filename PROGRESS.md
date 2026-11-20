@@ -45,10 +45,10 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
 
 ### Next, in order
 
-1. **Kernel version 2:** step 5 built and proved on `kernel2-step5`, not merged.
-   - **B4 on its MPFR reference** runs unattended on prodesk5, gmktec and prodesk7 (`/var/tmp/mm-b4`, `DONE` when finished; decisions 2026-11-19). To finish: gather, one `SHA256SUMS`, byte-check each node's files.
-   - **Round 8** (Neon as architect, D211 to D220) awaits a fresh Opus and GPT review. Then: test 12 hardened and its inputs, step 5 merges, step 5a.
-   - **`recorder-fixes`:** round 4's tests are in (Hydrogen); its builder (Argon) resumes from `BUILD-BRIEF-4.md`, then a review on another model, then one deploy.
+1. **Kernel version 2:** step 5 built; B4 passed on it (3,120 of 3,120), test 12 hardened (Hydrogen) with inputs in `data/x4-inputs/test12/` (root `7bab5c43…`).
+   - **Overnight 2026-11-20:** test 12 runs here; B4 reruns on the three nodes with the hardened stub (`/var/tmp/mm-b4`, `DONE`). When both pass: `x4-hosts.sh` on two nodes, then merge step 5 into `kernel2-build`.
+   - **Round 9** (Neon as architect, D221 to D228; H16 Option 1, the human's) awaits GPT. CS2.1's note and CS2.2's revision await a fresh Claude and GPT before their commit.
+   - **`recorder-fixes`** (round 4 at `045b4fb`): a fresh Opus review, then one deploy; then the lint gate and the six catch-alls.
 2. **Study 1:** after the first session, the human sets the pace from its measured usage.
    - **After a reboot**, restart the runner: `systemd-run --user --unit mm-study1` from `../mm-s1-arms`, running `nix develop -c python -m gate.control.runner` with `CARGO_TARGET_DIR=~/.cache/mm-study1/k`, `TMPDIR=~/.cache/mm-study1/tmp`, only `CLAUDE_CODE_OAUTH_TOKEN_TAMU`, output appended to `~/.cache/mm-study1/runner.log`; then its watcher, which stops it after one result.
 3. **The paper, free-standing and academic** (the human, 2026-11-16): deferred until the human says; written by Opus, reviewed for accuracy only.
