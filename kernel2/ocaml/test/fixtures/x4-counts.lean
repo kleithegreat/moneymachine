@@ -17,11 +17,26 @@ def word (s : String) : IO UInt64 := do
   unless s.length == 16 do throw (IO.userError "expected 16 hex digits")
   for c in s.toList do
     let d := if '0' ≤ c && c ≤ '9' then c.toNat - '0'.toNat
-      else if 'a' ≤ c && c ≤ 'f' then c.toNat - 'a'.toNat + 10
-      else if 'A' ≤ c && c ≤ 'F' then c.toNat - 'A'.toNat + 10 else 16
-    if d ≥ 16 then throw (IO.userError "bad hex argument")
+      else if 'a' ≤ c && c ≤ 'f' then c.toNat - 'a'.toNat + 10 else 16
+    if d ≥ 16 then throw (IO.userError "bad lowercase hex argument")
     n := 16 * n + d
   return n.toUInt64
+
+def isHex64 (s : String) : Bool :=
+  s.length == 64 && s.toList.all (fun c => ('0' ≤ c && c ≤ '9') || ('a' ≤ c && c ≤ 'f'))
+
+def verifyInputsRoot (dir expectedSha : String) : IO Unit := do
+  unless isHex64 expectedSha do
+    throw (IO.userError "MM2_X4_INPUTS_SHA256 must be 64 lowercase hex characters")
+  let sumOut ← IO.Process.output { cmd := "sha256sum", args := #["--", dir ++ "/SHA256SUMS"] }
+  unless sumOut.exitCode == 0 do
+    throw (IO.userError s!"sha256sum failed on {dir}/SHA256SUMS")
+  let actualSha := (sumOut.stdout.trimAscii.toString.splitOn " ").head!
+  unless actualSha == expectedSha do
+    throw (IO.userError s!"INPUT_DIR/SHA256SUMS differs from pinned MM2_X4_INPUTS_SHA256: {actualSha} != {expectedSha}")
+  let chkOut ← IO.Process.output { cmd := "sha256sum", args := #["-c", "--quiet", "SHA256SUMS"], cwd := some dir }
+  unless chkOut.exitCode == 0 do
+    throw (IO.userError s!"sha256sum -c failed in {dir}")
 
 def count (isLog : Bool) (x : Rat) : IO (Nat × Nat) := do
   let first := if isLog then 0 else Engine.Laws.expStart x
@@ -91,26 +106,46 @@ def checkEntry (verifyRaw : Bool) (isLog : Bool) (b : UInt64) : IO (Option (Nat 
 
 #eval show IO Unit from do
   let some dir ← IO.getEnv "MM2_X4_INPUTS" | throw (IO.userError "MM2_X4_INPUTS required")
+  let some expectedSha ← IO.getEnv "MM2_X4_INPUTS_SHA256" | throw (IO.userError "MM2_X4_INPUTS_SHA256 required")
+  verifyInputsRoot dir expectedSha
   let mut maximum := 0
   let mut beyond := 0
   let mut total := 0
   for (_, name) in [(false, "exp"), (true, "log")] do
     for suffix in ["-draws.txt", "-glibc.txt"] do
       let text ← IO.FS.readFile (dir ++ "/" ++ name ++ suffix)
+      let mut countLines := 0
       for s in text.splitOn "\n" do
         if !s.isEmpty then
+          countLines := countLines + 1
           let b ← word s
           for isLog in [false, true] do
             if let some (n, first) ← checkEntry false isLog b then
               maximum := max maximum n
               if first < n then beyond := beyond + 1
               total := total + 1
+      if suffix == "-draws.txt" then
+        unless countLines == 1000000 do
+          throw (IO.userError s!"{name}-draws.txt must have 1000000 entries, got {countLines}")
+      else if name == "exp" then
+        unless countLines > 0 do
+          throw (IO.userError "exp-glibc.txt must be non-empty")
   let hardest ← IO.FS.readFile (dir ++ "/hardest.txt")
+  let mut hardestExp := 0
+  let mut hardestLog := 0
   for line in hardest.splitOn "\n" do
     if !line.isEmpty then
       match line.splitOn " " with
-      | [name, s] =>
-        unless name == "exp" || name == "log" do throw (IO.userError "bad hardest operation")
+      | ["exp", s] =>
+        hardestExp := hardestExp + 1
+        let b ← word s
+        for isLog in [false, true] do
+          if let some (n, first) ← checkEntry true isLog b then
+            maximum := max maximum n
+            if first < n then beyond := beyond + 1
+            total := total + 1
+      | ["log", s] =>
+        hardestLog := hardestLog + 1
         let b ← word s
         for isLog in [false, true] do
           if let some (n, first) ← checkEntry true isLog b then
@@ -118,6 +153,8 @@ def checkEntry (verifyRaw : Bool) (isLog : Bool) (b : UInt64) : IO (Option (Nat 
             if first < n then beyond := beyond + 1
             total := total + 1
       | _ => throw (IO.userError "bad hardest argument")
+  unless hardestExp > 0 && hardestLog > 0 do
+    throw (IO.userError "hardest.txt must contain both exp and log entries")
   let boundaries ← IO.FS.readFile (dir ++ "/boundaries.txt")
   let boundaryLines := (boundaries.splitOn "\n").filter (fun s => !s.isEmpty)
   unless boundaryLines.length == 6 do throw (IO.userError "boundaries.txt must have 6 entries")

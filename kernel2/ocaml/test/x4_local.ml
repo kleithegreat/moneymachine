@@ -1,4 +1,5 @@
-(* Brief 3 step 5 test 12. LOCAL; invocation: x4_local.exe INPUT_DIR OUTPUT.
+(* Brief 3 step 5 test 12. LOCAL;
+   invocation: x4_local.exe INPUT_DIR INPUTS_SHA256 OUTPUT.
    Builder supplies ONLY the existing Mm2_lean.Machine.start/feed/finish and
    A18 chunks (events_support.ml), and Mm2_lean.Exact.nearest_bits :
    (string * string) -> int64. exp/log are tested as declared-source probes,
@@ -8,18 +9,38 @@
    fixtures/x4-specials.lean and fixtures/x4-counts.lean.
    MPFR/GMP are test-only inputs from pinned nixpkgs (x4_mpfr_stubs.c).
 
-   INPUT_DIR/SHA256SUMS pins manifest.json and all six argument files:
-     exp-draws.txt, log-draws.txt: exactly 1,000,000 finite binary64 hex lines
-     each, drawn by arithmetic.py.txt:last_pass_r3, not a replacement sampler;
-     exp-glibc.txt, log-glibc.txt: EVERY mis-rounded argument from those draws;
-   hardest.txt: lines `exp HEX` or `log HEX`, the advisor-certified tables.
-   boundaries.txt: the six words returned by the test stub's boundaries (),
-   in its order; verified here and read by the least-N report.
-   manifest.json: {"recipe":"arithmetic.py.txt:last_pass_r3",
-     "recipe_sha256":"...", "certification":"nonempty citation/ranges",
-     "exp_glibc_count":N, "log_glibc_count":M}, counts from that pinned draw.
-   The advisor supplies these missing artifacts. Missing/empty certification,
-   incomplete million-argument files, or missing mis-roundings FAIL, not skip.
+   INPUT_DIR contract (externally root-pinned by INPUTS_SHA256, never self-attesting):
+     INPUTS_SHA256 is the 64-char lowercase hex SHA-256 of INPUT_DIR/SHA256SUMS.
+     SHA256SUMS must parse strictly as `<64-hex>  <exact-basename>` (two ASCII
+     spaces, LF-terminated, no slashes/duplicates) covering all and only 7 files:
+       1. manifest.json: JSON object with required keys:
+          - "recipe": "arithmetic.py.txt:emit_x4_draws"
+          - "recipe_sha256": "5e6c95e92a71c908e4232346aca294ca259d36c53ce62d09e12c155f3d2d953b"
+            (SHA-256 of the pinned emit_x4_draws script)
+          - "certification": nonempty citation referencing CORE-MATH, a pinned
+            40-char hex commit, exp.wc and log.wc, and honest scope/limits
+            (empirical TMD test corpus, not a mechanized exhaustiveness proof)
+          - "exp_hardest_count": integer > 0, exact count of `exp ` lines in hardest.txt
+          - "log_hardest_count": integer > 0, exact count of `log ` lines in hardest.txt
+          - "exp_glibc_count": integer > 0, exact count of lines in exp-glibc.txt
+          - "log_glibc_count": integer >= 0, exact count of lines in log-glibc.txt
+       2. exp-draws.txt: 1,000,000 LF-terminated 16-char lowercase hex binary64 words
+          from arithmetic.py.txt:emit_x4_draws (random.Random(5)), all finite,
+          SHA-256 0efb48018ff7d89206d2704c130a40afe4c6b5e5d73d490bdeee532d7e1ddb30.
+       3. log-draws.txt: 1,000,000 LF-terminated 16-char lowercase hex binary64 words
+          from arithmetic.py.txt:emit_x4_draws (random.Random(5)), all finite > 0,
+          SHA-256 1dc9dc5176e96db25e2b44dac1f870cadb41a9b8fe054a55a1deafb082a4cb66.
+       4. exp-glibc.txt: exp_glibc_count (> 0) distinct finite 16-char lowercase hex
+          lines from exp-draws.txt covering every glibc-vs-MPFR mis-rounding.
+       5. log-glibc.txt: log_glibc_count (>= 0) distinct finite 16-char lowercase hex
+          lines from log-draws.txt covering every glibc-vs-MPFR mis-rounding.
+       6. hardest.txt: LF-terminated lines matching `^(exp|log) [0-9a-f]{16}$`
+          (no comments, blank lines, or C hexfloats), advisor-certified from
+          CORE-MATH exp.wc and log.wc, with exp_hardest_count > 0 and log_hardest_count > 0.
+       7. boundaries.txt: 6 LF-terminated 16-char lowercase hex lines matching
+          mm2_test_mpfr_boundaries () in exact order.
+   Missing/unpinned hashes, invalid formats, degenerate draws, or missing
+   mis-roundings FAIL, never skip.
 
    OUTPUT is the complete ordered result transcript, used by tests/x4-hosts.sh
    for two actual hosts and the -FMA launch. Least deciding N counts are printed
@@ -41,16 +62,134 @@ let program =
   {|{"version":2,"tick":1,"decide_every":1,"leverage":1,"sources":[{"name":"vol","unit":"1"}],"params":[],"let":[],"slots":[],"probes":[{"name":"exp","is":{"op":"exp","args":[{"input":"vol"}]}},{"name":"log","is":{"op":"log","args":[{"input":"vol"}]}}]}|}
 ;;
 
+let pinned_recipe_sha256 =
+  "5e6c95e92a71c908e4232346aca294ca259d36c53ce62d09e12c155f3d2d953b"
+;;
+
+let pinned_exp_draws_sha256 =
+  "0efb48018ff7d89206d2704c130a40afe4c6b5e5d73d490bdeee532d7e1ddb30"
+;;
+
+let pinned_log_draws_sha256 =
+  "1dc9dc5176e96db25e2b44dac1f870cadb41a9b8fe054a55a1deafb082a4cb66"
+;;
+
+let is_lower_hex_char c = ('0' <= c && c <= '9') || ('a' <= c && c <= 'f')
+let is_hex_n n s = String.length s = n && String.for_all is_lower_hex_char s
 let bits text = Int64.of_string ("0x" ^ text)
 let finite b = Int64.logand b 0x7FF0000000000000L <> 0x7FF0000000000000L
 let show b = Printf.sprintf "%016Lx" b
 
+let strict_lines text =
+  check "file must not contain CR" (not (String.contains text '\r'));
+  if text = ""
+  then []
+  else (
+    let len = String.length text in
+    check "non-empty file must end with LF" (text.[len - 1] = '\n');
+    let body = String.split_on_char '\n' (String.sub text 0 (len - 1)) in
+    check "file must not contain blank lines" (List.for_all (fun s -> s <> "") body);
+    body)
+;;
+
+let sha256_of path =
+  let status, out = command "sha256sum" [ "--"; path ] in
+  check ("sha256sum failed on " ^ path) (status = Unix.WEXITED 0);
+  let digest = List.hd (String.split_on_char ' ' (String.trim out)) in
+  check ("invalid sha256sum output for " ^ path) (is_hex_n 64 digest);
+  digest
+;;
+
+let contains_ci haystack needle =
+  let h = String.lowercase_ascii haystack in
+  let n = String.lowercase_ascii needle in
+  let hlen = String.length h in
+  let nlen = String.length n in
+  if nlen = 0
+  then true
+  else if nlen > hlen
+  then false
+  else (
+    let rec loop i =
+      if i + nlen > hlen
+      then false
+      else if String.sub h i nlen = n
+      then true
+      else loop (i + 1)
+    in
+    loop 0)
+;;
+
+let has_hex_token_n n s =
+  let len = String.length s in
+  let rec scan i run =
+    if i = len
+    then run = n
+    else if is_lower_hex_char s.[i]
+    then scan (i + 1) (run + 1)
+    else run = n || scan (i + 1) 0
+  in
+  scan 0 0
+;;
+
+let distinct_count xs =
+  let tbl = Hashtbl.create (List.length xs) in
+  List.iter (fun x -> Hashtbl.replace tbl x ()) xs;
+  Hashtbl.length tbl
+;;
+
+let verify_checksums dir inputs_sha =
+  check "INPUTS_SHA256 must be 64 lowercase hex" (is_hex_n 64 inputs_sha);
+  let sums_path = Filename.concat dir "SHA256SUMS" in
+  check
+    "INPUT_DIR/SHA256SUMS differs from root-pinned INPUTS_SHA256"
+    (sha256_of sums_path = inputs_sha);
+  let entries =
+    List.map
+      (fun line ->
+         let len = String.length line in
+         check "SHA256SUMS line format: <64-hex>  <basename>" (len >= 67);
+         let digest = String.sub line 0 64 in
+         let sep = String.sub line 64 2 in
+         let name = String.sub line 66 (len - 66) in
+         check "SHA256SUMS digest must be 64 lowercase hex" (is_hex_n 64 digest);
+         check "SHA256SUMS separator must be two ASCII spaces" (sep = "  ");
+         check
+           ("SHA256SUMS invalid basename: " ^ name)
+           (name <> ""
+            && name <> "."
+            && name <> ".."
+            && (not (String.contains name '/'))
+            && (not (String.contains name ' '))
+            && not (String.contains name '\t'));
+         name)
+      (strict_lines (read sums_path))
+  in
+  let required =
+    [ "boundaries.txt"
+    ; "exp-draws.txt"
+    ; "exp-glibc.txt"
+    ; "hardest.txt"
+    ; "log-draws.txt"
+    ; "log-glibc.txt"
+    ; "manifest.json"
+    ]
+  in
+  check
+    "SHA256SUMS must cover all and only the 7 input files without duplicates"
+    (List.sort String.compare entries = required);
+  let status =
+    Sys.command ("cd " ^ Filename.quote dir ^ " && sha256sum -c --quiet SHA256SUMS")
+  in
+  check "test-12 input hashes" (status = 0)
+;;
+
 let read_bits path =
   List.map
     (fun text ->
-       check "argument must be a binary64 hex word" (String.length text = 16);
+       check "argument must be 16 lowercase hex chars" (is_hex_n 16 text);
        bits text)
-    (lines (read path))
+    (strict_lines (read path))
 ;;
 
 let nearest () =
@@ -242,45 +381,92 @@ let batches output arguments =
 ;;
 
 let () =
-  let dir, output =
+  let dir, inputs_sha, output =
     match Array.to_list Sys.argv with
-    | [ _; dir; output ] -> dir, output
-    | _ -> failwith "usage: x4_local.exe INPUT_DIR OUTPUT"
+    | [ _; dir; inputs_sha; output ] -> dir, inputs_sha, output
+    | _ -> failwith "usage: x4_local.exe INPUT_DIR INPUTS_SHA256 OUTPUT"
   in
-  let status =
-    Sys.command ("cd " ^ Filename.quote dir ^ " && sha256sum -c --quiet SHA256SUMS")
-  in
-  check "test-12 input hashes" (status = 0);
-  let checksums = lines (read (Filename.concat dir "SHA256SUMS")) in
-  List.iter
-    (fun file ->
-       check
-         ("input is not hash-covered: " ^ file)
-         (List.exists (fun line -> Filename.check_suffix line ("  " ^ file)) checksums))
-    [ "manifest.json"
-    ; "exp-draws.txt"
-    ; "log-draws.txt"
-    ; "exp-glibc.txt"
-    ; "log-glibc.txt"
-    ; "hardest.txt"
-    ; "boundaries.txt"
-    ];
+  verify_checksums dir inputs_sha;
   let manifest = json (read (Filename.concat dir "manifest.json")) in
   check
     "the prescribed draw recipe"
-    (text_field "recipe" manifest = "arithmetic.py.txt:last_pass_r3");
-  check "recipe is pinned" (String.length (text_field "recipe_sha256" manifest) = 64);
+    (text_field "recipe" manifest = "arithmetic.py.txt:emit_x4_draws");
   check
-    "hardest arguments need advisor certification"
-    (text_field "certification" manifest <> "");
+    "recipe_sha256 must match pinned arithmetic.py.txt:emit_x4_draws"
+    (text_field "recipe_sha256" manifest = pinned_recipe_sha256);
+  let cert = text_field "certification" manifest in
+  check
+    "certification must cite CORE-MATH commit, exp.wc/log.wc, and honest scope/limits"
+    (String.length cert >= 80
+     && contains_ci cert "core-math"
+     && contains_ci cert "exp.wc"
+     && contains_ci cert "log.wc"
+     && has_hex_token_n 40 cert
+     && (contains_ci cert "not a "
+         || contains_ci cert "empirical"
+         || contains_ci cert "uncertified"
+         || contains_ci cert "beyond"));
   O.selfcheck ();
   nearest ();
+  let exp_spot_checks =
+    [ 0, 0x406581FEF5567DF4L
+    ; 1, 0x4070AA02646EDC5AL
+    ; 2, 0x40827A0A3AFE0E48L
+    ; 17, 0xC05DC85BCFBD4AD0L
+    ; 199999, 0x404D215BFD6798F0L
+    ; 200000, 0xC079B6512C22AD0FL
+    ; 500000, 0xC07DBCC53E55D6FAL
+    ; 999999, 0x40833C6185D818AEL
+    ]
+  in
+  let log_spot_checks =
+    [ 0, 0x678BDE5C08B791F7L
+    ; 1, 0x553D76D4337AD3FCL
+    ; 2, 0x3D5076CE2FAE421CL
+    ; 17, 0x238EF901B84A9970L
+    ; 199999, 0x7832F88153C80339L
+    ; 200000, 0x0F3C8BBA4500E873L
+    ; 500000, 0x26A85BB362371334L
+    ; 999999, 0x13E60820ADE249C0L
+    ]
+  in
   let draws op =
     let name = if op = 0 then "exp" else "log" in
-    let values = read_bits (Filename.concat dir (name ^ "-draws.txt")) in
+    let draws_path = Filename.concat dir (name ^ "-draws.txt") in
+    let expected_sha =
+      if op = 0 then pinned_exp_draws_sha256 else pinned_log_draws_sha256
+    in
+    check
+      (name ^ "-draws.txt sha256 must match pinned emit_x4_draws")
+      (sha256_of draws_path = expected_sha);
+    let values = read_bits draws_path in
     check
       "a million finite arguments of each function"
       (List.length values = 1_000_000 && List.for_all finite values);
+    check (name ^ "-draws.txt must not be degenerate") (distinct_count values > 999_000);
+    if op = 0
+    then
+      check
+        "exp draws must include negative and non-negative arguments in [-700, 700)"
+        (List.for_all
+           (fun b ->
+              let x = Int64.float_of_bits b in
+              x >= -700.0 && x < 700.0)
+           values
+         && List.exists (fun b -> Int64.float_of_bits b < 0.0) values
+         && List.exists (fun b -> Int64.float_of_bits b >= 0.0) values)
+    else
+      check
+        "log draws must be strictly positive"
+        (List.for_all (fun b -> Int64.float_of_bits b > 0.0) values);
+    let arr = Array.of_list values in
+    let spots = if op = 0 then exp_spot_checks else log_spot_checks in
+    List.iter
+      (fun (idx, expected) ->
+         check
+           (Printf.sprintf "%s-draws.txt random.Random(5) spot check at %d" name idx)
+           (arr.(idx) = expected))
+      spots;
     let listed = read_bits (Filename.concat dir (name ^ "-glibc.txt")) in
     check
       "complete pinned glibc mismatch list"
@@ -298,15 +484,37 @@ let () =
     Printf.eprintf "%s: this host's glibc differs from MPFR at %d draws\n%!" name actual;
     values @ listed
   in
+  let exp_hardest_n = ref 0 in
+  let log_hardest_n = ref 0 in
+  let exp_hardest_finite = ref false in
+  let log_hardest_finite = ref false in
   let hardest =
     List.map
       (fun line ->
          match String.split_on_char ' ' line with
-         | [ ("exp" | "log"); word ] -> bits word
-         | _ -> failwith "hardest.txt: expected exp/log and binary64 hex")
-      (lines (read (Filename.concat dir "hardest.txt")))
+         | [ "exp"; word ] when is_hex_n 16 word ->
+           let b = bits word in
+           incr exp_hardest_n;
+           if finite b then exp_hardest_finite := true;
+           b
+         | [ "log"; word ] when is_hex_n 16 word ->
+           let b = bits word in
+           incr log_hardest_n;
+           if finite b then log_hardest_finite := true;
+           b
+         | _ -> failwith "hardest.txt: expected ^(exp|log) [0-9a-f]{16}$")
+      (strict_lines (read (Filename.concat dir "hardest.txt")))
   in
-  check "certified hardest arguments are not empty" (hardest <> []);
+  let want_exp_hardest = int_field "exp_hardest_count" manifest in
+  let want_log_hardest = int_field "log_hardest_count" manifest in
+  check
+    "hardest.txt must have positive pinned exp and log counts"
+    (want_exp_hardest > 0
+     && want_log_hardest > 0
+     && !exp_hardest_n = want_exp_hardest
+     && !log_hardest_n = want_log_hardest
+     && !exp_hardest_finite
+     && !log_hardest_finite);
   let specials =
     let subnormal_binades =
       List.init 52 (fun k -> Int64.shift_left 1L k)
