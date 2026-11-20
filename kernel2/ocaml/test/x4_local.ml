@@ -26,6 +26,14 @@
 open Events_support
 module O = X4_oracle
 
+external offset_q
+  :  string * string
+  -> int
+  -> int
+  -> int
+  -> string * string
+  = "mm2_test_mpfr_offset"
+
 let program =
   {|{"version":2,"tick":1,"decide_every":1,"leverage":1,"sources":[{"name":"vol","unit":"1"}],"params":[],"let":[],"slots":[],"probes":[{"name":"exp","is":{"op":"exp","args":[{"input":"vol"}]}},{"name":"log","is":{"op":"log","args":[{"input":"vol"}]}}]}|}
 ;;
@@ -58,24 +66,106 @@ let nearest () =
     compare q;
     compare ("-" ^ n, d)
   in
+  let epsilons = [ 1, 1, -1200; -1, 1, -1200; 1, 3, -1100; -1, 3, -1100 ] in
+  let both_with_eps q =
+    both q;
+    List.iter (fun (num, den, exp2) -> both (offset_q q num den exp2)) epsilons
+  in
   compare ("0", "1");
   for e = -1100 to 1024 do
     for _sample = 1 to 8 do
       both (O.rational 0 e (Random.State.int64 state Int64.max_int))
+    done;
+    for _sample = 1 to 2 do
+      both (O.rational 5 e (Random.State.int64 state Int64.max_int))
     done
   done;
   for e = -1022 to 1023 do
-    both (O.rational 1 e (Random.State.int64 state Int64.max_int))
+    let r = Random.State.int64 state Int64.max_int in
+    let even_r = Int64.logand r (Int64.lognot 1L) in
+    let odd_r = Int64.logor r 1L in
+    both_with_eps (O.rational 1 e even_r);
+    both_with_eps (O.rational 1 e odd_r)
   done;
-  List.iter (fun n -> both (O.rational 2 0 n)) [ 0L; 1L; 2L; 0x000FFFFFFFFFFFFEL ];
-  both (O.rational 3 0 0L);
+  List.iter
+    (fun e ->
+       let q = O.rational 1 e (Random.State.int64 state Int64.max_int) in
+       List.iter (fun s -> both (offset_q q s 3 (e - 80))) [ -1; 1 ])
+    [ -1022; -500; -53; 0; 1; 53; 500; 1023 ];
+  let subnormal_edges =
+    [ 0L; 1L; 2L; 3L; 4L; 5L; 0x000FFFFFFFFFFFFDL; 0x000FFFFFFFFFFFFEL ]
+  in
+  let subnormal_randoms =
+    List.init 28 (fun _ ->
+      let r = Int64.logand (Random.State.int64 state Int64.max_int) 0x000FFFFFFFFFFFFFL in
+      [ Int64.logand r (Int64.lognot 1L); Int64.logor r 1L ])
+    |> List.concat
+  in
+  List.iter
+    (fun n -> both_with_eps (O.rational 2 0 n))
+    (subnormal_edges @ subnormal_randoms);
+  both_with_eps (O.rational 3 0 0L);
+  let zero_min_subnormal = offset_q ("0", "1") 1 1 (-1075) in
+  let neg_zero_min_subnormal = "-" ^ fst zero_min_subnormal, snd zero_min_subnormal in
+  both_with_eps zero_min_subnormal;
+  check
+    "zero/min-subnormal +2^-1075 rounds to +0"
+    (Mm2_lean.Exact.nearest_bits zero_min_subnormal = 0L);
+  check
+    "zero/min-subnormal -2^-1075 rounds to -0"
+    (Mm2_lean.Exact.nearest_bits neg_zero_min_subnormal = Int64.min_int);
+  List.iter
+    (fun (num, den, exp2) ->
+       check
+         "-(2^-1075 - eps) rounds to -0"
+         (Mm2_lean.Exact.nearest_bits (offset_q neg_zero_min_subnormal num den exp2)
+          = Int64.min_int);
+       check
+         "-(2^-1075 + eps) rounds to -2^-1074"
+         (Mm2_lean.Exact.nearest_bits (offset_q neg_zero_min_subnormal (-num) den exp2)
+          = 0x8000000000000001L))
+    [ 1, 1, -1200; 1, 3, -1100 ];
   List.iter (fun side -> both (O.rational 4 side 0L)) [ -1; 0; 1 ];
+  let overflow_mid = O.rational 4 0 0L in
+  let neg_overflow_mid = "-" ^ fst overflow_mid, snd overflow_mid in
+  both_with_eps overflow_mid;
+  check
+    "+(2 - 2^-53)*2^1023 rounds to +inf"
+    (Mm2_lean.Exact.nearest_bits overflow_mid = 0x7FF0000000000000L);
+  check
+    "-(2 - 2^-53)*2^1023 rounds to -inf"
+    (Mm2_lean.Exact.nearest_bits neg_overflow_mid = 0xFFF0000000000000L);
+  List.iter
+    (fun (num, den, exp2) ->
+       check
+         "+overflow_mid + eps -> +inf"
+         (Mm2_lean.Exact.nearest_bits (offset_q overflow_mid num den exp2)
+          = 0x7FF0000000000000L);
+       check
+         "+overflow_mid - eps -> +DBL_MAX"
+         (Mm2_lean.Exact.nearest_bits (offset_q overflow_mid (-num) den exp2)
+          = 0x7FEFFFFFFFFFFFFFL);
+       check
+         "-overflow_mid - eps -> -inf"
+         (Mm2_lean.Exact.nearest_bits (offset_q neg_overflow_mid (-num) den exp2)
+          = 0xFFF0000000000000L);
+       check
+         "-overflow_mid + eps -> -DBL_MAX"
+         (Mm2_lean.Exact.nearest_bits (offset_q neg_overflow_mid num den exp2)
+          = 0xFFEFFFFFFFFFFFFFL))
+    [ 1, 1, -1200; 1, 3, -1100 ];
   let n, d = O.rational 0 (-1100) 0L in
   check
     "negative nonzero underflow is -0, not +0"
     (Mm2_lean.Exact.nearest_bits ("-" ^ n, d) = Int64.min_int);
+  let wn, wd = O.rational 5 (-1100) (Random.State.int64 state Int64.max_int) in
+  check
+    "negative wide-denominator underflow is -0, not +0"
+    (Mm2_lean.Exact.nearest_bits ("-" ^ wn, wd) = Int64.min_int);
   Printf.printf
-    "nearestBits: %d MPFR comparisons (both signs, binades, ties, overflow)\n%!"
+    "nearestBits: %d MPFR comparisons (both signs, binades, wide denoms, ties+/-eps, \
+     overflow)\n\
+     %!"
     !checked
 ;;
 

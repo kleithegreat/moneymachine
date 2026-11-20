@@ -17,6 +17,76 @@
 #include <string.h>
 
 #ifndef MM2_TEST_REFERENCE
+static void mpz_set_u64(mpz_t z, uint64_t v)
+{
+  mpz_import(z, 1, 1, sizeof v, 0, 0, &v);
+}
+
+static void mpz_set_i64(mpz_t z, int64_t v)
+{
+  uint64_t mag = v < 0 ? (uint64_t)(-(v + 1)) + UINT64_C(1) : (uint64_t)v;
+  mpz_set_u64(z, mag);
+  if (v < 0) mpz_neg(z, z);
+}
+
+static uint64_t mpz_get_u64(const mpz_t z)
+{
+  uint64_t v = 0;
+  size_t count = 0;
+  if (mpz_sizeinbase(z, 2) > 64)
+    caml_failwith("MPFR stub u64 overflow");
+  mpz_export(&v, &count, 1, sizeof v, 0, 0, z);
+  return count == 0 ? 0 : v;
+}
+
+static uint64_t splitmix64(uint64_t *state)
+{
+  uint64_t z = (*state += UINT64_C(0x9e3779b97f4a7c15));
+  z = (z ^ (z >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+  z = (z ^ (z >> 27)) * UINT64_C(0x94d049bb133111eb);
+  return z ^ (z >> 31);
+}
+
+static void mpz_random_bits(mpz_t z, int bits, uint64_t *state)
+{
+  mpz_set_ui(z, 0);
+  int remaining = bits;
+  int shift = 0;
+  while (remaining > 0) {
+    uint64_t w = splitmix64(state);
+    if (remaining < 64)
+      w &= (UINT64_C(1) << remaining) - UINT64_C(1);
+    mpz_t chunk;
+    mpz_init(chunk);
+    mpz_set_u64(chunk, w);
+    mpz_mul_2exp(chunk, chunk, (mp_bitcnt_t)shift);
+    mpz_add(z, z, chunk);
+    mpz_clear(chunk);
+    shift += 64;
+    remaining -= 64;
+  }
+  mpz_setbit(z, (mp_bitcnt_t)(bits - 1));
+}
+
+static value return_mpq(mpq_t q)
+{
+  CAMLparam0();
+  CAMLlocal3(pair, numerator, denominator);
+  mpq_canonicalize(q);
+  char *n = mpz_get_str(NULL, 10, mpq_numref(q));
+  char *d = mpz_get_str(NULL, 10, mpq_denref(q));
+  numerator = caml_copy_string(n);
+  denominator = caml_copy_string(d);
+  void (*release)(void *, size_t);
+  mp_get_memory_functions(NULL, NULL, &release);
+  release(n, strlen(n) + 1);
+  release(d, strlen(d) + 1);
+  pair = caml_alloc_tuple(2);
+  Store_field(pair, 0, numerator);
+  Store_field(pair, 1, denominator);
+  CAMLreturn(pair);
+}
+
 static uint64_t bits_of(double x)
 {
   uint64_t bits;
@@ -107,7 +177,7 @@ static uint64_t subnormal_bits(const mpq_t q)
   int comparison = mpz_cmp(remainder, mpq_denref(q));
   if (comparison > 0 || (comparison == 0 && mpz_odd_p(whole)))
     mpz_add_ui(whole, whole, 1);
-  uint64_t bits = (uint64_t)mpz_get_ui(whole);
+  uint64_t bits = mpz_get_u64(whole);
   mpz_clears(numerator, whole, remainder, (mpz_ptr)0);
   return bits;
 }
@@ -119,15 +189,17 @@ static int check_subnormal(double x)
   mpq_set_d(a, -x);
   mpq_set_ui(term, 1, 1);
   mpq_set_ui(sum, 1, 1);
-  unsigned long n = (unsigned long)(-2 * x) + 300;
-  for (unsigned long k = 1; k <= n; ++k) {
+  uint64_t n = (uint64_t)(-2 * x) + UINT64_C(300);
+  for (uint64_t k = 1; k <= n; ++k) {
     mpq_mul(term, term, a);
-    mpq_set_ui(divisor, k, 1);
+    mpz_set_u64(mpq_numref(divisor), k);
+    mpz_set_ui(mpq_denref(divisor), 1);
     mpq_div(term, term, divisor);
     mpq_add(sum, sum, term);
   }
   mpq_mul(tail, term, a);
-  mpq_set_ui(divisor, n + 1, 1);
+  mpz_set_u64(mpq_numref(divisor), n + 1);
+  mpz_set_ui(mpq_denref(divisor), 1);
   mpq_div(tail, tail, divisor);
   mpq_mul_2exp(tail, tail, 1);
   mpq_add(lo, sum, tail);
@@ -157,9 +229,15 @@ CAMLprim value mm2_test_mpfr_boundaries(value unit)
       mpfr_sub(x, x, a, MPFR_RNDN);
       mpfr_mul_2si(x, x, 1023, MPFR_RNDN);
       mpfr_log(x, x, MPFR_RNDN);
+    } else if (i == 1) {
+      mpfr_set_ui(x, 1, MPFR_RNDN);
+      mpfr_set_ui_2exp(a, 1, -53, MPFR_RNDN);
+      mpfr_sub(x, x, a, MPFR_RNDN);
+      mpfr_mul_2si(x, x, -1022, MPFR_RNDN);
+      mpfr_log(x, x, MPFR_RNDN);
     } else {
       mpfr_const_log2(x, MPFR_RNDN);
-      mpfr_mul_si(x, x, i == 1 ? -1022 : -1075, MPFR_RNDN);
+      mpfr_mul_si(x, x, -1075, MPFR_RNDN);
     }
     for (int j = 0; j < 2; ++j) {
       item = caml_copy_int64((int64_t)bits_of(mpfr_get_d(x, j == 0 ? MPFR_RNDD : MPFR_RNDU)));
@@ -179,67 +257,117 @@ CAMLprim value mm2_test_mpfr_selfcheck(value unit)
     if (got == 0 || got >= UINT64_C(0x0010000000000000) || !check_subnormal(x))
       caml_failwith("MPFR subnormal exp disagrees with exact rational enclosure");
   }
-  mpfr_t x;
-  mpfr_init2(x, 4096);
+  mpfr_t x, a;
+  mpfr_inits2(4096, x, a, (mpfr_ptr)0);
   mpfr_const_log2(x, MPFR_RNDN);
   mpfr_mul_si(x, x, -1075, MPFR_RNDN);
   double lower = mpfr_get_d(x, MPFR_RNDD), upper = mpfr_get_d(x, MPFR_RNDU);
-  mpfr_clear(x);
   if (!check_subnormal(lower) || !check_subnormal(upper) ||
       bits_of(mm2_test_mpfr(0, lower)) != 0 ||
       bits_of(mm2_test_mpfr(0, upper)) != 1)
     caml_failwith("MPFR exp at the zero/min-subnormal boundary");
+  mpfr_set_ui(x, 1, MPFR_RNDN);
+  mpfr_set_ui_2exp(a, 1, -53, MPFR_RNDN);
+  mpfr_sub(x, x, a, MPFR_RNDN);
+  mpfr_mul_2si(x, x, -1022, MPFR_RNDN);
+  mpfr_log(x, x, MPFR_RNDN);
+  double sub_top = mpfr_get_d(x, MPFR_RNDD), norm_bot = mpfr_get_d(x, MPFR_RNDU);
+  mpfr_clears(x, a, (mpfr_ptr)0);
+  uint64_t sub_exp = bits_of(mm2_test_mpfr(0, sub_top));
+  uint64_t norm_exp = bits_of(mm2_test_mpfr(0, norm_bot));
+  if (sub_exp == 0 || sub_exp >= UINT64_C(0x0010000000000000) ||
+      norm_exp < UINT64_C(0x0010000000000000) ||
+      norm_exp >= UINT64_C(0x7FF0000000000000))
+    caml_failwith("MPFR exp at the subnormal/normal boundary");
   CAMLreturn(Val_unit);
 }
 
 /* Test rationals use GMP, never the converter under test. kind 0 samples a
  * binade; kind 1 is a normal midpoint; kind 2 a subnormal midpoint (random is
  * the lower significand); kind 3 the subnormal/normal boundary; kind 4 is
- * the overflow midpoint plus index * 2^960, where index=-1,0,1. */
+ * the overflow midpoint plus index * 2^960, where index=-1,0,1; kind 5
+ * samples a binade with a 100-300 bit odd denominator. */
 CAMLprim value mm2_test_mpfr_rational(value kind, value index, value random)
 {
   CAMLparam3(kind, index, random);
-  CAMLlocal3(pair, numerator, denominator);
+  CAMLlocal1(out);
   mpq_t q, a;
   mpq_inits(q, a, (mpq_ptr)0);
-  uint64_t r = (uint64_t)Int64_val(random) & UINT64_C(0x000fffffffffffff);
+  uint64_t raw = (uint64_t)Int64_val(random);
+  uint64_t r = raw & UINT64_C(0x000fffffffffffff);
   int e = Int_val(index), k = Int_val(kind);
   if (k == 0) {
-    unsigned long d = (unsigned long)(UINT64_C(0x0010000000000000) | (r >> 20) | 1);
-    mpq_set_ui(q, d + (unsigned long)r, d);
+    uint64_t d = UINT64_C(0x0010000000000000) | (r >> 20) | UINT64_C(1);
+    mpz_set_u64(mpq_numref(q), d + r);
+    mpz_set_u64(mpq_denref(q), d);
   } else if (k == 1) {
-    unsigned long n = (unsigned long)(UINT64_C(0x0010000000000000) | r);
-    mpq_set_ui(q, 2 * n + 1, 1);
+    uint64_t n = UINT64_C(0x0010000000000000) | r;
+    mpz_set_u64(mpq_numref(q), UINT64_C(2) * n + UINT64_C(1));
+    mpz_set_ui(mpq_denref(q), 1);
     e -= 53;
   } else if (k == 2) {
-    mpq_set_ui(q, (unsigned long)(2 * r + 1), 1);
+    mpz_set_u64(mpq_numref(q), UINT64_C(2) * r + UINT64_C(1));
+    mpz_set_ui(mpq_denref(q), 1);
     e = -1075;
   } else if (k == 3) {
-    mpq_set_ui(q, (unsigned long)UINT64_C(0x001fffffffffffff), 1);
+    mpz_set_u64(mpq_numref(q), UINT64_C(0x001fffffffffffff));
+    mpz_set_ui(mpq_denref(q), 1);
     e = -1075;
-  } else {
-    mpq_set_ui(q, (unsigned long)UINT64_C(0x003fffffffffffff), 1);
+  } else if (k == 4) {
+    mpz_set_u64(mpq_numref(q), UINT64_C(0x003fffffffffffff));
+    mpz_set_ui(mpq_denref(q), 1);
     mpq_mul_2exp(q, q, 970);
     mpq_set_si(a, e, 1);
     mpq_mul_2exp(a, a, 960);
     mpq_add(q, q, a);
     e = 0;
+  } else if (k == 5) {
+    uint64_t state = raw ^ (UINT64_C(0x9e3779b97f4a7c15) * (uint64_t)(uint32_t)e);
+    int bits = 100 + (int)(splitmix64(&state) % UINT64_C(201));
+    mpz_random_bits(mpq_numref(q), bits, &state);
+    mpz_random_bits(mpq_denref(q), bits, &state);
+    mpz_setbit(mpq_denref(q), 0);
+    if (mpz_cmp(mpq_numref(q), mpq_denref(q)) < 0)
+      mpz_add(mpq_numref(q), mpq_numref(q), mpq_denref(q));
+  } else {
+    mpq_clears(q, a, (mpq_ptr)0);
+    caml_invalid_argument("unknown rational kind");
   }
-  if (e < 0) mpq_div_2exp(q, q, (unsigned long)-e);
-  else mpq_mul_2exp(q, q, (unsigned long)e);
-  mpq_canonicalize(q);
-  char *n = mpz_get_str(NULL, 10, mpq_numref(q));
-  char *d = mpz_get_str(NULL, 10, mpq_denref(q));
-  numerator = caml_copy_string(n);
-  denominator = caml_copy_string(d);
-  void (*release)(void *, size_t);
-  mp_get_memory_functions(NULL, NULL, &release);
-  release(n, strlen(n) + 1);
-  release(d, strlen(d) + 1);
+  if (e < 0) mpq_div_2exp(q, q, (mp_bitcnt_t)(-e));
+  else mpq_mul_2exp(q, q, (mp_bitcnt_t)e);
+  out = return_mpq(q);
   mpq_clears(q, a, (mpq_ptr)0);
-  pair = caml_alloc_tuple(2);
-  Store_field(pair, 0, numerator);
-  Store_field(pair, 1, denominator);
-  CAMLreturn(pair);
+  CAMLreturn(out);
+}
+
+/* Compute q + (num / den) * 2^exp2 using GMP for exact midpoint +/- epsilon. */
+CAMLprim value mm2_test_mpfr_offset(value pair, value num_v, value den_v, value exp2_v)
+{
+  CAMLparam4(pair, num_v, den_v, exp2_v);
+  CAMLlocal1(out);
+  mpq_t q, delta;
+  mpq_inits(q, delta, (mpq_ptr)0);
+  if (mpz_set_str(mpq_numref(q), String_val(Field(pair, 0)), 10) != 0 ||
+      mpz_set_str(mpq_denref(q), String_val(Field(pair, 1)), 10) != 0 ||
+      mpz_sgn(mpq_denref(q)) <= 0) {
+    mpq_clears(q, delta, (mpq_ptr)0);
+    caml_invalid_argument("test MPFR rational");
+  }
+  mpq_canonicalize(q);
+  int64_t num = Long_val(num_v), den = Long_val(den_v);
+  int exp2 = Int_val(exp2_v);
+  if (den <= 0) {
+    mpq_clears(q, delta, (mpq_ptr)0);
+    caml_invalid_argument("test MPFR offset denominator");
+  }
+  mpz_set_i64(mpq_numref(delta), num);
+  mpz_set_i64(mpq_denref(delta), den);
+  mpq_canonicalize(delta);
+  if (exp2 < 0) mpq_div_2exp(delta, delta, (mp_bitcnt_t)(-exp2));
+  else mpq_mul_2exp(delta, delta, (mp_bitcnt_t)exp2);
+  mpq_add(q, q, delta);
+  out = return_mpq(q);
+  mpq_clears(q, delta, (mpq_ptr)0);
+  CAMLreturn(out);
 }
 #endif
