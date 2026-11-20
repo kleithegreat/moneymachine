@@ -47,8 +47,20 @@ let tls_context : (unit, Error.t) Result.t Ivar.t = Ivar.create ()
 let tls_context_probed = ref false
 
 let connect_tls ~host reader writer =
+  let close_and_raise error =
+    let%bind () = close_tcp reader writer () in
+    Error.raise error
+  in
   let probing = not !tls_context_probed in
   tls_context_probed := true;
+  let%bind () =
+    if probing
+    then return ()
+    else (
+      match%bind Ivar.read tls_context with
+      | Ok () -> return ()
+      | Error error -> close_and_raise error)
+  in
   let net_to_ssl = Reader.pipe reader in
   let ssl_to_net_r, ssl_to_net = Pipe.create () in
   let app_to_ssl_r, app_to_ssl_w = Pipe.create () in
@@ -58,15 +70,7 @@ let connect_tls ~host reader writer =
     Writer.write writer data
   in
   don't_wait_for (Writer.transfer writer ssl_to_net_r to_net);
-  let%bind () =
-    if probing
-    then return ()
-    else (
-      match%map Ivar.read tls_context with
-      | Ok () -> ()
-      | Error error -> Error.raise error)
-  in
-  let%bind session =
+  match%bind
     Async_ssl.Ssl.client
       ~hostname:host
       ~ca_file
@@ -75,31 +79,55 @@ let connect_tls ~host reader writer =
       ~net_to_ssl
       ~ssl_to_net
       ()
-  in
-  (match session with
-   | Error error -> Ivar.fill_if_empty tls_context (Error error)
-   | Ok _ -> ());
-  let session = Or_error.ok_exn session in
-  Or_error.ok_exn (Async_ssl.Ssl.Connection.check_peer_certificate_host session host);
-  let%bind app_reader = Reader.of_pipe (Info.of_string "tls") ssl_to_app_r in
-  let%map app_writer, `Closed_and_flushed_downstream _ =
-    Writer.of_pipe (Info.of_string "tls") app_to_ssl_w
-  in
-  let close () =
-    Async_ssl.Ssl.Connection.close session;
-    let%bind () = Writer.close app_writer ~force_close:(Clock_ns.after (Time_ns.Span.of_sec 2.)) in
-    let%bind () = Reader.close app_reader in
-    close_tcp reader writer ()
-  in
-  { reader = app_reader; writer = app_writer; close }
+  with
+  | Error error ->
+    Ivar.fill_if_empty tls_context (Error error);
+    close_and_raise error
+  | Ok session ->
+    (match Async_ssl.Ssl.Connection.check_peer_certificate_host session host with
+     | Error error ->
+       Async_ssl.Ssl.Connection.close session;
+       close_and_raise error
+     | Ok () ->
+       let opened = ref false in
+       let app_reader_ref = ref None in
+       upon (Monitor.get_next_error (Monitor.current ())) (fun _ ->
+         if not !opened
+         then (
+           Async_ssl.Ssl.Connection.close session;
+           don't_wait_for
+             (let%bind () =
+                Option.value_map !app_reader_ref ~default:(return ()) ~f:Reader.close
+              in
+              close_tcp reader writer ())));
+       let%bind app_reader = Reader.of_pipe (Info.of_string "tls") ssl_to_app_r in
+       app_reader_ref := Some app_reader;
+       let%map app_writer, `Closed_and_flushed_downstream _ =
+         Writer.of_pipe (Info.of_string "tls") app_to_ssl_w
+       in
+       opened := true;
+       let close () =
+         Async_ssl.Ssl.Connection.close session;
+         let%bind () =
+           Writer.close app_writer ~force_close:(Clock_ns.after (Time_ns.Span.of_sec 2.))
+         in
+         let%bind () = Reader.close app_reader in
+         close_tcp reader writer ()
+       in
+       { reader = app_reader; writer = app_writer; close })
 ;;
 
-let connect url =
+let connect ?(connected = ignore) url =
   let where = Tcp.Where_to_connect.of_host_and_port { host = url.host; port = url.port } in
   let%bind _socket, reader, writer = Tcp.connect where in
-  if url.tls
-  then connect_tls ~host:url.host reader writer
-  else return { reader; writer; close = close_tcp reader writer }
+  let tcp = { reader; writer; close = close_tcp reader writer } in
+  connected tcp;
+  if (not url.tls) || Writer.is_closed writer
+  then return tcp
+  else (
+    let%map net = connect_tls ~host:url.host reader writer in
+    connected net;
+    net)
 ;;
 
 let rec read_headers reader acc =
@@ -152,10 +180,8 @@ let upgrade url (net : t) =
 let websocket url ~connected =
   let url = parse_url url in
   let establish () =
-    let%bind net = connect url in
-    connected net;
-    let%map ws = upgrade url net in
-    ws
+    let%bind net = connect ~connected url in
+    upgrade url net
   in
   match%bind Clock_ns.with_timeout (Time_ns.Span.of_sec 30.) (establish ()) with
   | `Result ws -> return ws
@@ -180,35 +206,59 @@ let rec read_chunks reader acc =
       read_chunks reader (Bytes.to_string chunk :: acc))
 ;;
 
+(** The status and body of a POST, [`Timeout] if not answered in full within 30 s. The connection is closed either
+    way. *)
 let post_status url ~body =
   let url = parse_url url in
-  let%bind net = connect url in
-  let request () =
-    Writer.write
-      net.writer
-      (sprintf
-         "POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s"
-         url.path
-         url.host
-         (String.length body)
-         body);
-    match%bind Reader.read_line net.reader with
-    | `Eof -> failwith "rest: eof"
-    | `Ok status ->
-      let%bind headers = read_headers net.reader [] in
-      let headers = Option.value_or_thunk headers ~default:(fun () -> failwith "rest: eof") in
-      let%map response =
-        match header headers "transfer-encoding" with
-        | Some "chunked" -> read_chunks net.reader []
-        | _ -> Reader.contents net.reader
-      in
-      status_code status, response
+  let transport = ref None in
+  let over = ref false in
+  let connected net =
+    if !over then don't_wait_for (net.close ()) else transport := Some net
   in
-  Monitor.protect request ~finally:net.close
+  let request () =
+    let%bind net = connect ~connected url in
+    if !over
+    then Deferred.never ()
+    else (
+      Writer.write
+        net.writer
+        (sprintf
+           "POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s"
+           url.path
+           url.host
+           (String.length body)
+           body);
+      match%bind Reader.read_line net.reader with
+      | `Eof -> failwith "rest: eof"
+      | `Ok status ->
+        let%bind headers = read_headers net.reader [] in
+        let headers = Option.value_or_thunk headers ~default:(fun () -> failwith "rest: eof") in
+        let%map response =
+          match header headers "transfer-encoding" with
+          | Some "chunked" -> read_chunks net.reader []
+          | _ -> Reader.contents net.reader
+        in
+        status_code status, response)
+  in
+  let%bind outcome =
+    try_with ~extract_exn:true ~rest:(`Call ignore) (fun () ->
+      Clock_ns.with_timeout (Time_ns.Span.of_sec 30.) (request ()))
+  in
+  over := true;
+  let%map () =
+    match !transport with
+    | None -> return ()
+    | Some net -> net.close ()
+  in
+  match outcome with
+  | Ok res -> res
+  | Error exn -> raise exn
 ;;
 
 let post url ~body =
-  let%map status, response = post_status url ~body in
-  if status <> 200 then failwithf "rest: HTTP status %d" status ();
-  response
+  match%map post_status url ~body with
+  | `Timeout -> failwith "rest: timed out"
+  | `Result (status, response) ->
+    if status <> 200 then failwithf "rest: HTTP status %d" status ();
+    response
 ;;
