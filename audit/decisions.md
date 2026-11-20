@@ -1411,3 +1411,22 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Cleaned up:** the nodes' working copies.
   - **Still owed before step 5 merges:** test 12, hardened, and its inputs. If hardening changes the MPFR stub, `oracle_stub_sha256` moves and this run repeats.
   - **Reversal:** delete the directory; `kit/` rebuilds it in about 8 hours on the three nodes.
+- 2026-11-20 05:06 UTC (00:06 EST), advisor: **round 8 has not converged: a fresh Opus at maximum effort broke the horizon** (`audit/reviews/2026-11-20-opus-round8.md`).
+  - **D212, the horizon from the last quote, the capture's duration and an hour's margin, is wrong at its cause.** It infers a clock instead of reading what the capture holds. Four constructions:
+    - one future-stamped quote ends the study;
+    - a stopped recorder loses a valid day;
+    - `D_capture` is unbounded;
+    - a short page passes as a complete pull.
+
+    Reading each coin's coverage from the capture needs no clock and never moves backwards.
+  - **Also changes what is built:**
+    - the packer's "closed" condition rests on host-clock run ids;
+    - raw and packed reads of one hour must feed identical events;
+    - a refusal every host agrees on has no state;
+    - the protected-windows file and the host environment are not pinned.
+  - **Text only:**
+    - D215's note also changes CS2.2's committed text, so CS2.2 needs its own dated revision (reported, not edited);
+    - D217's claim that the split phase moves a sum by only O(1) ULP is false. The sum can change by 100%, though no study 2 outcome changes.
+  - **For the human:** pulling funding from `w_start` means any venue change to old rows ends the study.
+  - **Accepted:** 2-of-3 gives no lever; D219 and D220 hold; no eighth loophole in test 12.
+  - **Next:** the architect re-derives the horizon and the rest in round 9. GPT reads round 9 rather than round 8, to save its usage.
