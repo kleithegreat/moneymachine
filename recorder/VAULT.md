@@ -63,7 +63,7 @@ state.json                                 the watermark and the last daily re-r
 - **Events:** `start` (with `user`, `now`, the overlap and the 30 days), one `pull` per kind (`kind`, `from_ms`,
   `to_ms`, `pages`, `items`, `new`, `complete`), `stuck` (a page at the cap that cannot be continued), `alarm`, `error`
   (an HTTP status, a timeout, an unreadable body, with the request), `stop`.
-- **Atomic pull staging (round 8):** each kind's pull writes its response lines into `<root>/vault/<user>/.tmp/<run>.<kind>.jsonl.zst`, ends the zstd stream cleanly, `fsync`s it, and atomically renames it to `<kind>/<YYYYMMDD>/<HH>.<run>.jsonl.zst` only after that kind's pull completes (and before `state.json` is updated). Events still stream live to `events/`. A kill or failure mid-pull therefore leaves zero partial multi-page files in `<kind>/` for a concurrent capture to snapshot.
+- **Atomic pull staging (round 8, fsync directory round 9):** each kind's pull writes its response lines into `<root>/vault/<user>/.tmp/<run>.<kind>.jsonl.zst`, ends the zstd stream cleanly, `fsync`s it, atomically renames it to `<kind>/<YYYYMMDD>/<HH>.<run>.jsonl.zst` only after that kind's pull completes, and `fsync`s the destination directory `<kind>/<YYYYMMDD>/` before `state.json` is updated. Events still stream live to `events/`. A kill or failure mid-pull therefore leaves zero partial multi-page files in `<kind>/` for a concurrent capture to snapshot.
 - **`state.json`** is written to a temporary file and renamed. A kill at any moment leaves either the old or the new
   state, every file in `<kind>/` complete and stream-ended, and every event line whole or one truncated last line that
   the reader reports and skips.
@@ -116,7 +116,10 @@ forward-window rule as above, with weight-aware pacing and atomic pull staging (
 
 - **Request:** `{"type": "fundingHistory", "coin", "startTime"}` (no `endTime`: the API reads through venue `now`,
   immune to host wall-clock skew), one coin at a time. A page holds at most 500 rows; the next starts at the last row's
-  `time`, inclusive. A coin's pull is complete at its first page under 500.
+  `time`, inclusive. A coin's pull stops at its first page under 500 (note: this is the pagination stop rule only; actual
+  per-coin funding coverage through the replay horizon is verified directly from the captured rows by `study2 forward`,
+  `audit/program/briefs/4-study-2.md` step 7 wall 3, so a short API page holds the horizon back conservatively rather
+  than overshooting).
 - **Weight pacing:** by `venue/sources.toml`, `fundingHistory` costs `20 + ceil(items / 20)` weight (45 per full 500-row
   page) under the shared 1,200 weight/min IP limit. `mmvault funding` paces requests to at most **750 weight/min**
   (3.6 s after a 500-row page, 1.6 s after a small/empty page), leaving 450 weight/min for `mmrec` and `mmvault`.
@@ -129,10 +132,12 @@ forward-window rule as above, with weight-aware pacing and atomic pull staging (
   capture, so the limit is fixed here. Exit 0 when every coin's pull completed, 1 otherwise.
 - **Storage and atomic staging:** responses of one pull are written into `<root>/settled/.tmp/<run>.funding.jsonl.zst`,
   stream-ended and `fsync`ed, and atomically renamed to `<root>/settled/funding/<YYYYMMDD>/<HH>.<run>.jsonl.zst` **only
-  when every coin's pull completed**. Events stream live to `<root>/settled/events/<YYYYMMDD>/<HH>.<run>.jsonl.zst` for
+  when every coin's pull completed**, followed by `fsync` of the destination directory `<root>/settled/funding/<YYYYMMDD>/`
+  before `mmvault funding` exits 0 (so the rename is durable across power cuts on any filesystem before `Capture_k` lists
+  the file). Events stream live to `<root>/settled/events/<YYYYMMDD>/<HH>.<run>.jsonl.zst` for
   every attempt (completed, failed or killed) so failed pulls remain auditable. The `start` event holds `now`, the range
-  and coins; one `pull` event per coin holds `complete`; the `stop` event holds `elapsed_ms` measured by
-  `CLOCK_BOOTTIME`. A failed or killed pull leaves zero files in `<root>/settled/funding/`.
+  and coins; one `pull` event per coin holds `complete`; `stop` ends the attempt. A failed or killed pull leaves zero
+  files in `<root>/settled/funding/`.
 - **Identity:** (`coin`, `time`), for counting only, as above. What a replay makes of a row is `KERNEL.md` A18's
   (what a reader puts in a record): nothing of the envelope reaches it.
 
@@ -145,7 +150,7 @@ forward-window rule as above, with weight-aware pacing and atomic pull staging (
 3. **Complete and atomic staging:** a pull killed (SIGKILL) after some coins leaves their `pull` events in `events/` and
    **zero files in `settled/funding/`**, and is incomplete; a 429 five times writes an `error` event, exits 1, and leaves
    zero files in `settled/funding/`. A completed pull atomically places one stream-ended file in `settled/funding/` and
-   records `CLOCK_BOOTTIME` `elapsed_ms` in `stop`.
+   `fsync`s the destination directory before exiting 0.
 4. **Nothing printed:** no output and no event holds a rate.
 
 **Deployment:** a CronJob `settled` beside `vault`, daily at 00:17 UTC, mounting `ws` as `vault` does; the replay's
