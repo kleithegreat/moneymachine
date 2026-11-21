@@ -65,8 +65,7 @@ None blocks the program. Source certificates that fail, with their clauses, are 
 
 ## Decisions awaiting the human's review
 
-- From 2026-11-08, the human away (`audit/decisions.md`): stage 4's exit; the research reviews' actions; the cluster runner not adopted.
-- **The advisor's study 1 build decisions** (`audit/decisions.md`, 2026-11-12): `measure.scores` over several programs; the random-pair encoding, pending the architect.
+None.
 
 ## Qualifications
 
