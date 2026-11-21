@@ -279,41 +279,6 @@ def holdout_run(
     return results
 
 
-ABSENT: Holdout = (
-    np.zeros(0),
-    0.0,
-    None,
-)  # a finalist without a holdout result: p = 1 and return 0 in its family (C3.3)
-
-
-def committed_holdout(ledger: str | Path, campaign: str) -> dict[str, Holdout]:
-    """{trial: (net returns, total return, None)} of the campaign's committed holdout results; no diagnostics."""
-    rows = (
-        sqlite3.connect(ledger)
-        .execute(
-            "SELECT e.trial, r.returns, r.summary FROM experiments e JOIN results r ON r.experiment_id = e.id "
-            "WHERE e.campaign = ? AND e.mode = 'holdout'",
-            (campaign,),
-        )
-        .fetchall()
-    )
-    return {t: (np.frombuffer(blob, "<f8"), json.loads(summary)["total_return"], None) for t, blob, summary in rows}
-
-
-def committed_diagnostics(ledger: str | Path, campaign: str) -> dict[str, Any]:
-    """{trial: diagnostics}, stored with each holdout result; read only after the promotions are committed (C3.4)."""
-    rows = (
-        sqlite3.connect(ledger)
-        .execute(
-            "SELECT e.trial, d.content FROM disclosures d JOIN experiments e ON e.id = d.experiment_id "
-            "WHERE e.campaign = ? AND e.mode = 'holdout'",
-            (campaign,),
-        )
-        .fetchall()
-    )
-    return {t: json.loads(content)["diagnostics"] for t, content in rows}
-
-
 def promote(results: dict[str, Holdout]) -> Decision:
     """Net holdout return > 0 and the betting p-value passing Holm across `results`."""
     if not results:

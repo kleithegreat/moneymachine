@@ -37,10 +37,9 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
      - **The vault collector** (`recorder/VAULT.md`, `mmvault`) runs hourly as CronJob `vault` (`CLUSTER.md`).
    - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
    - **The websocket recorder** (`recorder/RECORDER.md`): every perp on every Hyperliquid dex, crypto and builder-deployed stocks, commodities and indices. **Running** since 2026-11-14 03:43 UTC (22:43 EST) as StatefulSet `ws` (image `851fc77`, `sha256:9a6e0b2a…` since 2026-11-20 14:57 UTC, 09:57 EST; `vault` likewise), one copy on prodesk7 (PVC `ws`, not mirrored, the human's choice): fast five-level books for all 350 perps, 20-level books for the main dex's 179, trades, asset contexts, listings. About 2.0 GB a day (sizes only); its volume fills about April 2027, and enough disk is assumed by then (the human, 2026-11-21; the sizing measurement is the advisor's).
-2. **Erasure pass** (list `audit/erasure/2026-11-12-deletion-list.md`): phases A to E and F12 are done, `ops/shards.py` included.
+2. **Erasure pass** (list `audit/erasure/2026-11-12-deletion-list.md`): phases A to F are done, `ops/shards.py` included.
    - Tests are 11 flake checks on the remote builders and `nix run .#test` (`CLUSTER.md` §6); the launcher is `nix run .#session`; the timers are `homeManagerModules.default`, imported by dotfiles.
    - Phase A: the thesis track and `ops/crossmachine.py` are gone, archived at `archive/thesis` and `archive/thesis-refreeze`.
-   - **Next:** phase F's `agent-real` with study 1's criterion.
    - **Constraint:** `flake.lock` does not move while study 1 runs on the frozen harness.
 
 ### Next, in order

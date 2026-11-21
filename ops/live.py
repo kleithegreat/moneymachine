@@ -105,15 +105,6 @@ WORKLOADS: dict[str, Workload] = {
         9_000,
         {"env": [*POOL, {"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}]},
     ),
-    "agent-real": (
-        "Job",
-        ["python", "-m", "cli", "agent-real", "data/agent/real", "1792613363942"],
-        {"agent": False},
-        CORNELL,
-        ("1", "3Gi", "6Gi"),
-        9_000,
-        {"env": [*POOL, {"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}], "once": True},
-    ),
     "ws": (
         "StatefulSet",
         ["mmrec", "run", "data/ws"],
@@ -239,9 +230,8 @@ def manifest(name: str, digest: str) -> Json:
             "template": template,
         }
     elif kind == "Job":
-        once = extra.get("once")
-        template["spec"]["restartPolicy"] = "Never" if once else "OnFailure"
-        spec = {"backoffLimit": 0 if once else 20, "template": template}
+        template["spec"]["restartPolicy"] = "OnFailure"
+        spec = {"backoffLimit": 20, "template": template}
     else:
         template["spec"]["restartPolicy"] = "Never"
         spec = {
