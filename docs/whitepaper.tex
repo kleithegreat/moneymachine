@@ -396,7 +396,7 @@ Fresh sessions hunting for bugs found nine reproduced defects in the frozen engi
 
 The pilot's results reproduced across machines once one binary was shipped to every host, after an early comparison differed in binary identities but not in returns, and again after a large deletion of code. An outside review of this paper's mathematics raised fourteen findings. Thirteen hold in substance and one in part; none flips a recorded judgment. Seven are corrected in the text, and the rest concern machinery that no current study uses and are listed in Appendix~\ref{app:defects}.
 
-Taken together, the pilot found that the pipeline does not promote noise, under the null or with agents in the loop; that at its holdout lengths it cannot see planted edges of ordinary size; and that the agent's one real campaign produced nothing to test. The next section shows that the second finding is arithmetic, not a defect to be engineered away.
+Taken together, the pilot found that the pipeline promotes nothing on markets without an edge, with or without agents in the loop; that at its holdout lengths it cannot see planted edges of ordinary size; and that the agent's one real campaign produced nothing to test. The next section shows that the second finding is arithmetic, not a defect to be engineered away.
 
 \section{The confirmation wall}\label{sec:wall}
 
@@ -454,7 +454,7 @@ A language model's proposals are selected on everything it read before its knowl
 
 \paragraph{What it observed.} Planted edges of Sharpe 1 to 3 were never promoted, though their finalists reached the holdout (Section~\ref{sec:calibration}), and the agent's real campaign froze no finalist. Under the null the pipeline was clean: no promotion in 300 campaigns per calibration cell, none in the 20 judged single-agent campaigns, and 21 known non-promotions among 22 swarm campaigns.
 
-\paragraph{What this shows.} The pipeline does not promote noise, and at these lengths it cannot see an ordinary edge either. The second fact has two causes. One is the calendar, which no test removes. The other is the gate's loss cap, a choice of its test, which raises the threshold at 91 days from about 6 to about 28. The pilot's sensitivity failure is both together. For a systematic strategy proposed by a frontier model, a rapid and honest confirmation is not available at ordinary Sharpe.
+\paragraph{What this shows.} The pipeline promotes nothing on markets without an edge, and at these lengths it cannot see an ordinary edge either. The second fact has two causes. One is the calendar, which no test removes. The other is the gate's loss cap, a choice of its test, which raises the threshold at 91 days from about 6 to about 28. The pilot's sensitivity failure is both together. For a systematic strategy proposed by a frontier model, a rapid and honest confirmation is not available at ordinary Sharpe.
 
 \paragraph{What it does not show.} It does not show that no edge exists, or that agents cannot find one: the agent's one real campaign made 9 evaluations. It does not show that no exact test does better than the gate: one with the rule's own loss bound needs 2.07 at two years where the gate needs 4.0. And it says nothing about questions whose observations are not return periods. The pilot's failures are consistent with the wall; the wall itself is derived, not sampled.
 
@@ -570,7 +570,303 @@ The weakest link is non-stationarity: every inference method here relies in some
 
 \section{Conclusion}\label{sec:conclusion}
 
-A backtest is not a proof checker, and no engineering makes it one. We built what engineering can supply: a language that rules out specified leaks, a kernel that records everything an agent saw, certificates for every source, a gate whose whole procedure is calibrated on markets with and without edge, and proofs of the language's invariants, now carried down to the code that runs. The pilot showed this machinery working in the direction in which it can be tested: it promoted nothing that was not there. It also met the limit that engineering cannot remove. A strategy proposed by a frontier model can be judged only after the model's cutoff, and over months an exact test needs a Sharpe ratio near six to confirm anything. The two positive controls ask what can still be learned inside that limit: whether the agent finds an edge that exists, where observations are free, and whether an exact confirmer confirms a rule with a live record, where the calendar starts at our freeze. Their results, whichever way they fall, will be reported in words fixed before the evidence.
+A backtest is not a proof checker, and no engineering makes it one. We built what engineering can supply: a language that rules out specified leaks, a kernel that records everything an agent saw, certificates for every source, a gate whose whole procedure is calibrated on markets with and without edge, and proofs of the language's invariants, now carried down to the code that runs. The pilot showed this machinery working in the direction in which it can be tested: on markets without an edge it promoted nothing. It also met the limit that engineering cannot remove. A strategy proposed by a frontier model can be judged only after the model's cutoff, and over months an exact test needs a Sharpe ratio near six to confirm anything. The two positive controls ask what can still be learned inside that limit: whether the agent finds an edge that exists, where observations are free, and whether an exact confirmer confirms a rule with a live record, where the calendar starts at our freeze. Their results, whichever way they fall, will be reported in words fixed before the evidence.
+
+\appendix
+
+\section{Statistics of the gate}\label{app:gate}
+
+The appendices hold the paper's derivations and the reasons for its choices. \emph{Derived} means a calculation under named premises, not a universal validation. \emph{Choice} means a policy or model convention, given with its reason. \emph{Owed} marks a stronger claim that has not been derived. Dates and measured results identify evidence; they are not tuned constants.
+
+\subsection{The noise ceiling (derived illustration)}\label{app:noise}
+
+For independent, stationary Gaussian returns near zero Sharpe, the annualized standard error of a Sharpe estimate over $T$ years is about $T^{-1/2}$. Choosing $T=5$, 1{,}000 null trials, a threshold of 1 and ten real trials of true Sharpe 0.5 illustrates selection: $1-\Phi(\sqrt5)=0.0127$ gives 12.7 expected null acceptances, against $10[1-\Phi(0.5\sqrt5)]\simeq1.3$ real ones. About 90\% of the expected acceptances are null; that is a ratio of expected counts, not an exact expected false discovery proportion. For independent $Z_i\sim N(0,1)$,
+\[
+ \E\max_i\Shat_i=\SE\,\E\max_i Z_i,\qquad
+ \E\max_i Z_i\sim\sqrt{2\log N},\qquad h(N,T)=\E\max_i Z_i/\sqrt T.
+\]
+Table~\ref{tab:ceiling} integrates the maximum's density $N\phi(z)\Phi(z)^{N-1}$. The leading term $\sqrt{2\log N}$ overstates it by 39\%, 15\% and 9\% at $N=10$, 1{,}000 and 100{,}000: at $N=1{,}000$ and $T=5$ it gives 1.66 against $3.24/\sqrt5=1.45$. The table's grid of trials and years is illustrative, not a calibrated screen, and dependence and non-stationarity make a literal reading of it invalid.
+
+\subsection{The deflated Sharpe ratio (derived, qualified)}\label{app:dsr}
+
+For $T$ per-period returns, let $\Shat$ be their mean over their sample standard deviation (divisor $T-1$), $m_k=T^{-1}\sum(r-\bar r)^k$, $\hat\gamma_3=m_3/m_2^{3/2}$, $\hat\gamma_4=m_4/m_2^2$ (ordinary kurtosis), and $\gamma_E$ the Euler--Mascheroni constant. Then
+\[
+ \mathrm{DSR}=\Phi\left(\frac{(\Shat-S_0)\sqrt{T-1}}
+ {\sqrt{1-\hat\gamma_3\Shat+(\hat\gamma_4-1)\Shat^2/4}}\right),\quad
+ S_0=\frac{(1-\gamma_E)\Phi^{-1}(1-1/N)+\gamma_E\Phi^{-1}(1-1/(Ne))}{\sqrt{T-1}},
+\]
+with $S_0=0$ for $N=1$. A per-period Sharpe estimate has asymptotic variance $(1-\gamma_3S+(\gamma_4-1)S^2/4)/(T-1)$, and at $S=0$, the least favorable point of the null, its reference scale is $1/\sqrt{T-1}$ for any regular martingale-difference returns, which is what a strategy's net return is on the synthetic markets. That needs finite variance, a martingale central limit theorem and no dominating observations; even the zero-Sharpe Gaussian finite-sample variance is $(T-1)/(T(T-3))$ for $T>3$. The numerator uses Bailey and L\'opez de Prado's approximation of an expected maximum, not an exact distribution of the maximum. Costs, negative means, heavy tails, adaptivity and negatively correlated trials each rule out a universal conservative reading, and autocorrelation changes the sampling behavior \cite{lo2002}. The observed dispersion of Sharpe ratios across trials is not a null scale: it was the pilot's first benchmark, and there a real edge raised its own hurdle (Section~\ref{sec:calibration}). Annualization divides an annual Sharpe by $\sqrt{252}$ for a trading-day convention, $\sqrt{365}$ for daily continuous markets, or $\sqrt{6\cdot365}$ for the pilot's four-hour steps.
+
+Pearson's inequality $\gamma_4\ge\gamma_3^2+1$ makes the variance term non-negative, but at a two-point boundary it is numerically unstable, and two independent implementations disagreed exactly there. A variance term at most $10^{-12}(1+|\hat\gamma_3\Shat|+(\hat\gamma_4-1)\Shat^2/4)$ is treated as degenerate and gives zero, a \emph{choice} to refuse scores that roundoff could change, not a proved error budget. Computing the moments on $r/\max|r|$ preserves the Sharpe ratio, skewness and kurtosis and avoids overflow, and a non-finite return is an error, never a score. The threshold of 0.95 is a chosen screen, not a confidence statement.
+
+\subsection{Betting, absorption and multiplicity (derived under scope)}\label{app:bet}
+
+Let $r'_t$ be integrable pre-absorption net returns with $\E[r'_t\mid\mathcal F_{t-1}]\le0$ while the account is alive, stopped at bankruptcy, and choose predictable $\lambda_t\in[0,1/2]$. Under the lower bound $r'_t\ge-L$ with $L=2$, every factor $1+\lambda_tr'_t\ge1-L/2=0$ is non-negative, and $K_t=\prod_{s\le t}(1+\lambda_sr'_s)$ is a non-negative supermartingale from 1. A bankruptcy's reported return of $-1$ and the pre-absorption terminal loss cannot create a new maximum, and later reported returns are zero, so the two running maxima agree (row~3 of Table~\ref{tab:defects}). Ville's inequality \cite{ville1939} gives $p=\min(1,1/\max K)$ with
+\[
+ P(p_i\le u\mid\mathcal F_{\rm search},H_{0,i})\le u.
+\]
+Holm's correction then bounds any false rejection in the frozen family at the chosen $\alpha=0.05$, without assuming independent finalists, provided the finalists are frozen on search information alone. The pilot's reported floor of $-1$ follows from absorption and zero subsequent equity. It does not imply the conditional null, because
+\[
+ \E[\max(r',-1)\mid\mathcal F]=\E[r'\mid\mathcal F]+\E[(-1-r')_+\mid\mathcal F]
+\]
+(row~1), and conditioning on never going bankrupt does not restore it. The corrected synthetic markets establish $r'\ge-2$ (Appendix~\ref{app:loss}); in real markets the bound is assumed and owed, and rare observed bankruptcies do not certify it.
+
+The bet is $\lambda_1=0$, then $\min(1/2,\max(0,S_{t-1}/Q_{t-1}))$, zero if $Q=0$, with $S=\sum r$ and $Q=\sum r^2$. Maximizing the second-order approximation $\E\log(1+\lambda r)\simeq\lambda\mu-\lambda^2\E r^2/2$ gives $\mu/\E r^2$, which motivates the plug-in. The cap $1/2=1/L$ is derived, not chosen: Ville's non-negativity requires $\lambda_t\le1/L$ under $r'\ge-L$. Only the plug-in form inside $[0,1/2]$ is a choice (row~6). As written in binary64, the rule overflows or underflows on extreme sums that no campaign produces.
+
+For independent campaigns each at 5\%, twenty give a $1-0.95^{20}\simeq64\%$ chance of some false promotion. A project-wide guarantee follows instead from a union bound when $\sum_j\alpha_j\le\alpha$, for example with $\alpha_j=\alpha2^{-j}$. The pilot's two-arm agent run corrected within each arm, so its union bound is twice the per-arm level, not a joint 5\% claim. A finalist missing from the frozen batch stays at $p=1$, because removing it could lower Holm's hurdles.
+
+\subsection{Calibration sample sizes (derived bounds, chosen targets)}\label{app:calibration}
+
+For $x$ promotions in $n$ independent complete-null campaigns, the one-sided Clopper--Pearson upper endpoint $q$ solves $P_q(X\le x)=0.05$. With $x=0$, $q=1-0.05^{1/n}$: bringing it below 5\% needs 59 runs, and below 1\% needs 299. The calibration chose 300 runs per cell, with targets of 5\% for promotion and 10\% for reaching the finalist path. Since $P_q(X\le x)$ falls in $q$, $q(x)\le q_0$ exactly when $P_{q_0}(X\le x)\le0.05$. At $n=300$, $P_{0.05}(X\le8)=0.0341\le0.05<0.0650=P_{0.05}(X\le9)$, so at most eight promotions meet the 5\% target; likewise $P_{0.10}(X\le21)=0.0458\le0.05<0.0699=P_{0.10}(X\le22)$, so at most 21 meet the 10\% target. None in 300 bounds the rate at 0.0099. The single agent's twenty campaigns, allowing at most two counted events, bound only about 28\% (none would bound 14\%), and the swarm's ten, allowing at most one, about 39\% (none would bound 26\%). These choices keep expensive workloads affordable. They support smoke claims only, not a 5\% calibration.
+
+For a campaign's false discovery proportion $X\in[0,1]$, Hoeffding's inequality gives $\E X\le\bar X+\sqrt{\log(1/\delta)/(2n)}$ with confidence $1-\delta$. The planted sweep chose $n=100$, $\delta=0.05$ and a target of 0.20, so it requires $\bar X\le0.20-\sqrt{\log20/200}\simeq0.0776$. Any gate that promotes in at most 7 of 100 campaigns meets that cutoff: the criterion bounds the false discovery rate, not the share of promotions that are false.
+
+The locked suites for the holdout test use 20{,}000 series per cell, lengths of 540, 546 and 1{,}080 steps, and levels of 0.05, 0.01 and 0.005. Each judged rate's upper confidence bound, at confidence $1-0.05/K$ to cover all $K$ judged combinations (54 in the first two suites, 99 in the third), must lie below a chosen tolerance of 0.0625, 0.015 or 0.01. The suite therefore certifies the tolerance and not the nominal level. Up to 1{,}138, 244 and 154 rejections in 20{,}000 pass, so a true rate of 0.056 at level 0.05 passes 72\% of the time, 0.012 at 0.01 passes 62\%, and 0.0075 at 0.005 passes 65\% (row~7). The nominal levels rest on the proof and the return bound, and the suites cannot establish conditional validity outside their nulls.
+
+\subsection{Holdout power (derived approximation, not a universal limit)}\label{app:power}
+
+At a saturated half cap, $\log K_n\simeq n(\mu/2-\E r^2/8)$, so, ignoring the quadratic cost, one finalist needs $\mu\simeq2\log20/n$ to reach $p=0.05$: about 1.66\%, 1.10\%, 0.55\% and 0.11\% a step at $n=360$, 546, 1{,}080 and 5{,}400. Holm's correction raises that hurdle. An unconstrained second-order Kelly approximation, $\log K\simeq nS_{\rm step}^2/2$, holds only when Kelly's fraction $\mu/\sigma^2$ is within the cap of one half; at 2\% a step that is $\mu\le0.0002$, an annualized Sharpe of at most $0.01\sqrt{2190}=0.47$. With the cap, and at 80\% power, the gate needs a Sharpe of 27.6 at 546 steps, 7.4 at one year and 4.0 at two (Table~\ref{tab:wallmatch}). Neither approximation is a theorem that every valid test needs that effect, and the nonexistence of a uniformly powerful test over unrestricted finite-mean distributions \cite{bahadur1956} is a different statement (row~6).
+
+The sensitivity target of 30\% is a \emph{choice}, not derived from any use. The planted Sharpe ratios of 1, 2 and 3 are chosen scenarios, and the regime-switching cell's 3 was amended to 2.5 because 3 was unattainable on its calibration curve. A cell with a 0.7\% mean, chosen from a grid that considered the test alone, was suspended; the 900-day cell with a 0.2\% mean was chosen from a grid of effects the pipeline could reach with high test power. Neither met the target, and the waiver stands.
+
+\subsection{Selection rules and workloads (choices)}\label{app:selection}
+
+The deflated Sharpe threshold of 0.95, the 5\% levels of SPA and the stepdown, the stationary bootstrap's mean block of six four-hour steps (row~8) and its 1{,}000 resamples are \emph{choices}: a stringent screen and a reproducible, affordable heuristic for dependence, not cutoffs derived from a claim. The raw count of filled trials is $N$ so that no favorable estimate is chosen. The complete-linkage cuts at $|\rho|$ of 0.9 and 0.5 are chosen contrasts for fragility, not bounds on the effective number of trials, and a trial with zero variance is a singleton. The mechanism check, a positive difference between the sample means of the branches a prediction names, matches its stated sample claim (row~5); requiring each branch to hold 10\% to 90\% of the exposure is an underived choice that keeps the claim from being vacuous. Owed is an argument about precision and power that admits genuinely rare mechanisms.
+
+The agent's budget of 100 evaluations, the baselines' 100 and 400, the swarm's four agents with 400 in all and at most 100 each, 20 calls for history, up to ten candidates of the agent's choosing, 200 turns and two hours define a chosen workload that the pilot could afford. They neither bound the information agents receive nor guarantee an adequate opportunity to research. The gate's $N$ counts only distinct canonical strategies that filled at least once. History is logged because it changes later selection. A strategy's stated prediction is left out of its canonical key, because identity tracks trading behavior, not an explanatory filter. Evidence from the baseline searchers does not calibrate the richer disclosures an agent receives. The swarm's tolerance of one unresolved and one unestablished campaign is a chosen smoke policy, and a promotion could mask a campaign that was not established, a gap reported but not repaired.
+
+\subsection{Known defects of the pilot's machinery}\label{app:defects}
+
+Each row of Table~\ref{tab:defects} is a claim about the pilot's machinery that an outside review found wrong or unproved. None flips a recorded judgment, and no study of Section~\ref{sec:program} uses the machinery concerned. A row is cleared only by a reviewed re-derivation of its claim, and no parked part is used again with a row open against it.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}p{3.1cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{3.7cm}@{}}
+\toprule
+Row & Where it applies & Defect & Re-derived before reuse \\
+\midrule
+1 & The gate's screens and ranking (Section~\ref{sec:gate}); Appendix~\ref{app:bet} & Mean-based search tests on returns floored at $-1$ have a positive null mean & State each screen's null on the returns it reads \\
+2 & The holdout batch (Section~\ref{sec:gate}) & A finalist can be promoted on a running maximum and end bankrupt & Promotion also requires ending above the start \\
+3 & The holdout test (Section~\ref{sec:gate}); Appendix~\ref{app:bet} & The two running maxima agree only under absorption, which the frozen engine's bankruptcy revival breaks & Judge only on an engine with absorption proved \\
+4 & Appendices~\ref{app:execution}, \ref{app:loss} and~\ref{app:nulls} & The loss bound settles funding at the boundary before a closeout at the wick; under a chronological order the return reaches $-2.07$ & One order stated in all three, and $m$ re-derived under it \\
+5 & The mechanism check (Section~\ref{sec:gate}); Appendix~\ref{app:selection} & A sign check on the selection sample passes selected noise with probability up to 0.999 & Test the mechanism on data the selection did not use, or drop it \\
+6 & The holdout test (Section~\ref{sec:gate}); Appendices~\ref{app:bet} and~\ref{app:power} & The bet is $\min(1/2,1/r_1)$ at the second step and saturates & A confirmer with one registered fraction and stated power (Section~\ref{sec:exact}) \\
+7 & The locked suites (Appendix~\ref{app:calibration}) & A pass certifies a size of at most the tolerance, not the nominal level & Read the recorded counts against the levels themselves \\
+8 & SPA's bootstrap (Table~\ref{tab:methods}); Appendix~\ref{app:selection} & For a market-neutral funding book, where funding is 0.05 to 0.25 of a step's variance, blocks of mean six understate the variance of the mean by 3.6 to 6.8 and overstate a $t$ statistic by 1.9 to 2.6; for a directional position the factor is 1.002. The share on the pilot's markets is not measured & Measure the share for the judged book, and derive the block length from the persistence of funding \\
+9 & The licensing boundary (Section~\ref{sec:arch}); Appendix~\ref{app:sources} & Three reports over permitted cells recover one date's value, and the four-pattern attack suite cannot certify the boundary & A fixed, strategy-independent partition or noise under a budget, reviewed; until then no aggregate crosses \\
+\bottomrule
+\end{tabularx}
+\caption{Known defects of the pilot's machinery.}
+\label{tab:defects}
+\end{table}
+
+\section{Execution and the pilot's kernel}\label{app:engine}
+
+\subsection{Grid, fills and costs (derived timing, chosen model)}\label{app:execution}
+
+The pilot chose hourly feature ticks, four-hour decisions, an initial equity of \$10{,}000, a target gross of 2, an order cap of \$10{,}000 and cost buckets of \$1{,}000 and \$10{,}000, so that a small account is feasible on coarse history. The four-hour history is the finest retained execution grid. If the close at boundary $B$ arrives at $B+\delta$, the opening price at $B$ predates the decision, and the first recorded open after it is at $B+4$ hours. An empty selected bar does not roll forward, since rolling would silently choose a different execution opportunity. Settlement precedes fills at equal instants, so that the position that actually held the hour pays for it (row~4). These conventions make no claim about queue position or executable liquidity.
+
+For reference notional $a$, adverse slippage fraction $s$ and fee $f$, a buy costs $as+af(1+s)=a(s+f+sf)$, and a sell's cost, $a(s+f-sf)$, is bounded by the same $\kappa=s+f+sf$. The base taker fee of 0.00045, the hourly funding cap of 0.04, the size decimals, the \$10 minimum order and the maintenance tiers are the venue's rules, not fitted thresholds. Applying the highest documented fee and maintenance to history whose rules are unknown is a model choice, not proved conservative for a full replay. Sizes are truncated toward zero to the venue's granularity, an exact zero target closes dust, and a year of 365 days of 24 hours is a conversion convention, not a market calendar.
+
+\subsection{A loss bound for corrected synthetic markets (derived, limited domain)}\label{app:loss}
+
+Choose the account's own stop-out at $\Lambda=4$ times equity, distinct from the venue's liquidation; together with fill admission it bounds held exposure, which normalizing targets alone does not. Let $e_{\rm prev}>0$ be the equity recorded before a step's fills, $G_0,G_1$ the gross exposure at the marks before and after those fills, and $m$ the largest next-bar carrying loss per unit of notional through funding and an adverse closeout, its cost included. Assume that opens equal marks without gaps, that any delisting closeout is at the mark, and that $\Lambda\kappa\le1$. After a stop-out either nothing is held or gross at adverse prices is within $\Lambda$ times equity. Moves in the position's favor preserve that bound at the marks. A closeout at the mark removes notional $a$ and costs at most $\kappa a$, preserving it since $\Lambda\kappa\le1$, and a reduction that keeps the sign does the same; other fills require margin admission, and fills only lower equity. So $G_0,G_1\le\Lambda e_{\rm prev}$. At most one fill a coin trades at most $G_0+G_1$, costing $2\Lambda\kappa e_{\rm prev}$, and carrying costs at most $mG_1$. Therefore
+\[
+ r'\ge-\Lambda(2\kappa+m),\qquad
+ \Lambda=4,\quad m\le\tfrac12-2\kappa\ \Longrightarrow\ r'\ge-2.
+\]
+This is reviewed algebra, not a machine-checked theorem (row~4). Real gaps break the premise of fills at the mark, and observing no excursion says nothing about the tails. The choice of 4 leaves headroom above the target gross of 2: a single long at 2 reaches the stop-out after a one-third adverse move, since $2(1-d)/(1-2d)=4$ at $d=1/3$.
+
+Corrected synthetic markets choose $|\varepsilon|\le0.3$, wick multipliers $|u|\le0.1$ and $\kappa\le0.003$ as sufficient design bounds, not as the only values that work. With hourly $|f|\le0.04$,
+\[
+ c/o\le(1+3\cdot0.04+0.3)/(1-0.04)<1.48.
+\]
+An adverse closeout loses at most $0.3+0.1\cdot1.48<0.448$ before its cost when the bar moves against the position, or $0.1+3\cdot0.04+0.04\cdot1.48<0.28$ when it moves for it. The closeout's cost adds at most $1.1\cdot1.48\kappa$, so $m<0.46\le1/2-2\kappa$, and lows stay at least $0.9\min(o,c)>0$. The pilot's original generators bounded $|\varepsilon|$ by 0.5, which kept closes positive, but their unbounded wicks and the frozen engine's held exposure do not establish the bound. The clips change every null and planted path, so the pilot's calibration does not carry over to corrected markets.
+
+\subsection{Cost calibration (choices and debts)}\label{app:costs}
+
+A constant per coin, side and size bucket is a \emph{choice} forced by sparse bars and the lack of historical full-depth features: a day holds only six four-hour bars per coin, too few to condition on a bar's state. The one-day recording, the 70/30 chronological split, the fit at the 95th percentile, the 90\% coverage, at least one snapshot a minute and the slack of 3 basis points are \emph{underived choices} for a tractable, conservative snapshot model, not bounds on costs at selected trades. For $n$ ordered test costs, $q_{\lceil0.9n\rceil}$ is \emph{derived} as the least constant covering 90\%, an unfillable order counting as infinite; replacing the median excess by the model less that quantile measures extra conservatism, not median accuracy. Higher costs lower profit on a fixed path, but equity-dependent sizing prevents extending that to full replays. For a delisted coin with no live book, the cell-wise maximum over the other coins is an unvalidated fallback, not an economic bound. Owed are coverage conditioned on trades, a tolerance on the error of returns, sampling uncertainty and transfer across markets. The doubled-cost report is a chosen stress contrast, and the archive comparison's thresholds (one second, 50\% coverage, 95\% agreement) were screens for the fidelity of a proxy, not guarantees of execution.
+
+\subsection{Language and numerical policies}\label{app:kernel}
+
+Strategies as JSON syntax trees, no access to host code, clocks or paths, strict fields, references only to earlier bindings, explicit conversion of time units, undefined rather than invented missing values, and evaluation of every node at every tick are \emph{choices} that make causality, state and the information boundary checkable. A non-finite node output becomes undefined, so no target is non-finite, and an undefined weight holds the position rather than inventing a signal, while the positions so held reserve gross budget. The corrected specification also sizes on equity after fills, so that costs cannot leave the next target on a budget that has vanished; keeps a bankrupt account and its pending orders from reviving within a reporting window; and assigns a boundary fill to the window whose returns bear its costs and a closing fill to the exposure it closes, a reversal belonging to the new exposure, so that the mechanism compares fully net returns. Section~\ref{sec:pilot-checks} lists where the frozen engine departs from it. Population window variance, an exponential average with $\alpha=2/(n+1)$ and seeding from the first defined value are conventional smoothing choices that guarantee nothing about stationarity. Conversion factors carry their units, so equal numeric factors do not make two units interchangeable. The proofs quantify over numeric structures because binary64 algebra is not field algebra, and the executable comparisons cover sampled binary64 behavior; they are not a refinement proof.
+
+Limits of 1\,MiB of text, 4{,}096 nodes, depth 64 and lags of 4{,}380 hours are choices of resources and scope, not causality requirements. Window sums are recomputed every window length, trading cost against accumulated roundoff, and a slack of $10^{-12}$ in the portfolio's scaling is a chosen floating-point guard without a full roundoff budget. The lookahead canary's Gaussian log returns have mean $-\sigma^2/2$, derived from $\E e^X=e^{\mu+\sigma^2/2}$ so that prices are a martingale. Its 2\% volatility, 550 days, admitted and leaking Sharpe ratios of 4 and 20, and its seeds and random programs have no joint calibration of false alarms and detection. Over 550 days the standard error of an annualized Sharpe is 0.81, so a leak worth Sharpe 2 stays under the alarm at 4 in 99.3\% of single runs: the canary detects gross lookahead only.
+
+\subsection{Exact rewrites and canonical keys}\label{app:rewrites}
+
+The canonicalizer admits only identities justified locally on finite stored binary64 values. Double negation restores sign bits, repeated absolute value clears them once, and absolute value after negation clears the flipped bit. Multiplying or dividing by a dimensionless 1 and subtracting a same-unit $+0$ are exact, $-0$ included. Addition and multiplication commute bit for bit, and their unit rules are symmetric. Strict \emph{and} and \emph{or} commute because both operands are read, and a typed boolean is 0 or 1, so double \emph{not} is exact. Swapping branches while negating the condition selects the same value, an undefined condition staying undefined, and both branches' state still ticks. Comparison dualities compare the same finite operands. Propagation of undefined values, and unchanged inputs to the stateful descendants that remain, lift these local identities to trading behavior. The rewrite-soundness theorem proves the abstract version under these obligations; it does not prove IEEE arithmetic itself.
+
+Counterexamples explain what is excluded. Associating $(10^{16}+(-10^{16}))+1$ gives 1 against 0; distributing $0.3(0.1+0.2)$ changes rounding by one unit in the last place; $-0+(+0)=+0$, so the additive identity is unsafe; and minimum and maximum ties on opposite signed zeros depend on operand order. An undefined $c$ makes $\mathrm{if}(c,x,x)$ undefined, and a strict $\mathrm{and}(\mathrm{false},c)$ undefined. Demeaning $[1,2,4]$ leaves a mean of about $-1.5\cdot10^{-16}$, so a second demeaning changes bits. Converting $0.9452706955539223$ by 8{,}760 and back yields $0.9452706955539222$. Moving a lag across windows or cross-sections changes recompute epochs or membership, and $\mathrm{neg}(\mathrm{sign}(0))=-0$ differs from $\mathrm{sign}(\mathrm{neg}(0))=+0$. No law fusing lags is admitted.
+
+Limits on nodes and iterations rather than on wall time, then extraction of the fewest nodes with a lexical tie-break, are \emph{choices} for reproducible keys; they do not give complete semantic equivalence. The 30 iterations and 20{,}000 nodes, and the requirement that 99\% of 1{,}000 generated and 20 hand-built equivalent pairs merge, have no derivation of coverage risk. Identity pins versions and float bits, because limits and rounding can change keys. Appending to the ledger precedes disclosure, so a failed commit cannot leave unlogged research. Result hashes detect stale corruption, not an adversary who can rewrite both the schema and the hashes, so untrusted code holds no writable connection to the ledger.
+
+The engine's reconciliation tolerance is $10^{-9}\max(10^4,|e|,\max_{s<t}|e_s|)$ dollars: reconciliation terms keep the roundoff of the magnitudes they once reached, even after equity collapses, so scaling by current equity rejected correct runs. The coefficient is chosen, not derived from a bound on the count of operations, and it can hide large later errors. The comparison of the reference with the engine is bit-exact; the kernel checks' other budgets, of $10^{-6}$ and $10^{-9}$ dollars, are chosen and establish no mathematical equivalence. The frozen corpus's 550 days give 13{,}200 hourly ticks, enough for three nested lags of 4{,}380 hours but not four, so a fresh corpus owes coverage of each program's warm-up. The test inventories (a mutant per invariant, tens of adversarial programs, eight named hand scenarios, a thousand generated programs or rewrites) are sized to be tractable while covering varied adversarial and boundary cases; they do not bound the prevalence of defects not yet seen. The bound of 100\,ms on the witness's median time checks the pilot's throughput, not its correctness.
+
+\section{Synthetic markets and the pilot's data}\label{app:dataapp}
+
+\subsection{Synthetic markets with no edge (derived; model choices explicit)}\label{app:nulls}
+
+Write $f_1,\dots,f_4$ for a bar's hourly funding rates, the first three settled at its open and the fourth at the next bar's open. Under that settlement order (row~4), a predictable position $q$ held through a bar earns
+\[
+ q(c-o)-qo(f_1+f_2+f_3)-qcf_4.
+\]
+Setting $c=o(1+f_1+f_2+f_3+\varepsilon)/(1-f_4)$, substitution gives $qo\varepsilon$. Fresh conditionally symmetric noise, even symmetrically clipped, has $\E[\varepsilon\mid\mathcal F_o]=0$ given the entire observable past of every coin. Quantity, cap, rounding and fill admission are measurable at the open, so conditioning gives zero expected gross profit before absorption. A long liquidation adds $q(\mathrm{low}-c)\le0$ and a short one $q(\mathrm{high}-c)\le0$, and fees and slippage only subtract, so the pre-absorption net conditional profit is non-positive; the reported, absorbed profit need not be (Appendix~\ref{app:bet}). Event inputs bootstrapped from an independent random stream reveal no future innovation, so the argument holds; replaying price-linked events without that independence would break it.
+
+The Gaussian generator's 2\% scale truncated at eight standard deviations; the GARCH generator's common factor and innovations, each a mix of two truncated $t_5$ draws at loading $\lambda$ (the mix is not $t_5$, and before truncation its kurtosis is $9-12\lambda^2(1-\lambda^2)$); and the regime-switching generator's two states of volatility and correlation with symmetric jumps are \emph{model choices} that span simple, persistent, heavy-tailed and regime-dependent volatility, all without a predictable mean. Twelve coins, 100 trades a bar, lognormal volume with log-mean 10 and log-standard deviation 0.5, Gaussian wicks at half the bar's scale, a volatility cap of $0.0625^2$, a jump cap of 0.2 and five-sigma jump selection are chosen finite envelopes, not empirically sufficient coverage of markets. Scaling truncated innovations by their actual truncated standard deviation gives the stated unit variance. The regime-switching generator clips its jumps where its specification truncates them: symmetry survives, but the jumps' distribution and moments differ. Variance targeting uses $\omega=s^2(1-\alpha-\beta)$, derived from the stationary GARCH variance, which keeps near-integrated fits from overstating the target. For unit-variance independent factors $x_i=\lambda z_m+\sqrt{1-\lambda^2}z_i$ the correlation is $\lambda^2$, which motivates the square root of the fitted mean correlation; flooring it at zero is a modeling choice.
+
+Funding and premiums are resampled jointly in stationary blocks with a mean of 168 hours, which keeps their observed floor, tails and dependence across coins, and events use 24-hour blocks. What establishes the absence of edge is that these inputs are exogenous to fresh price noise, not the block lengths. Histories with fewer than 1{,}000 traded bars take median parameters, a chosen fallback for stability. The pilot's planted markets put the drift on two of twelve coins, with a funding scale of $10^{-4}$ about an interest floor of $1.25\cdot10^{-5}$ and an oracle weight of 0.1, chosen to make sparse alternatives that can be discovered. Clipping $X=\sigma x+\beta g$ at $\pm a$ changes its expectation by $\E[(-a-X)_+]-\E[(X-a)_+]$, so a tail probability alone does not bound the bias, and the planted strength $\beta$ is calibrated through the kernel on at least 200 simulated years, targeting net Sharpe. A 99\% positive-mean interval on 200 fresh years is a chosen proxy for truth when false discoveries are counted. The diagnostic probes (200 simulated years, $|z|<3.7$, a regression $p>0.001$ with heteroskedasticity-robust errors, and 100-year tolerances on moments) are chosen stochastic checks, which prove nothing for every strategy. Per-step returns avoid a statistic of compounded dollars, whose skew made a Gaussian $z$-test misleading.
+
+\subsection{The pilot's scope and availability (choices)}\label{app:data}
+
+Funding dislocations are the chosen family because settled funding, premiums and bars have a public accounting link, unlike predicted funding. The witness's threshold of $10^{-4}$, total target of 0.1 and sign reversal make a fixed fixture, not an optimized edge. The 730-day window, the universe of the twelve coins with the most volume in the preceding month, and the 180 days held out are choices of feasibility and breadth under limits of retention and compute; ranking in the preceding month and keeping delisted coins avoid selecting today's survivors, but nothing derives their affordability. The historical holdout of 60 days, with a one-month margin after the cutoff, was chosen for fast iteration of the pipeline, not for independence or useful power, and costs fitted in October rule out calling it untouched. The forward window of 91 days followed the cost table's freeze, with a larger margin after the cutoff.
+
+The availability rule's $\delta=120$ seconds, its funding rule $\max(H+\delta,\ \text{reported time}+60\,\text{s})$, polling every 30 seconds, gaps of 35 seconds at boundaries and 60 seconds for books, and a 24-hour window separate lateness in the source from opportunities the recorder missed, and a one-second clock budget is small against the nominal slack. Neither that comparison nor a day of live measurement proves a historical availability rule. The 1\% limit on missing data, the 24-hour longest gap and the 99\% replay completeness are underived choices of feasibility, and the missing data could hold every relevant trade. A thousand store queries at boundaries and at random, and a 24-hour refetch, probe the implementation and revisions; they are not coverage theorems. Resolving the snapshot first avoids using a superseded availability rule, but it can hide an earlier value when a later correction exists, and bitemporal delivery is a fix the pilot does not have.
+
+\subsection{Sources and licensing (choices)}\label{app:sources}
+
+Declaring a source separately from binding it, certificates issued by a verifier, and transitive lineage are choices that keep a feed's builder from certifying it and keep absence from becoming zero: positive evidence of covered zeros is needed, because unseen events and no events are different observations. Terms require an affirmative grant or a recorded operator decision, and silence or a refusal of access is not permission. Stable upstream identifiers with validity intervals prevent ticker collisions. The text sources' mapping-precision cutoff of 0.8 was chosen after precision was measured but before any return, and a blind sample of 50 items has no target of confidence or dilution; owed are error weighted by the consuming signal, sampling uncertainty, and recall beyond the sampled forums. The text phase's 20 historical items, 72-hour recording, 30 observed items for a claimed-time rule, five-minute cadence, 60-second prospective margin and polling at no more than half the documented rate are chosen budgets for feasibility, politeness and evidence, not guarantees of historical availability.
+
+Storing and processing licensed rows deterministically and disclosing only aggregates is a chosen reading of terms, not proof of legal correctness or of resistance to reconstruction. The first design of the permitted reports, a frozen list of report fields each with a minimum aggregation and a suite of four attack patterns, can be defeated: three reports over permitted cells recover one date's value (row~9). Until a design with a fixed, strategy-independent partition or noise under a budget is reviewed, no aggregate of such a source crosses, and no request for a vendor's permission or purchase of paid data is authorized. The tiers of signal study and executable backtest keep benchmark predictability from being claimed as trades, and their score bounds and conditional nulls must be derived for each claim, never from unsupported clipping.
+
+\section{The arithmetic of confirmation}\label{app:confirm}
+
+\subsection{What an exact test costs (derived)}\label{app:confirmer}
+
+Log wealth at Kelly's fraction, for independent even bets of net edge $e$, is near a Brownian motion with drift $e^2/2$ and variance $e^2$ a bet. By the reflection formula, with $x=e\sqrt N$ and $b=\log20$, it reaches $b$ before $N$ bets with probability $\Phi(x/2-b/x)+20\,\Phi(-x/2-b/x)$, which is 0.80 at $x=2.931$, that is at $N=8.59/e^2$: 9{,}548 independent bets at a net edge of 0.03, 3{,}437 at 0.05, 1{,}343 at 0.08 and 859 at 0.10. A threshold of 20 required at the end of the test, rather than at its first crossing, asks for $11.8/e^2$, at which the stopped test's power is really 0.896. Kelly's fraction $\mu/\sigma^2$ fits under the cap $1/L$ when $L\le\sqrt{2190}\,\sigma/S$, that is, when a step's worst loss is at most $\sqrt{2190}/S$ of its standard deviations: 33.4 at Sharpe 1.4, 23.4 at 2 and 19.5 at 2.4. The bound is each step's own. Against the null ``mean at most zero, this step's loss at most $L_t$, known at its start'', the exact wealths are those betting a fraction of at most $1/L_t$ that step; for a long-only account $L_t$ is what it has at risk, so the largest exact bet keeps the wealth fully staked and no more.
+
+\subsection{A forward account in bounded bets (derived; no study uses it)}\label{app:thesis-events}
+
+\emph{The account.} Cash starts at 1. A purchase pays a stake registered by the agent, at most 5\% of cash, at the all-in cost $c<1$ of its fill, and holds $\text{stake}/c$ units. A recorded settlement $x\in[0,1]$ pays $(\text{stake}/c)\,x$ into cash. The null is rejected when cash reaches 20, and a payout not yet paid is never cash. The null is that for every purchase, $\E[x\mid\text{everything that has happened by its fill, recorded or not}]\le c$, the cost being known at the fill. Let $V$ be cash plus, for every position not yet recorded as paid, $\text{stake}/c$ times the conditional expectation of $x$, on the world's filtration, to which the recorder's own delays are adapted. A fill lowers cash by the stake and adds at most the stake to the sum, by the null. Between events each term is a martingale. A recording moves a realized payout from the sum into cash and changes nothing. So $V$ is a non-negative supermartingale from 1, cash never exceeds it, and cash reaches 20 with probability at most 5\%, whenever and in whatever order records arrive. Dependence between bets costs power and never validity. A bracket on a perpetual future is such a purchase only on isolated margin equal to its stake, with funding deducted.
+
+\emph{Its power.} Where the cap does not bind, bets a week times $e^2$ must be at least $8.59/104=0.083$ for 80\% power within two years. As a check of size, an account staking the cap on fair bets, 33 a week, reaches 20 within two years in 2.4\% of simulated paths, against the bound of 5\% over any horizon. Pairing an agent that reads with the same agent that does not is fair and buys no power: where the arms agree the difference is zero and carries nothing, so the law holds in discordant forecasts, 859 if reading adds five points of hit rate and 3{,}437 if it adds two and a half.
+
+\subsection{Forward designs compared}\label{app:designs}
+
+Table~\ref{tab:rates} states the exact test's requirement for forward designs on Hyperliquid at 80\% power within two years. Its counts of independent bets are assumptions, not measurements. In the simulated account each purchase stakes Kelly's fraction for the true edge, at most 5\% of the cash left at that moment, and is paid a day's purchases later.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{2.4cm}>{\raggedright\arraybackslash}p{3.3cm}>{\raggedright\arraybackslash}p{3.6cm}@{}}
+\toprule
+Design & Independent bets a week & Net edge for 80\% power within two years & Power within two years \\
+\midrule
+A reading agent's bracketed theses on perpetuals & 5 & 0.178: a hit rate of 59\% & \\
+ & 10 & 0.109 & 0.00, 0.16, 0.47 at net 0.03, 0.05, 0.08 \\
+ & 15 & 0.084 & \\
+ & 33 & 0.053 & 0.21, 0.75, 0.99 at net 0.03, 0.05, 0.08 \\
+ & 60 & 0.039 & \\
+A frozen rule replayed on recordings & a return series & Sharpe 2.07 with the rule's own loss bound, 4.0 under the gate & 0.28, 0.47, 0.77, 0.90 at Sharpe 1, 1.4, 2, 2.4, betting Kelly's fraction for Sharpe 2, where the loss bound allows it; study~2's does not (Appendix~\ref{app:study2}) \\
+\bottomrule
+\end{tabularx}
+\caption{Forward designs on Hyperliquid, at 80\% power within two years.}
+\label{tab:rates}
+\end{table}
+
+The timing of settlement matters. Paid before the next purchase, the edges for 5, 10, 15, 33 and 60 bets a week are 0.170, 0.103, 0.078, 0.050 and 0.037. Paid at the week's end they are 0.211, 0.139, 0.113, 0.084 and 0.071, counting as cash only what has been paid. Below 33 a week the 5\% cap binds, which is why 5 a week needs more than the closed form's 0.129.
+
+\section{Study 1}\label{app:study1}
+
+\subsection{Twins}
+
+A pair is a planted market and its twin at strength zero. The generator seeds every draw from the market's identifier, and the strength changes no draw, so twins share funding, premiums, innovations and volume, and their unplanted coins are identical. They differ in the planted coins' returns and, under GARCH, in those coins' variance paths, which feed on the planted return. Twins are therefore not additive: a twin is the same world without the plant, not the planted world minus a term. A program's effect on a pair is its score on the planted market minus its score on the twin, so it holds what the plant does to the program and nothing else. Each market's pairs derive from its own identifier, so nothing random is shared between two markets' classifications, and a session never sees its fresh pairs, so a pick fitted to its own market's noise carries nothing over.
+
+\subsection{The majority rule}
+
+Let $q$ be a pick's chance of beating half the reference's effect on a fresh pair, the reference's effect being positive. The rule classes a pick as earning from the plant when it wins at least 39 of 57 pairs. It is the smallest rule that classes a pick at $q=1/2$ as earning with probability at most 0.005 and a pick at $q=3/4$ with probability at least 0.9: $P(\mathrm{Bin}(57,1/2)\ge39)=0.0038$ and $P(\mathrm{Bin}(57,3/4)\ge39)=0.901$, whatever the pick's variance or tails. Between the two the step is soft: 0.12 at $q=0.6$, 0.48 at 0.671 and 0.99 at 0.8. Both arms are classed by the one rule and G100's rate is calibrated under it, so a pick in the soft zone costs its arm some rate: softness can cost the agent the claim but never give it. With effects exactly opposite, a program and its mirror win disjoint pairs, since $2\cdot39>57$.
+
+The plant's effect on a score has three parts, since a score is a mean return over its standard deviation and the plant moves both. The drift captured changes sign with every position and keeps its sign across pairs, and it is what the claim names. The plant's change in volatility, which under GARCH rescales the whole score, also changes sign with every position; for a program blind to the drift its sign on a pair is set by the program's own score on the twin, a fresh coin on every pair, and the rule bounds it at 0.0038 for any program. The even part, what the plant does to a program and its mirror alike (fees against a changed volatility, liquidation, ruin), can keep one sign across pairs, so the rule cannot bound it, and the mirror-pair check measures it.
+
+\subsection{The sequential test}
+
+A discordant market is the agent's win with probability at most one half under the null, whatever the joint law of the arms. Making an outcome better never undoes a claim, and removing concordant markets never does, so the worst null has every market discordant at one half, and its size, 0.043, is enumerated exactly. A discordant win adds $\log(0.7/0.5)=0.3365$ and a loss $\log(0.3/0.5)=-0.5108$ to the sum, against boundaries of $\pm\log19=\pm2.9444$: nine straight wins claim, and six straight losses stop. A session that fails is the agent's miss, and a miss in place of any outcome never makes a claim. Reruns would not be safe: a search that is losing runs longer and is cut off more often, and if each rerun hid a loss, the size would be 0.073 at one rerun, 0.117 at two and 0.338 at five. The study may end early, for any reason, as undecided at its last judged market, and a stopped study may resume at its next market under the same manifest; the size holds, since a claim is made only at the upper boundary within the first 100 markets and ending sooner only removes paths to it.
+
+\subsection{The strength and its band}
+
+G100's rate is the calibrated target, 0.15. A bisection on one set of 1{,}600 markets, the same markets at every step, ends when the rate is within 0.005 of 0.15, in at most 12 steps. The check runs G100 at that strength on 10{,}000 fresh markets and requires a rate between 0.12 and 0.18. Its standard error at 0.19 is 0.0039, so the true rate lies between 0.11 and 0.19 unless the estimate is off by 2.5 standard errors. An earlier design that searched on 400 markets and checked on 2{,}000 within 0.02 would stop falsely with probability 0.31; these sizes give 0.0048.
+
+\subsection{Checks before any session}
+
+The mirror pairs are constant long and short at the highest leverage the language allows, momentum and reversal, and a position blind to the plant at three leverages: long the coins whose week of volume is above the cross-section's mean and short the others, which the generator draws apart from funding, returns and the plant, so it is the same on a market and its twin, and which turns over, so fees can show. On a pair, a mirror pair's even part is the mean of its two members' effects, and it is classed as if it were a pick on 200 calibration markets. Each mirror pair may earn on at most 4 of its 200: under the rule's bound of 0.0038 a market, some pair exceeding that has probability 0.005. More means the score pays fees, liquidation or ruin on most pairs, and the measure is wrong. Constant long and constant short read nothing, so an agent could submit one with no search; each must earn on at most 14 of the 200 markets. A constant that earns as often as G100's lowest rate, 0.11, passes with probability at most 0.039, and an agent that submits a constant earning less often than G100 is under the null. A constant earning at 0.03 passes with probability 0.999, at 0.05 with 0.92 and at 0.07 with 0.57.
+
+\subsection{Power}
+
+Table~\ref{tab:study1} gives the claim's chance at the least overlap of the arms' successes, with independent arms, and at the most overlap.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Agent's rate & G100 at 0.11 & G100 at 0.15 & G100 at 0.19 \\
+\midrule
+0.5 & 0.999; 1.000; 1.000 & 0.988; 0.999; 1.000 & 0.943; 0.993; 1.000 \\
+0.4 & 0.981; 0.996; 1.000 & 0.901; 0.968; 1.000 & 0.734; 0.871; 1.000 \\
+0.3 & 0.822; 0.888; 0.998 & 0.568; 0.667; 0.973 & 0.323; 0.396; 0.783 \\
+Equal to G100's, independent & 0.014 & 0.020 & 0.025 \\
+\bottomrule
+\end{tabular}
+\caption{Study~1: the chance of the claim at the least overlap, with independent arms, and at the most overlap.}
+\label{tab:study1}
+\end{table}
+
+The worst null, every market discordant at $\theta=1/2$, has a claim chance of 0.043 and a futility stop of 0.936, with 33 markets expected. At the target rate of 0.5 the claim's chance is at least 0.943 across the band and every overlap, with at most 41 markets expected. At 0.4 it is 0.73 to 1.00. At 0.3 the study is not powered: the claim's chance falls to 0.32 at G100's 0.19, where the futility stop takes up to 0.24 and the undecided end up to 0.50. Rates of 0.25 and 0.2 with 0.1875 in common claim with probability 0.083, since 100 markets hold 7.5 discordant ones: the study is not powered for a gap of 0.05 and does not say it is. A session that an outage ends is judged on what it left, which lowers the agent's rate by the share of sessions lost. All 41 of the pilot's sessions outside the swarm reached a designed end, which bounds that share at 0.07; at that share an agent at 0.5 claims with probability 0.997 against G100 at 0.15 with independent arms, and 0.896 on the worst powered row. The agent's own rate is not known. In the pilot's twenty null campaigns the agent stopped on its own after 6 to 22 evaluations; those markets held nothing to find, so this says little about planted ones.
+
+\subsection{The choices}
+
+Each choice has its reason. Half the reference's effect is 0.354 of the effect of an oracle on the six planted coins at equal variances, since a program in the language is one weight expression applied to every coin and no program can hold the planted six alone. The rule of 39 of 57 is the smallest majority with the two operating points above. The target of 0.15 is the highest at which the top of the band still leaves the study powered; at 0.25 it did not. The alternative 0.7, the errors of 5\% and the limit of 100 markets are chosen, the 5\% being the conventional level.
+
+\section{Study 2}\label{app:study2}
+
+\subsection{The power of a long-only ledger}
+
+The test ledger is never more than fully invested, whatever the account borrows, so its wealth cannot be made as volatile as Kelly's bet needs. For Gaussian increments, Table~\ref{tab:longonly} gives the power within two years and the years to 80\% power, by the judged wealth's own yearly volatility and Sharpe ratio.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Yearly volatility & Sharpe 1.4 & Sharpe 2 & Sharpe 2.4 \\
+\midrule
+0.25 & 0.00; 11.3 & 0.00; 7.5 & 0.00; 6.1 \\
+0.5 & 0.01; 6.7 & 0.05; 4.2 & 0.14; 3.4 \\
+1.0 & 0.28; 4.6 & 0.59; 2.6 & 0.78; 2.0 \\
+2.0 & 0.48; 5.3 & 0.77; 2.1 & 0.90; 1.5 \\
+\bottomrule
+\end{tabular}
+\caption{Study~2, for the first rung: power within two years; years to 80\% power.}
+\label{tab:longonly}
+\end{table}
+
+Where the ledger's wealth sits depends on the depth $d$. A ledger that copies the whole ladder at $\varphi=1$ has 3.6\% of its cash in the market after a cycle's first buy and 7.2\% after two, and 78\% of the vault's cycles never pass the first buy; one that copies only the first buy is fully invested from the start. A coin's yearly volatility is 0.8 to 1, an assumption until the replay, so the wealth's volatility is in the table's first two rows at the best depth and below them at a faithful one. The second rung costs more. In a simulated market of 16 coins with no drift, the best mix ends two years at 2.6 times its start at the median and 8.6 at the 0.9 quantile, and with every coin drifting 0.5 a year at 7.1 and 23; at the driftless median a ratio of volatility 1.0 and Sharpe 2 has power 0.31, against 0.59 for the first rung. A real book also adds each coin's noise from one price event to the next to the bar.
+
+\subsection{The bar's certificate}
+
+The best mix's wealth is a maximum over mixes of a product over every price event, and the kernel trusts no optimizer and keeps no history. Since $\log(1+x)\le x-x^2/2+x^3/3$ for every $x>-1$, a mix with weights $b_c$ has log wealth in a span of at most $\sum_c b_cS_{1,c}-b_c^2Q_c$, where $Q_c=S_{2,c}/2-\max(S_{3,c},0)/3$ and $S_{1,c},S_{2,c},S_{3,c}$ are the sums of coin $c$'s returns, squares and cubes over its price events. For any multiplier $\mu\ge0$, the largest of that over mixes is at most $D(\mu)=\mu+\sum_cm_c$, where $m_c$ is the largest of $(S_{1,c}-\mu)b-Q_cb^2$ over $b\in[0,1]$. $D$ is convex and piecewise quadratic, so its least lies among finitely many rationals, and Lean computes it exactly for each day and span. The bound is $(1-D/n)^{-n}\ge e^D$, with $n$ the product of $2^{40}$ and the least power of two at or above $D$, so that $D<n$ always and the bound's log is within $D/2^{40}$ of $D$. A span's bar is the greater of that bound and the most that 1 put into one of the span's coins at its first price became, its funding paid in cash; $\bar B$ is the product over spans. The bound holds at any multiplier, so validity does not rest on the least being found. It needs every return to be at least $-1$, and on a record with one below, nothing is confirmed. Its slack is about a quarter of each return's fourth power: 0.003 in log on simulated books, 0.036 with seventeen crashes of 30\%, and large only at returns no book has, where one return of 2 gives a bar of 14.4 against a best mix of 3. One misprint far from the book, five times the price and back, puts the bar out of reach for the rest of its span (9.3 million, against the best mix's 1.8), which can only fail to confirm.
+
+\subsection{The guard}
+
+The guard's rules are a rule of the ledger's own kind: never short, paying for what it holds, trading at prices, and using nothing. Under the second rung's null the ratio of any one such rule to the null's mix is a supermartingale, and the bar is at least that mix, so a rule fixed beforehand reaches $x$ times the bar with chance at most $1/x$; over 212 days it reaches 2.39 times with chance at most 0.42, and the best in hindsight more often. The refusal is therefore a rule fixed in advance, not a test at a level. A wrong refusal costs a rung whose power is low and never the size of anything; a wrong registration costs a claim about the market. Lean computes each rule from the report's rows, and nothing searches, since a search that looked less hard would refuse less. Each rule is carried in the test ledger's books: cash and whole lots, traded back to its mix at its clock's times at prices and at no cost, with each funding payment taken from its cash on the units held into it, and ended by the first payment its cash cannot meet. It keeps 1/25 in cash because the venue caps an hour's funding at 4\% of notional and a rule that kept none would end at its first charge. A quiet guard proves nothing: on a market of two coins whose moves straddle every minute's end, all four clocks see the coins move together and no mix comes near the bar, while a mix traded between the moves gains 1.0119 of the bar a minute.
+
+\subsection{The stake and its forecast}
+
+$\varphi$ is one of 1/16, 1/8, 1/4, 1/2 and 1, and $d$ one of six depths: the notional, at the replica's constants, of the first buy alone and of the first buy with its first one to five levels, about \$100, \$198, \$384, \$745, \$1{,}439 and \$2{,}763. The replay before the freeze runs the replica over the archive from 3 April to 31 October 2026, 212 days, holes in the record included. A block bootstrap then forecasts power for each pair: 10{,}000 paths of 730 days, each 53 blocks of 14 consecutive replay days (the last cut to 2), whose starts are fixed by a public hash of the path's and block's numbers, so no seed is registered and the paths are the same for every pair. Fourteen days is a choice, longer than the vault's longest cycle of 10.6 days; blocks of 7 and 28 days are reported beside. A path's wealth at the bid is its wealth at prices times that day's ratio of the two on the record, so on a path, as on the record, it never exceeds the wealth at prices. The chosen pair has the greatest share of paths reaching the top registered rung, with ties broken by the wealth at the bid at the replay's end, then the smaller $\varphi$, then the smaller $d$. Every pair is valid, so the choice moves power and never size.
+
+\subsection{The registered numbers}
+
+\begin{itemize}
+  \item \textbf{20} is one over 5\%: a wealth that is never negative and is expected not to grow reaches 20 times its start with probability at most $1/20$, at any stopping.
+  \item \textbf{730 days} are the two years chosen for the forward test.
+  \item \textbf{2.39} is $20^{212/730}$: a rule standing there after the replay's 212 days is on course to reach 20 times the bar within the judged days with no skill.
+  \item \textbf{One second} of order and observation delay is the engine's least tick and the first whole second above the recorder's design cadence of 0.55 seconds, read from the recorder's specification and from no record. \textbf{Sixty seconds} of staleness is the guard's tick, about eight times the widest spacing of the archive's quotes outside its gaps (7.6 seconds).
+  \item \textbf{A first buy of \$100} keeps the ladder inside the venue's limits: the first level meets the \$10 minimum for any first buy from \$10.22, and a full ladder's close stays under the \$10{,}000 cap for any first buy up to \$359.9. \textbf{\$50{,}000} covers 17 full ladders, \$46{,}976.
+  \item \textbf{212 days} are the replay's length, so the two variances that judge the volatility are of spans of one length, and nobody chooses when to measure. In a market whose variance persists at 0.97 a day and whose law never changes, the later of two such spans leaves the factor of two 0.16 of the time.
+  \item \textbf{Six minutes} is the first decile of the vault's cycle lengths, 0.10 hours, so that an entry is seldom matched to one of a later cycle. A half is what ``most'' means; it is no test, since an entry at a random time is within six minutes of one of the vault's on its coin with probability 0.0047, which is no bound for two rules that both buy falls.
+  \item \textbf{61 days} are the length of the two months held back before the freeze, so the check there and the criterion are one statistic on spans of one length; the vault's rate gives about 582 entries in them.
+\end{itemize}
 
 \begin{thebibliography}{99}
 \small
