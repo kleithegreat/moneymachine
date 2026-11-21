@@ -52,7 +52,7 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
    - **Recorder:** the lint gate and the six catch-alls.
 2. **Study 1:** runs to its end (about 2026-11-23), then its report.
    - **After a reboot**, restart the runner: `systemd-run --user --unit mm-study1` from `../mm-s1-arms`, running `nix develop -c python -m gate.control.runner` with bubblewrap (`nix build --inputs-from . nixpkgs#bubblewrap`) first on `PATH`, `CARGO_TARGET_DIR=~/.cache/mm-study1/k`, `TMPDIR=~/.cache/mm-study1/tmp`, `CLAUDE_CODE_OAUTH_TOKEN_CORNELL`, output appended to `~/.cache/mm-study1/runner.log`.
-3. **The paper, free-standing and academic** (the human, 2026-11-16): deferred until the human says; written by Opus, reviewed for accuracy only.
+3. **The paper, free-standing and academic** (the human, 2026-11-16): being rewritten since 2026-11-21 by a fresh Opus (`../mm-paper`, `paper-rewrite`); then an accuracy-only review by another model, then the merge.
 4. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. Stage 7 parked; stages 8 and 9 superseded.
 
 ### Finished
