@@ -7,7 +7,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli -
 ### Running, and how to inspect it
 
 - **Cluster, live** (prodesk7, namespace `moneymachine-live`; `KUBECONFIG=~/.kube/moneymachine-live.yaml kubectl -n moneymachine-live get pods,jobs,cronjobs`; `CLUSTER.md`):
-  - Recorders (`sha256:97b2817f…`): StatefulSets `hl` (480/min), `sources` (delvingbitcoin.org, Snapshot; clock record: the kernel's bound, `CLUSTER.md`), `datalayer` (`venue/sources/datalayer.json`).
+  - Recorders (`sha256:97b2817f…`): StatefulSets `hl` (480/min), `sources`, `datalayer` (`CLUSTER.md`).
   - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`).
   - prodesk7 builds test checks as a remote builder, inside `mmtest.slice` (`CLUSTER.md` §6).
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
@@ -47,7 +47,8 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
 
 1. **Kernel version 2:** step 5 built; B4 passes on it (3,120 of 3,120, rerun with the hardened stub); test 12's inputs are `data/x4-inputs/test12/` (root `7bab5c43…`).
    - **Test 12 is too slow** (15 days a host, exact `exp`/`log`). Round 11 (Neon, answering Opus's review) plans step 5x: X4's series carried incrementally, proved equal (law X6), about 1 hour a host; GPT reviews it. Step 5 merges after step 5x passes test 12 and B4.
-   - **Rounds 9 to 11** (Neon as architect; H16 Option 1, the human's) await GPT, the only reviewer left for them. CS2.1's note and CS2.2's revision await a fresh Claude and GPT before their commit.
+   - **Rounds 9 to 11** (Neon as architect): GPT reviewing since 2026-11-21 08:40 UTC (03:40 EST). CS2.1's note and CS2.2's revision: GPT and a fresh Opus, then the commit.
+   - **TAMU's spare usage** (the human, 2026-11-21) runs queued Opus work while study 1's runner is idle (`audit/decisions.md`); round 12, if GPT changes the design.
    - **Recorder:** the lint gate and the six catch-alls.
 2. **Study 1:** runs to its end (about 2026-11-23), then its report.
    - **After a reboot**, restart the runner: `systemd-run --user --unit mm-study1` from `../mm-s1-arms`, running `nix develop -c python -m gate.control.runner` with bubblewrap (`nix build --inputs-from . nixpkgs#bubblewrap`) first on `PATH`, `CARGO_TARGET_DIR=~/.cache/mm-study1/k`, `TMPDIR=~/.cache/mm-study1/tmp`, `CLAUDE_CODE_OAUTH_TOKEN_TAMU` and `_CORNELL`, output appended to `~/.cache/mm-study1/runner.log`.
