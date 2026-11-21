@@ -11,12 +11,12 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli -
   - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`).
   - prodesk7 builds test checks as a remote builder, inside `mmtest.slice` (`CLUSTER.md` §6).
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
-- **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers `mm-oci-pull`, `mm-diskguard` (declared units) and the builder wake-ups run only while the human is logged in. `/tmp` is a small tmpfs: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
+- **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers run only while the human is logged in. `/tmp` is a small tmpfs: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
 - **Accounts** (the human, 2026-11-11 and 12):
   - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
   - **The architect** is a fresh Opus 5.5 session at maximum reasoning after Fable's last session, 2026-11-16 (`CLAUDE.md`).
   - **Neon** (`gemini-4-neon-xhigh`, `agy`) is the Gemini reviewer, and architected rounds 8 to 11 while Claude was short. **No Opus subagents on this account for now** (the human, 2026-11-20). agy builds go through `ops/agy-write.sh on DIR | off`; no review runs while it is on.
-- **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-arms` (study 1's arms, at the manifest's commit); `../mm-k2` (`kernel2-build`); `../mm-k2-step5` (`kernel2-step5`); a builder's own while it runs. Agents that edit at the same time get separate worktrees.
+- **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-arms` (study 1's arms, at the manifest's commit); `../mm-k2` (`kernel2-build`); `../mm-k2-step5` (`kernel2-step5`); `../mm-review-cs2` (the CS2 reviewer's); one per agent.
 
 ### Work in progress
 
@@ -47,7 +47,7 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
 
 1. **Kernel version 2:** step 5 built; B4 passes on it (3,120 of 3,120, rerun with the hardened stub); test 12's inputs are `data/x4-inputs/test12/` (root `7bab5c43…`).
    - **Test 12 is too slow** (15 days a host, exact `exp`/`log`). Round 11 (Neon, answering Opus's review) plans step 5x: X4's series carried incrementally, proved equal (law X6), about 1 hour a host; GPT reviews it. Step 5 merges after step 5x passes test 12 and B4.
-   - **Rounds 9 to 11** (Neon as architect): GPT reviewing since 2026-11-21 08:40 UTC (03:40 EST). CS2.1's note and CS2.2's revision: GPT and a fresh Opus, then the commit.
+   - **Rounds 9 to 11** (Neon): GPT did not converge on either (`audit/reviews/2026-11-21-gpt-*`). **Round 12** (fresh Opus on TAMU's spare usage, session `999da091`): kernel item done, GPT's read open on three points; study 2's record next; then Neon and GPT. CS2.1's note and CS2.2's revision: then a fresh Opus, then the commit.
    - **TAMU's spare usage** (the human, 2026-11-21) runs queued Opus work while study 1's runner is idle (`audit/decisions.md`); round 12, if GPT changes the design.
    - **Recorder:** the lint gate and the six catch-alls.
 2. **Study 1:** runs to its end (about 2026-11-23), then its report.
