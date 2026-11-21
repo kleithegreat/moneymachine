@@ -29,7 +29,7 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
        - The subject is the agent as served (H8, approved by the human).
        - Wall 5 is 14 of 200.
      - **Calibration done** (`cal-3`, strength 0.0021875, all walls pass); **manifest** committed (`c5d95db`, seed by rule); **G100's arm** done, 15 of 100 earn (`51e0e4c`). Arms run from `../mm-s1-arms` with the frozen kernel via `CARGO_TARGET_DIR=~/.cache/mm-study1/k`.
-     - **Now:** runner `mm-study1` (TAMU only). Market 1 is the agent's miss: its sandbox failed to start, no model called (`audit/decisions.md`). Stopped after markets 2 and 3 (1 win, 1 loss, 1 concordant): about 5% of TAMU's five-hour window and 0.5% of its week a session. The human sets the pace (`audit/decisions.md`, 2026-11-21).
+     - **Now:** runner `mm-study1` (TAMU only). Market 1 is the agent's miss: its sandbox failed to start, no model called (`audit/decisions.md`). Running on TAMU, Cornell joining at its weekly reset (2026-11-22 05:00 UTC, 00:00 EST), at the runner's own pacing, at most 30% of each window (`audit/decisions.md`, 2026-11-21): about 5% of a five-hour window a session; done about 2026-11-23.
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
      - Fidelity first, then a frozen forward test (power 0.47 at Sharpe 1.4 and 0.90 at 2.4 within two years). Criteria committed (`criteria: study 2`, `a324059`; CS2.1 revised `a903317`).
      - **Kernel version 2** (`audit/program/kernel-v2.md`, brief 3; branch `kernel2-build`, worktree `../mm-k2`): steps 0 to 3 built and proved (Lean laws with only the three standard axioms); layer 1 clean on all 5,806 vault fills under the venue's printed arithmetic. Step 4: below.
@@ -50,7 +50,7 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
    - **Rounds 9 to 11** (Neon as architect; H16 Option 1, the human's) await GPT, the only reviewer left for them. CS2.1's note and CS2.2's revision await a fresh Claude and GPT before their commit.
    - **Recorder:** the lint gate and the six catch-alls.
 2. **Study 1:** after the first session, the human sets the pace from its measured usage.
-   - **After a reboot**, restart the runner: `systemd-run --user --unit mm-study1` from `../mm-s1-arms`, running `nix develop -c python -m gate.control.runner` with bubblewrap (`nix build --inputs-from . nixpkgs#bubblewrap`) first on `PATH`, `CARGO_TARGET_DIR=~/.cache/mm-study1/k`, `TMPDIR=~/.cache/mm-study1/tmp`, only `CLAUDE_CODE_OAUTH_TOKEN_TAMU`, output appended to `~/.cache/mm-study1/runner.log`; then its watcher, which stops it after one result.
+   - **After a reboot**, restart the runner: `systemd-run --user --unit mm-study1` from `../mm-s1-arms`, running `nix develop -c python -m gate.control.runner` with bubblewrap (`nix build --inputs-from . nixpkgs#bubblewrap`) first on `PATH`, `CARGO_TARGET_DIR=~/.cache/mm-study1/k`, `TMPDIR=~/.cache/mm-study1/tmp`, `CLAUDE_CODE_OAUTH_TOKEN_TAMU` and `_CORNELL`, output appended to `~/.cache/mm-study1/runner.log`;
 3. **The paper, free-standing and academic** (the human, 2026-11-16): deferred until the human says; written by Opus, reviewed for accuracy only.
 4. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. Stage 7 parked; stages 8 and 9 superseded.
 
