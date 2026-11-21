@@ -161,7 +161,6 @@ COMMANDS = {
         "record the agent harness hash for the declared cohorts, after the sandbox canary",
     ),
     "agent-null": ("gate.agent.campaigns", "run_series", ["name"], "the agent or swarm null series (paced, resumable)"),
-    "agent-real": ("gate.agent.campaigns", "real", ["data_root", "version:int"], "the one real campaign, both arms"),
     "agent-summary": (
         "gate.agent.campaigns",
         "summary",

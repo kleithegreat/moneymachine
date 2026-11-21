@@ -26,7 +26,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - **PV and PVC** `mirror`: NFS from this PC, `/srv/moneymachine/mirror`, ReadWriteMany, 200Gi. This PC's NixOS
   configuration exports that directory beside `inputs` and `results`. It holds the only copy of the live data.
 - **Secrets**, created by the advisor with kubectl from local files, outside Git:
-  - `claude-token`: key `CLAUDE_CODE_OAUTH_TOKEN`, a `claude setup-token` token of the Cornell account; key `TAMU`, the TAMU account's, which only `agent-series` and `agent-real` read (as `CLAUDE_CODE_OAUTH_TOKEN_TAMU` and `_CORNELL`; `wait_for_room` sets `CLAUDE_CODE_OAUTH_TOKEN` to the account it picks);
+  - `claude-token`: key `CLAUDE_CODE_OAUTH_TOKEN`, a `claude setup-token` token of the Cornell account; key `TAMU`, the TAMU account's, which only `agent-series` reads (as `CLAUDE_CODE_OAUTH_TOKEN_TAMU` and `_CORNELL`; `wait_for_room` sets `CLAUDE_CODE_OAUTH_TOKEN` to the account it picks);
   - `datalayer-keys`: one key `.keys.env`, the lines `BLS_API_KEY`, `BEA_API_KEY`, `EIA_API_KEY` and `SEC_USER_AGENT`
     (the datalayer feeds' declared `auth`). No `DATABENTO_API_KEY` and no FRED key.
 - **RBAC**: ServiceAccount `deployer`, its kubeconfig at this PC's `~/.kube/moneymachine-live.yaml`, may create, get, list, watch, update, patch and
@@ -48,7 +48,6 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 | `sources` | StatefulSet | `cli sources-record data/sources_live` | `sources` | none | 300 s |
 | `datalayer` | StatefulSet | `cli datalayer-record data/datalayer` | `datalayer` | `datalayer-keys` | 300 s |
 | `agent-series` | Job | `cli agent-null swarm` (stage 4's C4.5) | `agent` | `claude-token` | 9,000 s |
-| `agent-real` | Job, one attempt | `cli agent-real data/agent/real 1792613363942` | `agent` | `claude-token` | 9,000 s |
 | `ws` | StatefulSet | `mmrec run data/ws` (`recorder/RECORDER.md`) | `ws` | none | 30 s |
 | `vault` | CronJob, hourly at :07 | `mmvault run data/ws --user 0x53375ca9…2a06` (`recorder/VAULT.md`) | `ws` | none | 30 s |
 | `mirror` | CronJob, every 10 min | section 5 | the five read-only; `mirror` | none | 600 s |
@@ -65,7 +64,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
   unreachable node is never force-deleted until the node is confirmed down.
 - **Stopping.** On SIGTERM, recorders stop between polls and the series between campaigns. Their waits wake on SIGTERM. Bubblewrap's `--die-with-parent` ends a session with its runner.
 - **Retries.** A restarted series resumes: a campaign started and unrecorded is recorded as a crash (counted as a
-  promotion), never rerun. The real campaign resumes its attempt and never repeats an arm or the release. A Kubernetes retry never becomes a fresh attempt. A rollback never reruns a consumed campaign or date.
+  promotion), never rerun. A rollback never reruns a consumed campaign or date.
 - **Clocks.** `sources` logs the node kernel's own bound on its clock error (`adjtimex`: `maxerror_ms`, `esterror_ms`,
   `unsynced`) every cycle as source "clock", key "kernel". It is a bound the kernel's NTP daemon reports, never an
   offset against anything, and it does not prove freshness. C5.3's 72 h segment reports its maximum and requires
