@@ -15,7 +15,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli -
 - **Accounts** (the human, 2026-11-11 and 12):
   - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
   - **The architect** is a fresh Opus 5.5 session at maximum reasoning after Fable's last session, 2026-11-16 (`CLAUDE.md`).
-  - **Neon** (`gemini-4-neon-xhigh`, `agy`) is the Gemini reviewer, and architected rounds 8 to 11 while Claude was short. **No Opus subagents on this account for now** (the human, 2026-11-20). agy builds go through `ops/agy-write.sh on DIR | off`; no review runs while it is on.
+  - **Neon** (`gemini-4-neon-xhigh`, `agy`) is the Gemini reviewer, and architected rounds 8 to 11 while Claude was short. Opus subagents on this account are allowed again (the human, 2026-11-21). agy builds go through `ops/agy-write.sh on DIR | off`; no review runs while it is on.
 - **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-arms` (study 1's arms, at the manifest's commit); `../mm-k2` (`kernel2-build`); `../mm-k2-step5` (`kernel2-step5`); `../mm-review-cs2` (the CS2 reviewer's); one per agent.
 
 ### Work in progress

@@ -1511,3 +1511,4 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **Done:** the runner stopped between sessions (32 of 32 markets judged) and restarted at 20:13 UTC (15:13 EST) with Cornell's token only. It waits for Cornell's weekly reset, 2026-11-22 05:00 UTC (00:00 EST).
   - **Opus on TAMU** now runs in every window, stopping at 0.95 of either window; the round 12 architect resumes at TAMU's next five-hour reset, 2026-11-22 00:00 UTC (2026-11-21 19:00 EST).
   - **The risk kept in view:** 68 markets remain; at 0.43% to 0.5% of a week a session, the runner's 30% cap on Cornell carries about 60 to 70. If Cornell reaches it with markets left, TAMU's token returns to the runner after the human's reset.
+- 2026-11-21 20:30 UTC (15:30 EST), the human: **Opus subagents on this account are allowed again,** lifting the pause of 2026-11-20. TAMU keeps running the queued Opus work as well.
