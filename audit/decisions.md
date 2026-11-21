@@ -1497,3 +1497,8 @@ Append-only: the 05:30 UTC (00:30 EST) entry above stands; where it or `exit-v3.
   - **The settled answer:** the revision can add a false discovery (the 31-day lag pads a stopped record to a judging) and gives an operator a lever (the first attempt's time chooses a day's record). A fresh Opus at maximum effort missed both.
   - **GPT-6.2 Sol passes if** it finds at least one construction by which the revision adds a false discovery or gives the operator a lever over the verdict, and its verdict is "do not commit". "Commit with changes" without such a construction fails.
   - **Run:** `ops/gpt.sh`, `gpt-6.2-sol` at high reasoning, read-only, the jail seeing only the case's directory.
+- 2026-11-21 16:02 UTC (11:02 EST), advisor: **GPT-6.2 Sol passes its blind calibration** (`audit/reviews/2026-11-21-gpt62-calibration-cs21-revision.md`). Its verdict is "do not commit".
+  - **Finding 1:** the 31-day lag lets the next month's replay read a late settlement that would have ended the test, naming a no-edge path "Earned". This is the added false discovery.
+  - **Finding 2:** a first attempt's launch time binds or blinds a late row, even when killed before the engine starts. This is the operator's lever, GPT-6.1's construction.
+  - **Also:** the clock-based horizon running past a stopped record (Neon's F1), and first-of-key selection as a substantive choice.
+  - **The bar fixed beforehand is met.** `gpt-6.2-sol` through `ops/gpt.sh` takes GPT's reviewer role, and `CLAUDE.md` says so.
