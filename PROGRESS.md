@@ -37,22 +37,21 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
      - **The vault collector** (`recorder/VAULT.md`, `mmvault`) runs hourly as CronJob `vault` (`CLUSTER.md`).
    - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
    - **The websocket recorder** (`recorder/RECORDER.md`): every perp on every Hyperliquid dex, crypto and builder-deployed stocks, commodities and indices. **Running** since 2026-11-14 03:43 UTC (22:43 EST) as StatefulSet `ws` (image `851fc77`, `sha256:9a6e0b2a…` since 2026-11-20 14:57 UTC, 09:57 EST; `vault` likewise), one copy on prodesk7 (PVC `ws`, not mirrored, the human's choice): fast five-level books for all 350 perps, 20-level books for the main dex's 179, trades, asset contexts, listings. About 2.0 GB a day (sizes only); its volume fills about April 2027, and enough disk is assumed by then (the human, 2026-11-21; the sizing measurement is the advisor's).
-2. **Erasure pass** (list `audit/erasure/2026-11-12-deletion-list.md`): phases A to E and F12 are done, `ops/shards.py` included.
+2. **Erasure pass** (list `audit/erasure/2026-11-12-deletion-list.md`): phases A to F are done, `ops/shards.py` included.
    - Tests are 11 flake checks on the remote builders and `nix run .#test` (`CLUSTER.md` §6); the launcher is `nix run .#session`; the timers are `homeManagerModules.default`, imported by dotfiles.
    - Phase A: the thesis track and `ops/crossmachine.py` are gone, archived at `archive/thesis` and `archive/thesis-refreeze`.
-   - **Next:** phase F's `agent-real` with study 1's criterion.
    - **Constraint:** `flake.lock` does not move while study 1 runs on the frozen harness.
 
 ### Next, in order
 
 1. **Kernel version 2:** step 5 built; B4 passes on it (3,120 of 3,120, rerun with the hardened stub); test 12's inputs are `data/x4-inputs/test12/` (root `7bab5c43…`).
    - **Test 12 is too slow** (15 days a host, exact `exp`/`log`). Round 11 (Neon, answering Opus's review) plans step 5x: X4's series carried incrementally, proved equal (law X6), about 1 hour a host; GPT reviews it. Step 5 merges after step 5x passes test 12 and B4.
-   - **Rounds 9 to 11** (Neon): GPT did not converge on either (`audit/reviews/2026-11-21-gpt-*`). **Round 12** (fresh Opus on TAMU's spare usage, session `999da091`): kernel item done, GPT's read open on three points; study 2's record next; then Neon and GPT. CS2.1's note and CS2.2's revision: then a fresh Opus, then the commit.
+   - **Round 12** (fresh Opus): kernel and study 2 halves done (`rearchitecture`, `rearchitecture-s2`, pushed). Kernel: GPT-6.2 accepts the pre-build boundary, four points open, round 13 under way; Neon's bundles in `~/Downloads`. Study 2: GPT-6.2 reviewing; it narrows the claim and plans the recorder fixes (steps 1 and 2 urgent). CS2 texts then a fresh Opus, then the commit.
    - **TAMU** (the human, 2026-11-21) runs the queued Opus work in every window (`audit/decisions.md`).
    - **Recorder:** the lint gate and the six catch-alls.
 2. **Study 1:** runs to its end (about 2026-11-23), then its report.
    - **After a reboot**, restart the runner: `systemd-run --user --unit mm-study1` from `../mm-s1-arms`, running `nix develop -c python -m gate.control.runner` with bubblewrap (`nix build --inputs-from . nixpkgs#bubblewrap`) first on `PATH`, `CARGO_TARGET_DIR=~/.cache/mm-study1/k`, `TMPDIR=~/.cache/mm-study1/tmp`, `CLAUDE_CODE_OAUTH_TOKEN_CORNELL`, output appended to `~/.cache/mm-study1/runner.log`.
-3. **The paper, free-standing and academic:** rewritten on `paper-rewrite` (`../mm-paper`, started by the human 2026-11-21); next its review, for correctness and accuracy only, then the merge.
+3. **The paper, free-standing and academic:** rewritten on `paper-rewrite` (`../mm-paper`, started by the human 2026-11-21); GPT-6.2's accuracy review in, its fixes next (Neon through agy, the human), then the merge.
 4. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. Stage 7 parked; stages 8 and 9 superseded.
 
 ### Finished

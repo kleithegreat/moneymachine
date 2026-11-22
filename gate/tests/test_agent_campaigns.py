@@ -1,4 +1,4 @@
-"""Agent campaign reports: the null series summary and the real campaign's per-arm comparison."""
+"""Agent campaign series: the null series summary, pacing, resumption and the harness freeze."""
 
 import hashlib
 import json
@@ -15,8 +15,6 @@ import pytest
 
 from gate import gate, markets, sweep
 from gate.agent import campaigns, harness
-from gate.kernel import MM
-from gate.markets import write_market
 from sandbox import canary, session
 
 REPO = Path(__file__).resolve().parents[2]
@@ -80,44 +78,6 @@ def test_summary_counts_crashes_short_swarms_and_reads_the_baselines(
     assert s["agent"]["spreads"]["max_dsr"]["n"] == 19 and s["agent"]["G100_null_n2"]["screened"]["max"] == 1
     assert (s["swarm"]["n"], s["swarm"]["counted_promotions"], s["swarm"]["verdict"]) == (10, 10, "failed")
     assert s["swarm"]["H400_null_n2"]["spa_p"] is None
-
-
-def test_comparison_reads_distinct_strategies_from_the_ledger(tmp_path: Path, built_kernel: Path) -> None:
-    m = write_market(tmp_path / "m", days=30)
-    ledger = tmp_path / "l.sqlite"
-    for agent in ("A", "A", "G100"):
-        subprocess.run(
-            [
-                str(MM),
-                "eval",
-                str(REPO / "kernel/strategies/w0.json"),
-                "--campaign",
-                "c",
-                "--agent",
-                agent,
-                "--store",
-                str(m / "store"),
-                "--venue",
-                str(m / "venue"),
-                "--ledger",
-                str(ledger),
-            ],
-            check=True,
-            capture_output=True,
-        )
-
-    def arm(ev: int, mech: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "evaluations": ev,
-            "search": {"n": 1, "spa_p": 0.4, "screened": [], "finalists": []},
-            "mechanism": mech,
-            "holdout": {"holm": {"h": 0.3}, "holdout_p": {"h": 0.2}, "holdout_total_return": {"h": 0.01}},
-            "promoted": [],
-        }
-
-    c = campaigns.comparison({"id": "c", "A": arm(2, {"h": {"pass": False}}), "B": arm(1, {})}, ledger)
-    assert c["A"]["distinct_canonical"] == 1 and c["A"]["evaluations"] == 2 and c["A"]["mechanism_failures"] == ["h"]
-    assert c["B"]["holdout"]["h"] == {"return": 0.01, "p": 0.2, "holm": 0.3} and c["statement"] == campaigns.NO_CLAIM
 
 
 def test_series_resumes_and_starts_a_campaign_only_when_every_window_has_room(
@@ -362,13 +322,12 @@ def test_a_freeze_is_refused_once_a_campaign_it_is_for_started_and_waits_for_the
         campaigns.freeze_harness()
     assert not (tmp_path / "harness.json").exists()
     monkeypatch.setattr(canary, "check", lambda: {})
-    for earlier in ("agent-null-N2-0", "agent-null-2-N2-19", "stage3-real"):
+    for earlier in ("agent-null-N2-0", "agent-null-2-N2-19"):
         (out / earlier).mkdir(parents=True)
-    (out / "stage3-real" / "void.json").write_text("{}")
     campaigns.freeze_harness()
     campaigns.freeze_harness()
     assert json.loads((tmp_path / "harness.json").read_text())["previous"]["harness"] == "a"
-    for started in ("agent-null-3-N2-1", campaigns.cohort("swarm")[0][0], "stage3-real-2"):
+    for started in ("agent-null-3-N2-1", campaigns.cohort("swarm")[0][0]):
         (out / started).mkdir()
         with pytest.raises(SystemExit):
             campaigns.freeze_harness()
