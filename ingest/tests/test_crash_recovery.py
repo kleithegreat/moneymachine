@@ -13,7 +13,7 @@ from typing import Any
 import httpx
 import pytest
 
-from ingest import datalayer, live, record
+from ingest import datalayer, live
 from ingest.tests.crash_helpers import acknowledge, checkpoint, kill_during, recover
 
 pytestmark = pytest.mark.local
@@ -42,19 +42,13 @@ def poll(root: Path, i: int) -> dict[str, Any]:
 def worker(root: Path, interactive: bool) -> None:
     root = Path(root)
     mode = (root / "mode").read_text()
-    if mode in ("live", "record"):
-        prefix = "observations" if mode == "live" else "polls"
-        done = {row["seq"] for row in live.read(root, prefix)}
-        pytest.MonkeyPatch().setattr(record, "Info", lambda budget: None)
-        recorder = record.Recorder(480, [], root) if mode == "record" else None
+    if mode == "live":
+        done = {row["seq"] for row in live.read(root, "observations")}
         for i in range(COUNT):
             if i in done:
                 continue
             checkpoint(f"append:{i}", interactive)
-            if recorder is None:
-                live.append(root, prefix, 0, observation(i))
-            else:
-                recorder.log(observation(i))
+            live.append(root, "observations", 0, observation(i))
             acknowledge(i)
     else:
         done = {row["feed"] for row in live.read(root, "datalayer")}
@@ -67,7 +61,7 @@ def worker(root: Path, interactive: bool) -> None:
     checkpoint("finished", interactive)
 
 
-@pytest.mark.parametrize("mode", ["live", "record", "datalayer", "repair"])
+@pytest.mark.parametrize("mode", ["live", "datalayer", "repair"])
 @pytest.mark.parametrize("seed", SEEDS)
 def test_random_sigkill_preserves_completed_appends_and_recovers(tmp_path: Path, mode: str, seed: int) -> None:
     (tmp_path / "mode").write_text(mode)
@@ -79,7 +73,7 @@ def test_random_sigkill_preserves_completed_appends_and_recovers(tmp_path: Path,
     target = random.Random(seed).randrange(1, COUNT - 1)
     acks = kill_during(MODULE, tmp_path, f"append:{target}", seed)
     history = {path: path.read_bytes() for path in tmp_path.glob("*.jsonl")}
-    prefix = {"live": "observations", "record": "polls"}.get(mode, "datalayer")
+    prefix = "observations" if mode == "live" else "datalayer"
     before = list(live.read(tmp_path, prefix))
     indices = [row["seq"] if prefix != "datalayer" else int(row["feed"].split("-")[1]) for row in before]
     assert indices == list(range(len(indices)))

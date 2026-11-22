@@ -5,12 +5,12 @@ from collections.abc import Sequence
 from datetime import date
 from urllib.parse import urlparse
 
-from ingest import datalayer, hl, sources_record, terms
+from ingest import datalayer, sources_record, terms
 
 FETCHED: dict[str, Sequence[str | None]] = {
     "discourse": sources_record.FORUMS,
     "snapshot": [urlparse(sources_record.HUB).hostname],
-    "hyperliquid": [urlparse(hl.URL).hostname],
+    "hyperliquid": ["api.hyperliquid.xyz"],
 }
 
 

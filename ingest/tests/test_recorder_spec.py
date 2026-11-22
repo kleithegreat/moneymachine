@@ -18,7 +18,7 @@ from typing import Any
 import httpx
 import pytest
 
-from ingest import datalayer, live, record, sources_record
+from ingest import datalayer, live, sources_record
 from ops import live as mirror
 
 
@@ -135,80 +135,6 @@ def test_one_writer_and_sigterm_wakes_stop_event(tmp_path: Path) -> None:
         if child.poll() is None:
             child.kill()
             child.communicate(timeout=10)
-
-
-@pytest.fixture
-def recorder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> record.Recorder:
-    """A listed BTC recorder with no HTTP client and a controlled local clock."""
-    monkeypatch.setattr(record, "Info", lambda *args: None)
-    monkeypatch.setattr(record, "now_ms", lambda: 0)
-    return record.Recorder(120, ["BTC"], tmp_path)
-
-
-@pytest.mark.parametrize(
-    "hour,expected", [(0, {"funding", "bar"}), (3_600_000, {"funding"}), (14_400_000, {"funding", "bar"})]
-)
-def test_only_four_hour_boundaries_request_bars(recorder: record.Recorder, hour: int, expected: set[str]) -> None:
-    assert set(recorder.kinds(hour)) == expected
-
-
-def test_boundary_poll_waits_five_seconds_and_retries_after_thirty(
-    recorder: record.Recorder, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """At H=3,600,000: no request at H+4,999; retries at H+5,000 and H+35,000."""
-    calls: list[tuple[Any, ...]] = []
-
-    def poll(*args: Any) -> bool:
-        calls.append(args)
-        return False
-
-    monkeypatch.setattr(recorder, "poll", poll)
-    for t, expected in [(3_604_999, 0), (3_605_000, 1), (3_634_999, 1), (3_635_000, 2)]:
-        monkeypatch.setattr(record, "now_ms", lambda t=t: t)
-        recorder.step()
-        first = [call for call in calls if call[3] == "first"]
-        assert len(first) == expected
-    assert all(call[:3] == ("funding", "BTC", 3_600_000) for call in first)
-
-
-def test_found_boundary_is_verified_once_at_ten_minutes(
-    recorder: record.Recorder, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """H=3,600,000: a found first row is re-polled at 4,200,000, not 4,199,999."""
-    calls: list[tuple[Any, ...]] = []
-
-    def poll(*args: Any) -> bool:
-        calls.append(args)
-        return True
-
-    monkeypatch.setattr(recorder, "poll", poll)
-    for t, expected in [(3_605_000, 0), (4_199_999, 0), (4_200_000, 1), (4_200_001, 1)]:
-        monkeypatch.setattr(record, "now_ms", lambda t=t: t)
-        recorder.step()
-        verifies = [call for call in calls if call[2:] == (3_600_000, "verify")]
-        assert len(verifies) == expected
-
-
-def test_l2_preserves_server_time_and_local_send_receive_times(
-    recorder: record.Recorder, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A snapshot time of 7 is neither the local send 100 nor receive 160, nor an NTP offset."""
-
-    class Info:
-        def l2_book(self, coin: str, sig_figs: int | None = None) -> dict[str, Any]:
-            assert coin == "BTC"
-            return {"time": 7, "levels": [], "precision": sig_figs}
-
-    recorder.l2_info = Info()
-    times = iter([100, 160])
-    monkeypatch.setattr(record, "now_ms", lambda: next(times))
-    rows: list[dict[str, Any]] = []
-    monkeypatch.setattr(recorder, "log", rows.append)
-    recorder.poll_l2("BTC")
-    assert len(rows) == 1
-    assert (rows[0]["sent"], rows[0]["recv"], rows[0]["data"]["time"]) == (100, 160, 7)
-    assert rows[0]["data"]["precision"] is None
-    assert rows[0]["agg"]["precision"] == 4
 
 
 def get_body(
