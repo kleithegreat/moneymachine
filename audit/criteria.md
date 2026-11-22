@@ -1156,6 +1156,7 @@ Committed 2026-11-12 under the human's word, after Argon's round 6 (`audit/revie
   - anything about `claude-opus-5-5` or `claude-opus-4-8` alone, or about one against the other. The report's rate for each set of ids is confounded by how long a session runs;
   - the agent at a share of fallback other than those the report shows, the pilot's included. Where the share moved during the study, the claim is of the agent at some share it met;
   - the rest of architecture 5.4's list. A change of model that the provider does not disclose is invisible to this study.
+- *Note 2026-11-22 17:13 UTC (12:13 EST), after CS1.1 was judged, a correction of a stated number, not a revision: no condition, threshold or judgment changes.* The size is 0.0430787, by exact rational enumeration at 100 markets (the study's own test computes it, with a 0.0005 tolerance), so "at most 0.043" above reads "at most 0.0431". Met is the upper boundary's crossing and reads no size, and 0.0431 is below the nominal 5%. Found by both reviews of the evidence (`audit/reviews/2026-11-22-gpt62-study1-evidence.md`, `audit/reviews/2026-11-22-opus-study1-evidence.md`).
 
 Exit when CS1.1 is judged: Met, Not shown, Inconclusive, or Inconclusive at the markets judged.
 
