@@ -24,3 +24,4 @@ import Ref.Proof.InsertRun
 import Ref.Proof.Checker
 import Ref.Proof.Bound
 import Ref.Laws
+import Ref.Study1
