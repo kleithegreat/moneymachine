@@ -7,8 +7,7 @@ commodities, indices, currencies and rates. It feeds kernel version 2 and study 
 for "recorders for anything we could possibly need" (`audit/decisions.md`, 2026-11-14). Nothing here is judged, but a
 lost recording can't be refetched, so it is held to this spec (`CLAUDE.md`, Correctness).
 
-It runs beside the `hl` recorder (`ingest/record.py`), which keeps polling until this one has run cleanly for 30 days
-and the two agree where they overlap. Retiring `hl`'s book polling is then a separate decision.
+The cluster's `hl` book-polling recorder (`ingest/record.py`) was retired on 2026-11-22; the Oracle VM still polls.
 
 ## What it records
 
@@ -42,7 +41,7 @@ From Hyperliquid's rate-limit page (certificate `venue/sources.toml` `[hyperliqu
 - the server closes a connection that has received no message for 60 s.
 
 The recorder uses at most 8 connections, leaving 2 for reconnects, and at most 950 subscriptions. Its REST calls are
-weight 20 each, about 8 an hour, inside `hl`'s share of the IP's budget (`CLUSTER.md`).
+weight 20 each, about 8 an hour, inside the cluster address's request budget (`CLUSTER.md`).
 
 **When a new listing would exceed 950,** the recorder subscribes nothing new for it, never drops an existing
 subscription, and writes a `refused` event naming the coin.
