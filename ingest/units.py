@@ -1,4 +1,4 @@
-"""Units and records shared across `ingest` and `gate`."""
+"""Units and records shared across `ingest`."""
 
 from typing import Any, TypedDict
 

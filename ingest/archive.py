@@ -11,7 +11,7 @@ import lz4.frame  # type: ignore[import-untyped]
 import polars as pl
 from botocore.exceptions import ClientError  # type: ignore[import-untyped]
 
-from gate.compute import Pool, workers
+from ingest.compute import Pool, workers
 
 BUCKET = "hyperliquid-archive"
 FORWARD_WINDOW = (dt.date(2026, 11, 1), dt.date(2027, 1, 31))

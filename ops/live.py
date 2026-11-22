@@ -236,7 +236,7 @@ def apply(digest: str, *names: str) -> None:
 
 
 def mirror_kind(rel: str | Path) -> str:
-    """Writer contract for a volume-relative path; sandbox/session.py binds each session's `work/` as /work."""
+    """Writer contract for a volume-relative path; the pilot's sandbox (`archive/pilot`) bound each session's `work/` as /work."""
     rel = Path(rel)
     if "work" in rel.parts[:-1]:
         return "plain"

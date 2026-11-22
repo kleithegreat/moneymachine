@@ -238,39 +238,20 @@
           # The tracked tree minus prose and build files, so a commit that only edits those leaves every check cached; a test that
           # reads excluded prose fails in its check, which is how a missed dependency shows.
           srcAll = fs.toSource { root = ./.; fileset = fs.difference ./. (fs.unions prose); };
-          kernelOnly = fs.toSource { root = ./.; fileset = fs.unions [ ./kernel ./venue/hyperliquid ]; };
-          cargoDeps = pkgs.rustPlatform.importCargoLock { lockFile = ./kernel/Cargo.lock; };
-          cargoTools = [ pkgs.cargo pkgs.rustc pkgs.rustPlatform.cargoSetupHook ];
-          # `kernel/target` as `cargo build --release` leaves it, for the checks whose tests build `mm` first.
-          kernelTarget = pkgs.stdenv.mkDerivation {
-            name = "kernel-target";
-            src = kernelOnly;
-            inherit cargoDeps;
-            cargoRoot = "kernel";
-            nativeBuildInputs = cargoTools;
-            dontConfigure = true;
-            buildPhase = "cd kernel && cargo build --release --offline";
-            installPhase = "cp -r target $out";
-          };
           pytestCheck =
-            { name, paths, src ? srcAll, select ? "not local", kernel ? false, prebuilt ? false, vendor ? null, env ? { } }:
+            { name, paths, src ? srcAll, select ? "not local", env ? { } }:
             pkgs.stdenv.mkDerivation ({
               inherit name src env;
-              nativeBuildInputs = tools ++ lib.optionals kernel cargoTools;
+              nativeBuildInputs = tools;
               dontConfigure = true;
               buildPhase = ''
                 export HOME=$TMPDIR SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
                 patchShebangs ops
                 mkdir -p data
-                ${lib.optionalString (vendor != null) ''
-                  mkdir -p .cargo
-                  printf '[source.crates-io]\nreplace-with = "vendored"\n[source.vendored]\ndirectory = "%s"\n' ${vendor} > .cargo/config.toml
-                ''}
-                ${lib.optionalString prebuilt "cp -r ${kernelTarget} kernel/target && chmod -R u+w kernel/target"}
                 pytest -m ${lib.escapeShellArg select} -n $NIX_BUILD_CORES -p no:cacheprovider ${paths}
               '';
               installPhase = "touch $out";
-            } // lib.optionalAttrs kernel { inherit cargoDeps; cargoRoot = "kernel"; });
+            });
         in
         {
           progress-cap = pkgs.runCommand "progress-cap" { } ''
@@ -291,10 +272,8 @@
             '';
             installPhase = "touch $out";
           };
-          gate = pytestCheck { name = "gate"; paths = "gate/tests"; kernel = true; prebuilt = true; };
           ingest = pytestCheck { name = "ingest"; paths = "ingest/tests"; };
           ops = pytestCheck { name = "ops"; paths = "ops"; };
-          sandbox = pytestCheck { name = "sandbox"; paths = "sandbox/tests"; };
           lean-proofs = self.packages.${system}.refmm;
           mmrec-tests = (mmrecFor pkgs).tests;
         };

@@ -1,9 +1,6 @@
-import fcntl
 import os
 import sys
 import threading
-from collections.abc import Callable
-from functools import partial
 from pathlib import Path
 from time import sleep
 
@@ -37,32 +34,3 @@ def pytest_configure(config: pytest.Config) -> None:
             os.environ.setdefault(name, "1")
     limit = int(float(config.getini("worker_memory_gb")) * 2**30)
     threading.Thread(target=watch, args=(limit, config.pluginmanager.getplugin("capturemanager")), daemon=True).start()
-
-
-def build_once(directory: Path, name: str, build: Callable[[], object]) -> None:
-    """Share successful builds across this session's workers, never across later runs."""
-    with (directory / f"{name}.lock").open("w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        done = directory / f"{name}.built"
-        if not done.exists():
-            build()
-            done.touch()
-
-
-@pytest.fixture(scope="session")
-def session_build(
-    tmp_path_factory: pytest.TempPathFactory, request: pytest.FixtureRequest
-) -> Callable[[str, Callable[[], object]], None]:
-    directory = tmp_path_factory.getbasetemp()
-    if hasattr(request.config, "workerinput"):
-        directory = directory.parent
-    return partial(build_once, directory)
-
-
-@pytest.fixture(scope="session")
-def built_kernel(session_build: Callable[[str, Callable[[], object]], None]) -> Path:
-    from gate import kernel
-
-    session_build("kernel", kernel.build)
-    binary: Path = kernel.MM
-    return binary
