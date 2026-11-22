@@ -46,7 +46,7 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
 
 1. **Kernel version 2:** step 5 built; B4 passes on it (3,120 of 3,120, rerun with the hardened stub); test 12's inputs are `data/x4-inputs/test12/` (root `7bab5c43…`).
    - **Test 12 is too slow** (15 days a host, exact `exp`/`log`). Round 11 (Neon, answering Opus's review) plans step 5x: X4's series carried incrementally, proved equal (law X6), about 1 hour a host; GPT reviews it. Step 5 merges after step 5x passes test 12 and B4.
-   - **Round 12** (fresh Opus): kernel and study 2 halves done (`rearchitecture`, `rearchitecture-s2`, pushed). Kernel: GPT-6.2 accepts the pre-build boundary, four points open, round 13 under way; Neon's bundles in `~/Downloads`. Study 2: GPT-6.2 reviewing; it narrows the claim and plans the recorder fixes (steps 1 and 2 urgent). CS2 texts then a fresh Opus, then the commit.
+   - **Round 13** (fresh Opus, both halves done, pushed): kernel on `rearchitecture` (the build boundary re-derived after an `autoParam` bypass), study 2 on `rearchitecture-s2` (a cash reserve on buys; only `isDelisted` delists). In review: GPT-6.2 now, Neon's bundles in `~/Downloads`. The urgent recorder fix needs new tests for the changed step 1 before deploy. CS2 texts: four drafts, then a fresh Opus and GPT, then the commit.
    - **TAMU** (the human, 2026-11-21) runs the queued Opus work in every window (`audit/decisions.md`).
    - **Recorder:** the lint gate and the six catch-alls.
 2. **Study 1:** runs to its end (about 2026-11-23), then its report.
