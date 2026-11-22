@@ -1,8 +1,7 @@
 # CLUSTER: the live workloads on the homelab cluster
 
 The recorders and the mirror run on the homelab's k3s cluster (1.36, containerd 2.3), so this PC can be off without
-stopping them. Batch Jobs run in namespace `moneymachine`,
-submitted from this PC, inputs and results on its NFS. The Oracle VM recorded independently until its retirement on 2026-11-22; it now only holds the forward window's Hyperliquid day files until 2027-02-01.
+stopping them. The Oracle VM recorded independently until its retirement on 2026-11-22; it now only holds the forward window's Hyperliquid day files until 2027-02-01.
 
 Section 1 is what the Homelab repo (Flux) builds; sections 2, 5 and 6 are what this repo builds against it.
 
@@ -135,21 +134,14 @@ nix develop -c pytest -m local   # the tests marked `local`, here
 A flake sees only tracked files, so `git add` new ones first. `nix build -L .#checks.x86_64-linux.<name>` runs one group
 and `nix log <drv>` shows a failure's full output.
 
-- **The checks** (`flake.nix`, `checks.x86_64-linux`): `style`, `progress-cap`, `kernel-cargo`, `kernel-mutants`,
-  `kernel-py`, `gate`, `ingest`, `ops`, `reference`, `sandbox` and `lean-proofs`. Each runs `pytest -m "not local"`
+- **The checks** (`flake.nix`, `checks.x86_64-linux`): `style`, `progress-cap`, `ingest`, `ops`,
+  `mmrec-tests` and `lean-proofs`. Each runs `pytest -m "not local"`
   over its paths in a Nix sandbox, so it is rebuilt only when its inputs (its source subset) change. Prose (`docs`, `CLAUDE.md`,
   `PROGRESS.md`, ...) is outside every source subset, so a prose-only commit leaves all of them cached.
-- **The `local` marker** (`pyproject.toml`): tests that need this PC, because they read the real `data/` (`data/store`; link it
-  into a worktree, never commit it), use user namespaces, kill a process, or read git history. `nix flake check` skips them and
+- **The `local` marker** (`pyproject.toml`): tests that need this PC, because they read the real `data/` (link `data/` into a
+  worktree, never commit it), kill a process, or read git history. `nix flake check` skips them and
   `nix run .#test` runs them here.
 - **Builders:** the three nodes (prodesk5, gmktec, prodesk7) are Nix remote builders for this PC (dotfiles). prodesk7 holds
   every live recording, so its builds run in the Nix daemon's `mmtest.slice` (5 GiB memory with no swap, CPUs 0-9, idle CPU
   weight, I/O caps on the image's device), with `ProtectHome` and the PVCs and k3s inaccessible; Nix's sandbox does the rest.
   Nothing of the project is kept on a node besides the Nix store.
-- **The funding blob:** the `reference` check reads the null models' funding source, a fixed-output input that is not in any
-  cache (`fundingInputs` in `flake.nix`). Each builder must hold it, registered once with
-  `nix-store --add-fixed sha256 /srv/moneymachine/inputs/d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39`;
-  without it the build fails with `requireFile`'s message, which names that command.
-- **Rust:** `kernel-cargo` and `kernel-mutants` run `kernel/tests/test_rust.py`, the kernel's `cargo test --release` and each
-  mutant (`kernel/mutants/mutants.py`: the test must pass on a copy of the tree and fail by assertion on the mutated copy).
-  Mutants take slots of free memory (`SLOT_BYTES`, 2.2 GB) across the run's workers, each with its own cargo target.
