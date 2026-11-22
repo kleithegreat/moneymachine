@@ -12,11 +12,16 @@ let run =
          (optional_with_default "https://api.hyperliquid.xyz/info" string)
          ~doc:"URL REST info endpoint"
      and now_ms =
-       flag "--now-ms" (optional int) ~doc:"MS the clock, for tests (default: the real time)"
+       flag
+         "--now-ms"
+         (optional int)
+         ~doc:"MS the clock, for tests (default: the real time)"
      in
      fun () ->
        let now_ms =
-         Option.value now_ms ~default:(Time_ns.to_int_ns_since_epoch (Time_ns.now ()) / 1_000_000)
+         Option.value
+           now_ms
+           ~default:(Time_ns.to_int_ns_since_epoch (Time_ns.now ()) / 1_000_000)
        in
        let%bind ok = Mmrec.Vault.run { root; user; rest_url; now_ms } in
        exit (if ok then 0 else 1))

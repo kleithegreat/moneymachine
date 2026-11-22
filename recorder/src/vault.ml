@@ -21,8 +21,16 @@ let reread_days = 30
 let alarm_fills = 5000
 let pace_s = 1.
 let max_retries = 5
-let kind_name = function Fills -> "fills" | Funding -> "funding"
-let cap = function Fills -> 2000 | Funding -> 500
+
+let kind_name = function
+  | Fills -> "fills"
+  | Funding -> "funding"
+;;
+
+let cap = function
+  | Fills -> 2000
+  | Funding -> 500
+;;
 
 let request_body kind ~user ~start ~end_ =
   let type_, fields =
@@ -31,14 +39,18 @@ let request_body kind ~user ~start ~end_ =
     | Funding -> "userFunding", []
   in
   Yojson.Safe.to_string
-    (`Assoc ([ "type", `String type_; "user", `String user; "startTime", `Int start ] @ fields))
+    (`Assoc
+        ([ "type", `String type_; "user", `String user; "startTime", `Int start ] @ fields))
 ;;
 
 let identity kind item =
   match kind with
   | Fills -> Int.to_string (U.to_int (U.member "tid" item))
   | Funding ->
-    sprintf "%s@%d" (U.to_string (U.member "coin" (U.member "delta" item))) (U.to_int (U.member "time" item))
+    sprintf
+      "%s@%d"
+      (U.to_string (U.member "coin" (U.member "delta" item)))
+      (U.to_int (U.member "time" item))
 ;;
 
 let vault_dir config = String.concat ~sep:"/" [ config.root; "vault"; config.user ]
@@ -64,7 +76,8 @@ let write_state config state =
   let json =
     `Assoc
       [ "watermark_ms", `Int state.watermark_ms
-      ; "last_daily_ms", Option.value_map state.last_daily_ms ~default:`Null ~f:(fun ms -> `Int ms)
+      ; ( "last_daily_ms"
+        , Option.value_map state.last_daily_ms ~default:`Null ~f:(fun ms -> `Int ms) )
       ]
   in
   let temporary = state_path config ^ ".tmp" in
@@ -100,14 +113,20 @@ let decoded_lines path =
   let text = Buffer.contents out in
   let lines = String.split_lines text in
   let whole =
-    if String.is_suffix text ~suffix:"\n" then lines else Option.value (List.drop_last lines) ~default:[]
+    if String.is_suffix text ~suffix:"\n"
+    then lines
+    else Option.value (List.drop_last lines) ~default:[]
   in
   whole, failure
 ;;
 
 let add_identities kind seen lines =
   List.find_map lines ~f:(fun line ->
-    match List.map (U.to_list (U.member "msg" (Yojson.Safe.from_string line))) ~f:(identity kind) with
+    match
+      List.map
+        (U.to_list (U.member "msg" (Yojson.Safe.from_string line)))
+        ~f:(identity kind)
+    with
     | identities ->
       List.iter identities ~f:(Hash_set.add seen);
       None
@@ -119,18 +138,20 @@ let stored_identities t kind =
   let seen = String.Hash_set.create () in
   let dir = Filename.concat (vault_dir t.config) (kind_name kind) in
   List.iter (Integrity.list_dir dir) ~f:(fun date ->
-    List.iter (Integrity.list_dir (Filename.concat dir date)) ~f:(fun name ->
-      if Option.is_some (Integrity.hour_and_run_of_name name)
-      then (
-        let path = String.concat ~sep:"/" [ dir; date; name ] in
-        let lines, decode_failure = decoded_lines path in
-        let failure =
-          match add_identities kind seen lines with
-          | Some _ as parse_failure -> parse_failure
-          | None -> decode_failure
-        in
-        Option.iter failure ~f:(fun reason ->
-          event t "error" [ "file", `String path; "reason", `String reason ]))));
+    List.iter
+      (Integrity.list_dir (Filename.concat dir date))
+      ~f:(fun name ->
+        if Option.is_some (Integrity.hour_and_run_of_name name)
+        then (
+          let path = String.concat ~sep:"/" [ dir; date; name ] in
+          let lines, decode_failure = decoded_lines path in
+          let failure =
+            match add_identities kind seen lines with
+            | Some _ as parse_failure -> parse_failure
+            | None -> decode_failure
+          in
+          Option.iter failure ~f:(fun reason ->
+            event t "error" [ "file", `String path; "reason", `String reason ]))));
   seen
 ;;
 
@@ -141,7 +162,9 @@ let fail t ~body reason =
 
 let pace t =
   let wait_s = pace_s -. (Core_unix.gettimeofday () -. t.last_request_s) in
-  let%map () = if Float.( > ) wait_s 0. then after (Time_float.Span.of_sec wait_s) else return () in
+  let%map () =
+    if Float.( > ) wait_s 0. then after (Time_float.Span.of_sec wait_s) else return ()
+  in
   t.last_request_s <- Core_unix.gettimeofday ()
 ;;
 
@@ -159,7 +182,8 @@ let post t ~body =
       let%bind () = after (Time_float.Span.of_sec delay) in
       attempt (retries + 1)
     | Ok (`Result (429, _)) -> fail t ~body "HTTP status 429 after retries"
-    | Ok (`Result (status, _)) when status <> 200 -> fail t ~body (sprintf "HTTP status %d" status)
+    | Ok (`Result (status, _)) when status <> 200 ->
+      fail t ~body (sprintf "HTTP status %d" status)
     | Ok (`Result (_, response)) ->
       (match Yojson.Safe.from_string response with
        | json -> return (Ok (json, response))
@@ -169,7 +193,10 @@ let post t ~body =
 ;;
 
 let store t name ~body response =
-  record t (route t.config name) (Line.of_response ~recv_ms:t.config.now_ms ~request:body response)
+  record
+    t
+    (route t.config name)
+    (Line.of_response ~recv_ms:t.config.now_ms ~request:body response)
 ;;
 
 type pulled =
@@ -190,7 +217,8 @@ let pull t kind ~seen ~from_ ~to_ =
     | Ok (json, response) ->
       (match
          let items = U.to_list json in
-         List.map items ~f:(fun item -> identity kind item, U.to_int (U.member "time" item))
+         List.map items ~f:(fun item ->
+           identity kind item, U.to_int (U.member "time" item))
        with
        | exception _ ->
          let%map (_ : (unit, unit) Result.t) = fail t ~body "unexpected shape" in
@@ -230,7 +258,10 @@ let pull t kind ~seen ~from_ ~to_ =
 
 let single t name ~type_ =
   let now = t.config.now_ms in
-  let body = Yojson.Safe.to_string (`Assoc [ "type", `String type_; "user", `String t.config.user ]) in
+  let body =
+    Yojson.Safe.to_string
+      (`Assoc [ "type", `String type_; "user", `String t.config.user ])
+  in
   let%map complete =
     match%map post t ~body with
     | Error () -> false
@@ -274,7 +305,12 @@ let run config =
   let fills_seen = stored_identities t Fills in
   let funding_seen = stored_identities t Funding in
   let%bind hourly =
-    pull t Fills ~seen:fills_seen ~from_:(Int.max first_ms (state.watermark_ms - overlap_ms)) ~to_:now
+    pull
+      t
+      Fills
+      ~seen:fills_seen
+      ~from_:(Int.max first_ms (state.watermark_ms - overlap_ms))
+      ~to_:now
   in
   let due =
     match state.last_daily_ms with
@@ -285,19 +321,31 @@ let run config =
     let midnight = now / day_ms * day_ms in
     let reread_ms = reread_days * day_ms in
     let%bind fills =
-      pull t Fills ~seen:fills_seen ~from_:(Int.max first_ms (state.watermark_ms - reread_ms)) ~to_:now
+      pull
+        t
+        Fills
+        ~seen:fills_seen
+        ~from_:(Int.max first_ms (state.watermark_ms - reread_ms))
+        ~to_:now
     in
     if fills.distinct > alarm_fills
     then
       event
         t
         "alarm"
-        [ "reason", `String "daily fills re-read over half the API's retention"; "fills", `Int fills.distinct ];
+        [ "reason", `String "daily fills re-read over half the API's retention"
+        ; "fills", `Int fills.distinct
+        ];
     if not fills.complete
     then return false
     else (
       let%map funding =
-        pull t Funding ~seen:funding_seen ~from_:(Int.max first_ms (midnight - reread_ms)) ~to_:now
+        pull
+          t
+          Funding
+          ~seen:funding_seen
+          ~from_:(Int.max first_ms (midnight - reread_ms))
+          ~to_:now
       in
       funding.complete)
   in

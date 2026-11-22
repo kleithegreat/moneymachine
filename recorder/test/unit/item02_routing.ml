@@ -13,7 +13,8 @@ let%expect_test "item 2: each channel's frames land in its file" =
     ; "{\"channel\":\"trades\",\r\n\"data\":[]}"
     ]
     ~f:(fun frame -> print_endline (route frame));
-  [%expect {|
+  [%expect
+    {|
     trades
     l2Book
     allDexsAssetCtxs
@@ -35,7 +36,8 @@ let%expect_test "item 2: acks, pongs, errors and unknown channels land in events
     ; ""
     ]
     ~f:(fun frame -> print_endline (route frame));
-  [%expect {|
+  [%expect
+    {|
     events
     events
     events
@@ -55,7 +57,8 @@ let%expect_test "item 2: only the top-level channel field counts" =
     ; {|{"channel":"trades","data":[{"channel":"pong","note":"\"channel\":\"l2Book\""}]}|}
     ]
     ~f:(fun frame -> print_endline (route frame));
-  [%expect {|
+  [%expect
+    {|
     events
     events
     trades |}]
@@ -65,7 +68,8 @@ let%expect_test "item 2: directory names" =
   List.iter
     Mmrec.Route.[ Trades; L2_book; L2_book_fast; All_dexs_asset_ctxs; Events; Listings ]
     ~f:(fun r -> print_endline (Mmrec.Route.dir r));
-  [%expect {|
+  [%expect
+    {|
     trades
     l2Book
     l2Book-fast
@@ -74,11 +78,15 @@ let%expect_test "item 2: directory names" =
     listings |}]
 ;;
 
-let%expect_test "item 2: an l2Book frame goes to l2Book-fast on a fast connection and to l2Book on a deep one" =
+let%expect_test
+    "item 2: an l2Book frame goes to l2Book-fast on a fast connection and to l2Book on a \
+     deep one"
+  =
   let l2 = {|{"channel":"l2Book","data":{"coin":"BTC","levels":[[],[]]}}|} in
   print_endline (route ~fast:true l2);
   print_endline (route ~fast:false l2);
-  [%expect {|
+  [%expect
+    {|
     l2Book-fast
     l2Book |}]
 ;;
@@ -96,8 +104,10 @@ let%expect_test "item 2: the connection's kind changes no other frame's file" =
     ~f:(fun frame ->
       let fast = route ~fast:true frame in
       let deep = route ~fast:false frame in
-      print_endline (if String.equal fast deep then fast else sprintf "DIFFERS %s %s" fast deep));
-  [%expect {|
+      print_endline
+        (if String.equal fast deep then fast else sprintf "DIFFERS %s %s" fast deep));
+  [%expect
+    {|
     trades
     allDexsAssetCtxs
     events

@@ -9,11 +9,19 @@ module V = Vault_harness
 
 let now = V.nov 5 12 0
 let planted_name = "00.1793491200000.jsonl.zst"
-let planted_path ~root = Filename.concat (Filename.concat (Filename.concat (V.vault_dir root) "fills") "20261101") planted_name
+
+let planted_path ~root =
+  Filename.concat
+    (Filename.concat (Filename.concat (V.vault_dir root) "fills") "20261101")
+    planted_name
+;;
 
 (* One fills response line holding these fills. *)
 let line ~tids =
-  let fills = List.map tids ~f:(fun tid -> { V.tid; time = V.nov 4 0 0 + (tid * 1000); visible = true }) in
+  let fills =
+    List.map tids ~f:(fun tid ->
+      { V.tid; time = V.nov 4 0 0 + (tid * 1000); visible = true })
+  in
   sprintf
     {|{"recv":%d,"request":{"type":"userFillsByTime"},"msg":%s}|}
     (V.nov 1 0 0)
@@ -60,16 +68,22 @@ let pulled_and_stored ~root ~expected_new events outcome what =
   let pulls = V.pulls events ~kind:"fills" in
   H.check (not (List.is_empty pulls)) (sprintf "%s: no fills pull event" what);
   H.check
-    (List.for_all pulls ~f:(fun e -> Poly.equal (Yojson.Safe.Util.member "complete" e.V.json) (`Bool true)))
+    (List.for_all pulls ~f:(fun e ->
+       Poly.equal (Yojson.Safe.Util.member "complete" e.V.json) (`Bool true)))
     (sprintf "%s: a fills pull did not complete" what);
   H.check
     (V.new_total events ~kind:"fills" = expected_new)
-    (sprintf "%s: fills pull counted %d new, expected %d" what (V.new_total events ~kind:"fills") expected_new);
+    (sprintf
+       "%s: fills pull counted %d new, expected %d"
+       what
+       (V.new_total events ~kind:"fills")
+       expected_new);
   H.check
     (List.equal Int.equal (run_stored_tids ~root) [ 1; 2; 3; 4; 5; 6 ])
     (sprintf "%s: the run did not store the pulled fills" what);
   H.check
-    (List.exists (V.files ~root "fills") ~f:(fun path -> not (String.is_suffix path ~suffix:planted_name)))
+    (List.exists (V.files ~root "fills") ~f:(fun path ->
+       not (String.is_suffix path ~suffix:planted_name)))
     (sprintf "%s: the run stored no file of its own" what)
 ;;
 
@@ -85,7 +99,9 @@ let corrupt_before_end () =
   let errors = error_events events in
   H.check
     (List.length errors = 1)
-    (sprintf "corrupt frame before the end: %d error events, expected 1" (List.length errors));
+    (sprintf
+       "corrupt frame before the end: %d error events, expected 1"
+       (List.length errors));
   H.check
     (List.for_all errors ~f:(fun e ->
        String.is_substring (Yojson.Safe.to_string e.V.json) ~substring:planted_name))
@@ -97,7 +113,9 @@ let corrupt_before_end () =
 let bad_line_before_end ~bad_line ~what () =
   let root = H.tmp_dir () in
   let%bind fake = populated () in
-  let contents = stream_bytes [ line ~tids:[ 1; 2; 3 ]; bad_line; line ~tids:[ 4; 5; 6 ] ] in
+  let contents =
+    stream_bytes [ line ~tids:[ 1; 2; 3 ]; bad_line; line ~tids:[ 4; 5; 6 ] ]
+  in
   write_file ~path:(planted_path ~root) contents;
   let%bind outcome = V.run ~root ~fake ~now_ms:now in
   let events = V.last_run_events ~root in
@@ -133,7 +151,10 @@ let find_mid_line_multi_block_cut ~prefix_line whole =
   H.check (String.is_prefix decoded ~prefix:prefix_line) "cut lost the prefix line";
   H.check
     (String.length decoded > min_decoded)
-    (sprintf "cut decoded only %d bytes, expected > %d" (String.length decoded) min_decoded);
+    (sprintf
+       "cut decoded only %d bytes, expected > %d"
+       (String.length decoded)
+       min_decoded);
   H.check
     (not (String.is_suffix decoded ~suffix:"\n"))
     "cut ended on a newline rather than mid-line";
@@ -163,13 +184,19 @@ let truncated_last_line () =
 ;;
 
 let () =
-  H.main "vault 10: a corrupt stored file is one error event, a truncated one none" (fun () ->
-    H.run_all
-      [ "corrupt frame before the end", corrupt_before_end
-      ; ( "corrupt json line before the end"
-        , bad_line_before_end ~bad_line:"{not json\n" ~what:"corrupt json line before the end" )
-      ; ( "unexpected shape before the end"
-        , bad_line_before_end ~bad_line:"{\"unexpected\":true}\n" ~what:"unexpected shape before the end" )
-      ; "truncated last line (>128 KiB)", truncated_last_line
-      ])
+  H.main
+    "vault 10: a corrupt stored file is one error event, a truncated one none"
+    (fun () ->
+       H.run_all
+         [ "corrupt frame before the end", corrupt_before_end
+         ; ( "corrupt json line before the end"
+           , bad_line_before_end
+               ~bad_line:"{not json\n"
+               ~what:"corrupt json line before the end" )
+         ; ( "unexpected shape before the end"
+           , bad_line_before_end
+               ~bad_line:"{\"unexpected\":true}\n"
+               ~what:"unexpected shape before the end" )
+         ; "truncated last line (>128 KiB)", truncated_last_line
+         ])
 ;;

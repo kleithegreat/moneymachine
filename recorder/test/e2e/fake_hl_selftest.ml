@@ -17,20 +17,34 @@ let rec skip_headers reader =
 ;;
 
 let upgrade_request =
-  "GET /ws HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n"
+  "GET /ws HTTP/1.1\r\n\
+   Host: x\r\n\
+   Upgrade: websocket\r\n\
+   Connection: Upgrade\r\n\
+   Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\
+   Sec-WebSocket-Version: 13\r\n\
+   \r\n"
 ;;
 
 let faults () =
   let with_fault fault =
-    let%map fake = F.start { F.default_config with fault = (fun ~conn:_ -> Some fault) } in
-    fake, Tcp.Where_to_connect.of_host_and_port { host = "127.0.0.1"; port = port_of (F.ws_url fake) }
+    let%map fake =
+      F.start { F.default_config with fault = (fun ~conn:_ -> Some fault) }
+    in
+    ( fake
+    , Tcp.Where_to_connect.of_host_and_port
+        { host = "127.0.0.1"; port = port_of (F.ws_url fake) } )
   in
   let%bind fake, where = with_fault F.Close_in_handshake in
   let%bind _socket, reader, writer = Tcp.connect where in
   Writer.set_raise_when_consumer_leaves writer false;
   Writer.write writer upgrade_request;
   let%bind answer = Reader.read_line reader in
-  H.check (match answer with `Eof -> true | `Ok _ -> false) "close in the handshake: the server answered";
+  H.check
+    (match answer with
+     | `Eof -> true
+     | `Ok _ -> false)
+    "close in the handshake: the server answered";
   let%bind () = F.stop fake in
   let%bind fake, where = with_fault (F.Answer_with 403) in
   let%bind _socket, reader, writer = Tcp.connect where in
@@ -38,7 +52,9 @@ let faults () =
   Writer.write writer upgrade_request;
   let%bind status = Reader.read_line reader in
   H.check
-    (match status with `Ok l -> String.is_substring l ~substring:"403" | `Eof -> false)
+    (match status with
+     | `Ok l -> String.is_substring l ~substring:"403"
+     | `Eof -> false)
     "answer with 403: no 403 status line";
   let%bind () = F.stop fake in
   let%bind fake, where = with_fault F.Reset_mid_frame in
@@ -46,13 +62,23 @@ let faults () =
   Writer.set_raise_when_consumer_leaves writer false;
   Writer.write writer upgrade_request;
   let%bind status = Reader.read_line reader in
-  H.check (match status with `Ok l -> String.is_substring l ~substring:"101" | `Eof -> false) "reset mid-frame: no 101";
+  H.check
+    (match status with
+     | `Ok l -> String.is_substring l ~substring:"101"
+     | `Eof -> false)
+    "reset mid-frame: no 101";
   let%bind () = skip_headers reader in
   let ws = Websocket.create ~role:Client reader writer in
   let rd, wr = Websocket.pipes ws in
-  let%bind () = Pipe.write wr {|{"method":"subscribe","subscription":{"type":"trades","coin":"A"}}|} in
+  let%bind () =
+    Pipe.write wr {|{"method":"subscribe","subscription":{"type":"trades","coin":"A"}}|}
+  in
   let%bind next = Pipe.read rd in
-  H.check (match next with `Eof -> true | `Ok _ -> false) "reset mid-frame: a whole message arrived";
+  H.check
+    (match next with
+     | `Eof -> true
+     | `Ok _ -> false)
+    "reset mid-frame: a whole message arrived";
   F.stop fake
 ;;
 
@@ -67,36 +93,59 @@ let () =
       }
     in
     let%bind fake = F.start config in
-    let where = Tcp.Where_to_connect.of_host_and_port { host = "127.0.0.1"; port = port_of (F.ws_url fake) } in
+    let where =
+      Tcp.Where_to_connect.of_host_and_port
+        { host = "127.0.0.1"; port = port_of (F.ws_url fake) }
+    in
     let%bind _socket, reader, writer = Tcp.connect where in
     Writer.write
       writer
-      "GET /ws HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
+      "GET /ws HTTP/1.1\r\n\
+       Host: x\r\n\
+       Upgrade: websocket\r\n\
+       Connection: Upgrade\r\n\
+       Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\
+       Sec-WebSocket-Version: 13\r\n\
+       \r\n";
     let%bind status = Reader.read_line reader in
-    H.check (match status with `Ok l -> String.is_substring l ~substring:"101" | `Eof -> false) "no 101";
+    H.check
+      (match status with
+       | `Ok l -> String.is_substring l ~substring:"101"
+       | `Eof -> false)
+      "no 101";
     let%bind () = skip_headers reader in
     let ws = Websocket.create ~role:Client reader writer in
     let rd, wr = Websocket.pipes ws in
-    let%bind () = Pipe.write wr {|{"method":"subscribe","subscription":{"type":"trades","coin":"A"}}|} in
+    let%bind () =
+      Pipe.write wr {|{"method":"subscribe","subscription":{"type":"trades","coin":"A"}}|}
+    in
     let%bind first = Pipe.read rd in
     let%bind second = Pipe.read rd in
     (match first, second with
      | `Ok ack, `Ok frame ->
        H.check (String.is_substring ack ~substring:"subscriptionResponse") "no ack";
-       H.check (String.is_substring frame ~substring:{|"channel":"trades"|}) "no stream frame"
+       H.check
+         (String.is_substring frame ~substring:{|"channel":"trades"|})
+         "no stream frame"
      | _ -> failwith "pipe ended early");
     let%bind () = Pipe.write wr {|{"method":"ping"}|} in
     let%bind () = after (Time_float.Span.of_sec 1.5) in
     H.check (List.length (F.accepts fake) = 1) "accepts";
     H.check
-      (List.mem (F.subscribed_on fake ~conn:1) ("trades", "A") ~equal:[%equal: string * string])
+      (List.mem
+         (F.subscribed_on fake ~conn:1)
+         ("trades", "A")
+         ~equal:[%equal: string * string])
       "subscribed_on";
     H.check (F.streamed fake ~conn:1 > 5) "streamed";
     let%bind _socket, reader, writer = Tcp.connect where in
     let body = {|{"type":"meta","dex":""}|} in
     Writer.write
       writer
-      (sprintf "POST /info HTTP/1.1\r\nHost: x\r\nContent-Length: %d\r\n\r\n%s" (String.length body) body);
+      (sprintf
+         "POST /info HTTP/1.1\r\nHost: x\r\nContent-Length: %d\r\n\r\n%s"
+         (String.length body)
+         body);
     let%bind response = Reader.contents reader in
     H.check (String.is_substring response ~substring:{|"universe"|}) "rest response";
     H.check (List.length (F.rest_requests fake) = 1) "rest_requests";

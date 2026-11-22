@@ -24,16 +24,20 @@ let () =
     let%bind () =
       H.wait_until ~timeout_s:30. ~what:"both connections streaming" (fun () ->
         List.length (F.accepts fake) >= 2
-        && List.for_all (F.accepts fake) ~f:(fun (conn, _) -> F.streamed fake ~conn >= 300))
+        && List.for_all (F.accepts fake) ~f:(fun (conn, _) ->
+          F.streamed fake ~conn >= 300))
     in
     let%bind () = after (Time_float.Span.of_sec 3.) in
     H.send_signal run1 Signal.kill;
     let%bind _ = Process.wait run1 in
     let first_run_lines = H.all_lines ~root in
     let conns =
-      List.filter_map first_run_lines ~f:(fun (_, _, conn, _) -> conn) |> List.dedup_and_sort ~compare:Int.compare
+      List.filter_map first_run_lines ~f:(fun (_, _, conn, _) -> conn)
+      |> List.dedup_and_sort ~compare:Int.compare
     in
-    H.check (List.length conns = 2) (sprintf "lines of %d connections in the first run, expected 2" (List.length conns));
+    H.check
+      (List.length conns = 2)
+      (sprintf "lines of %d connections in the first run, expected 2" (List.length conns));
     let last_line conn =
       List.filter_map first_run_lines ~f:(fun (_, recv, c, _) ->
         if Option.equal Int.equal c (Some conn) then Some recv else None)
@@ -45,13 +49,18 @@ let () =
     let kill_time = H.now_ms () in
     let reopened conn =
       List.find_map (H.events ~root) ~f:(fun (recv, c, name, _) ->
-        if Option.equal Int.equal c (Some conn) && String.equal name "open" && recv > last_line conn
+        if
+          Option.equal Int.equal c (Some conn)
+          && String.equal name "open"
+          && recv > last_line conn
         then Some recv
         else None)
     in
     let%bind () =
-      H.wait_until ~timeout_s:30. ~what:"every connection opened again by the second run" (fun () ->
-        List.for_all conns ~f:(fun conn -> Option.is_some (reopened conn)))
+      H.wait_until
+        ~timeout_s:30.
+        ~what:"every connection opened again by the second run"
+        (fun () -> List.for_all conns ~f:(fun conn -> Option.is_some (reopened conn)))
     in
     let%bind status, _ = H.sigterm_and_wait run2 in
     H.check (Result.is_ok status) "second run's exit status";
@@ -60,7 +69,8 @@ let () =
     let%bind _, out = H.run_cli [ "check"; root; from_; to_ ] in
     let gaps =
       List.filter_map (H.parse_check out) ~f:(function
-        | [ "gap"; conn; from_ms; to_ms ] -> Some (Int.of_string conn, Int.of_string from_ms, to_ms)
+        | [ "gap"; conn; from_ms; to_ms ] ->
+          Some (Int.of_string conn, Int.of_string from_ms, to_ms)
         | _ -> None)
     in
     List.iter conns ~f:(fun conn ->
@@ -74,7 +84,9 @@ let () =
           (sprintf "conn %d: gap runs to %s, its next open is at %d" conn to_ms expected)
       | _ ->
         failwithf
-          "conn %d: no single gap from its last line at %d (killed about %d); check printed:\n%s"
+          "conn %d: no single gap from its last line at %d (killed about %d); check \
+           printed:\n\
+           %s"
           conn
           from_ms
           kill_time

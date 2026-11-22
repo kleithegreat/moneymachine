@@ -7,7 +7,8 @@ type t =
   | All_dexs_asset_ctxs
   | Events
   | Listings
-  | Dir of string  (** a directory under the root, named by the caller (the vault collector's, VAULT.md) *)
+  | Dir of string
+  (** a directory under the root, named by the caller (the vault collector's, VAULT.md) *)
 [@@deriving sexp_of, compare, equal]
 
 (** The channel of a received frame, from its top-level [channel] field: trades, l2Book and allDexsAssetCtxs

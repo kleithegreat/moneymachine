@@ -33,10 +33,18 @@ let () =
       let before = List.take bases attempt in
       let sum f = List.sum (module Int) before ~f in
       let lo = sum (fun b -> Float.to_int (0.8 *. Float.of_int b) + 100) in
-      let hi = sum (fun b -> Float.to_int (1.2 *. Float.of_int b) + 100) + 500 + (100 * attempt) in
+      let hi =
+        sum (fun b -> Float.to_int (1.2 *. Float.of_int b) + 100) + 500 + (100 * attempt)
+      in
       let since = at - start in
       H.check
         (since >= lo && since <= hi)
-        (sprintf "accept %d (attempt %d) came %d ms after the first, expected within [%d, %d]" i attempt since lo hi));
+        (sprintf
+           "accept %d (attempt %d) came %d ms after the first, expected within [%d, %d]"
+           i
+           attempt
+           since
+           lo
+           hi));
     F.stop fake)
 ;;

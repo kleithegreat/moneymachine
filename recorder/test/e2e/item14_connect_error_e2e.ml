@@ -14,7 +14,9 @@ let tls_fake () =
   let config =
     { F.default_config with
       rest = F.rest_of_universe (fun () -> [ "C0"; "C1"; "C2" ])
-    ; tls = Some { F.crt_file = support "tls_server.crt"; key_file = support "tls_server.key" }
+    ; tls =
+        Some
+          { F.crt_file = support "tls_server.crt"; key_file = support "tls_server.key" }
     }
   in
   F.start config
@@ -32,8 +34,11 @@ let error_reasons ~root =
 
 let names_tls_failure reason =
   let lower = String.lowercase reason in
-  List.exists [ "ssl"; "tls"; "certificate"; "verif" ] ~f:(fun word -> String.is_substring lower ~substring:word)
-  && not (List.exists [ "timeout"; "timed out" ] ~f:(fun word -> String.is_substring lower ~substring:word))
+  List.exists [ "ssl"; "tls"; "certificate"; "verif" ] ~f:(fun word ->
+    String.is_substring lower ~substring:word)
+  && not
+       (List.exists [ "timeout"; "timed out" ] ~f:(fun word ->
+          String.is_substring lower ~substring:word))
 ;;
 
 let () =
@@ -54,21 +59,34 @@ let () =
     H.check (Result.is_ok status) "exit status";
     let errors = error_reasons ~root in
     let first_per_conn =
-      List.filter_map errors ~f:(fun (recv, conn, reason) -> Option.map conn ~f:(fun c -> c, recv, reason))
+      List.filter_map errors ~f:(fun (recv, conn, reason) ->
+        Option.map conn ~f:(fun c -> c, recv, reason))
       |> List.sort ~compare:(fun (_, a, _) (_, b, _) -> Int.compare a b)
-      |> List.fold ~init:(Map.empty (module Int)) ~f:(fun acc (conn, recv, reason) ->
-        Map.add_multi acc ~key:conn ~data:(recv, reason))
+      |> List.fold
+           ~init:(Map.empty (module Int))
+           ~f:(fun acc (conn, recv, reason) ->
+             Map.add_multi acc ~key:conn ~data:(recv, reason))
     in
     H.check
       (Map.length first_per_conn = connections)
-      (sprintf "error events on %d connections, expected %d" (Map.length first_per_conn) connections);
+      (sprintf
+         "error events on %d connections, expected %d"
+         (Map.length first_per_conn)
+         connections);
     Map.iteri first_per_conn ~f:(fun ~key:conn ~data ->
       let first_recv, _ = List.last_exn data in
-      H.check (first_recv - started <= 5_000) (sprintf "conn %d: first error %d ms after the start" conn (first_recv - started));
+      H.check
+        (first_recv - started <= 5_000)
+        (sprintf "conn %d: first error %d ms after the start" conn (first_recv - started));
       H.check
         (List.exists data ~f:(fun (_, reason) -> names_tls_failure reason))
-        (sprintf "conn %d: no error reason names the TLS failure: %s" conn (String.concat ~sep:" | " (List.map data ~f:snd))));
-    H.check (List.is_empty (F.accepts fake)) "a websocket was accepted despite the untrusted certificate";
+        (sprintf
+           "conn %d: no error reason names the TLS failure: %s"
+           conn
+           (String.concat ~sep:" | " (List.map data ~f:snd))));
+    H.check
+      (List.is_empty (F.accepts fake))
+      "a websocket was accepted despite the untrusted certificate";
     let%bind () = F.stop fake in
     let%bind fake = tls_fake () in
     let root = H.tmp_dir () in

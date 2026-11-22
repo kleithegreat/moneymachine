@@ -36,7 +36,9 @@ let ca_file =
 ;;
 
 let close_tcp reader writer () =
-  let%bind () = Writer.close writer ~force_close:(Clock_ns.after (Time_ns.Span.of_sec 2.)) in
+  let%bind () =
+    Writer.close writer ~force_close:(Clock_ns.after (Time_ns.Span.of_sec 2.))
+  in
   Reader.close reader
 ;;
 
@@ -44,6 +46,7 @@ let close_tcp reader writer () =
     caller sees the error and every later caller waits forever. So the first TLS connect probes, and the others wait for
     its outcome and share its error (RECORDER.md, Behaviour; item 14). *)
 let tls_context : (unit, Error.t) Result.t Ivar.t = Ivar.create ()
+
 let tls_context_probed = ref false
 
 let connect_tls ~host reader writer =
@@ -91,15 +94,17 @@ let connect_tls ~host reader writer =
      | Ok () ->
        let opened = ref false in
        let app_reader_ref = ref None in
-       upon (Monitor.get_next_error (Monitor.current ())) (fun _ ->
-         if not !opened
-         then (
-           Async_ssl.Ssl.Connection.close session;
-           don't_wait_for
-             (let%bind () =
-                Option.value_map !app_reader_ref ~default:(return ()) ~f:Reader.close
-              in
-              close_tcp reader writer ())));
+       upon
+         (Monitor.get_next_error (Monitor.current ()))
+         (fun _ ->
+            if not !opened
+            then (
+              Async_ssl.Ssl.Connection.close session;
+              don't_wait_for
+                (let%bind () =
+                   Option.value_map !app_reader_ref ~default:(return ()) ~f:Reader.close
+                 in
+                 close_tcp reader writer ())));
        let%bind app_reader = Reader.of_pipe (Info.of_string "tls") ssl_to_app_r in
        app_reader_ref := Some app_reader;
        let%map app_writer, `Closed_and_flushed_downstream _ =
@@ -118,7 +123,9 @@ let connect_tls ~host reader writer =
 ;;
 
 let connect ?(connected = ignore) url =
-  let where = Tcp.Where_to_connect.of_host_and_port { host = url.host; port = url.port } in
+  let where =
+    Tcp.Where_to_connect.of_host_and_port { host = url.host; port = url.port }
+  in
   let%bind _socket, reader, writer = Tcp.connect where in
   let tcp = { reader; writer; close = close_tcp reader writer } in
   connected tcp;
@@ -140,7 +147,8 @@ let rec read_headers reader acc =
 let header headers name =
   List.find_map headers ~f:(fun line ->
     match String.lsplit2 line ~on:':' with
-    | Some (key, value) when String.equal (String.lowercase key) name -> Some (String.strip value)
+    | Some (key, value) when String.equal (String.lowercase key) name ->
+      Some (String.strip value)
     | _ -> None)
 ;;
 
@@ -161,7 +169,13 @@ let upgrade url (net : t) =
   Writer.write
     net.writer
     (sprintf
-       "GET %s HTTP/1.1\r\nHost: %s\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: %s\r\nSec-WebSocket-Version: 13\r\n\r\n"
+       "GET %s HTTP/1.1\r\n\
+        Host: %s\r\n\
+        Upgrade: websocket\r\n\
+        Connection: Upgrade\r\n\
+        Sec-WebSocket-Key: %s\r\n\
+        Sec-WebSocket-Version: 13\r\n\
+        \r\n"
        url.path
        url.host
        (handshake_key ()));
@@ -192,7 +206,9 @@ let rec read_chunks reader acc =
   match%bind Reader.read_line reader with
   | `Eof -> failwith "chunked body: eof"
   | `Ok size_line ->
-    let size = Int.of_string ("0x" ^ String.strip (List.hd_exn (String.split size_line ~on:';'))) in
+    let size =
+      Int.of_string ("0x" ^ String.strip (List.hd_exn (String.split size_line ~on:';')))
+    in
     if size = 0
     then return (String.concat (List.rev acc))
     else (
@@ -223,7 +239,13 @@ let post_status url ~body =
       Writer.write
         net.writer
         (sprintf
-           "POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s"
+           "POST %s HTTP/1.1\r\n\
+            Host: %s\r\n\
+            Content-Type: application/json\r\n\
+            Content-Length: %d\r\n\
+            Connection: close\r\n\
+            \r\n\
+            %s"
            url.path
            url.host
            (String.length body)
@@ -232,7 +254,9 @@ let post_status url ~body =
       | `Eof -> failwith "rest: eof"
       | `Ok status ->
         let%bind headers = read_headers net.reader [] in
-        let headers = Option.value_or_thunk headers ~default:(fun () -> failwith "rest: eof") in
+        let headers =
+          Option.value_or_thunk headers ~default:(fun () -> failwith "rest: eof")
+        in
         let%map response =
           match header headers "transfer-encoding" with
           | Some "chunked" -> read_chunks net.reader []

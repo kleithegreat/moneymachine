@@ -23,20 +23,26 @@ type t =
   ; buffers : (Route.t, buffer) Hashtbl.Poly.t
   }
 
-let create ~root ~now_ms = { root; run = now_ms (); now_ms; buffers = Hashtbl.Poly.create () }
+let create ~root ~now_ms =
+  { root; run = now_ms (); now_ms; buffers = Hashtbl.Poly.create () }
+;;
 
 let write_all fd data =
   let rec write pos =
     if pos < String.length data
     then (
-      let n = Core_unix.single_write_substring fd ~buf:data ~pos ~len:(String.length data - pos) in
+      let n =
+        Core_unix.single_write_substring fd ~buf:data ~pos ~len:(String.length data - pos)
+      in
       write (pos + n))
   in
   write 0
 ;;
 
 let open_file t route buffer =
-  let path = Hour_path.of_recv ~root:t.root route ~run:t.run ~recv_ms:(buffer.hour * ms_per_hour) in
+  let path =
+    Hour_path.of_recv ~root:t.root route ~run:t.run ~recv_ms:(buffer.hour * ms_per_hour)
+  in
   Core_unix.mkdir_p (Filename.dirname path);
   let fd = Core_unix.openfile path ~mode:[ O_WRONLY; O_APPEND; O_CREAT ] ~perm:0o644 in
   { fd; compressor = Zstd.compressor () }
@@ -54,7 +60,9 @@ let flush t route buffer ~ending =
         buffer.file <- Some file;
         file
     in
-    write_all file.fd (Zstd.compress file.compressor (Buffer.contents buffer.lines) ~ending);
+    write_all
+      file.fd
+      (Zstd.compress file.compressor (Buffer.contents buffer.lines) ~ending);
     Buffer.clear buffer.lines;
     if ending
     then (
@@ -74,7 +82,8 @@ let add t route ~recv_ms line =
     buffer.hour <- hour);
   if Buffer.length buffer.lines = 0 then buffer.oldest_ms <- t.now_ms ();
   Buffer.add_string buffer.lines line;
-  if Buffer.length buffer.lines >= max_buffer_bytes then flush t route buffer ~ending:false
+  if Buffer.length buffer.lines >= max_buffer_bytes
+  then flush t route buffer ~ending:false
 ;;
 
 let tick t =
@@ -84,4 +93,7 @@ let tick t =
     then flush t route buffer ~ending:false)
 ;;
 
-let close t = Hashtbl.iteri t.buffers ~f:(fun ~key:route ~data:buffer -> flush t route buffer ~ending:true)
+let close t =
+  Hashtbl.iteri t.buffers ~f:(fun ~key:route ~data:buffer ->
+    flush t route buffer ~ending:true)
+;;

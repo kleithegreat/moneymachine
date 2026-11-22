@@ -23,7 +23,10 @@ let () =
     in
     (* Mid-second: the buffers hold frames that no tick has written. *)
     let%bind () = after (Time_float.Span.of_ms 350.) in
-    let sent_before = List.map (F.accepts fake) ~f:(fun (conn, _) -> sprintf "K%d" conn, F.streamed fake ~conn) in
+    let sent_before =
+      List.map (F.accepts fake) ~f:(fun (conn, _) ->
+        sprintf "K%d" conn, F.streamed fake ~conn)
+    in
     (* Those frames were received long before the signal: every one must be on disk. *)
     let%bind () = after (Time_float.Span.of_ms 100.) in
     let%bind status, seconds = H.sigterm_and_wait process in
@@ -33,7 +36,9 @@ let () =
     H.check (not (List.is_empty files)) "no recordings";
     List.iter files ~f:(fun path ->
       let text = H.zstd_binary_decode path in
-      H.check (String.is_suffix text ~suffix:"\n") (sprintf "%s does not end in a whole line" path);
+      H.check
+        (String.is_suffix text ~suffix:"\n")
+        (sprintf "%s does not end in a whole line" path);
       H.check
         (List.for_all (String.split_lines text) ~f:(fun line ->
            match Yojson.Safe.from_string line with
@@ -45,7 +50,11 @@ let () =
     H.check (List.mem events "stop" ~equal:String.equal) "no stop event";
     let recorded = H.contiguous_prefixes (H.trade_ids ~root) in
     List.iter recorded ~f:(fun (coin, m) ->
-      let before = Option.value (List.Assoc.find sent_before ~equal:String.equal coin) ~default:0 in
-      H.check (m >= before) (sprintf "%s: %d recorded, %d were sent before SIGTERM" coin m before));
+      let before =
+        Option.value (List.Assoc.find sent_before ~equal:String.equal coin) ~default:0
+      in
+      H.check
+        (m >= before)
+        (sprintf "%s: %d recorded, %d were sent before SIGTERM" coin m before));
     F.stop fake)
 ;;

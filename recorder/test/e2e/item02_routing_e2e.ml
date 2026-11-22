@@ -10,8 +10,16 @@ module F = Rec_support.Fake_hl
 
 let frame ~conn ~seq =
   match seq mod 6 with
-  | 1 -> sprintf "{\"channel\":\"trades\",\r\n \"data\":[{\"coin\":\"C0\",\"n\":%d,\"c\":%d}]}" seq conn
-  | 2 -> sprintf {|{"channel":"l2Book","data":{"coin":"C0","n":%d,"c":%d,"levels":[[],[]]}}|} seq conn
+  | 1 ->
+    sprintf
+      "{\"channel\":\"trades\",\r\n \"data\":[{\"coin\":\"C0\",\"n\":%d,\"c\":%d}]}"
+      seq
+      conn
+  | 2 ->
+    sprintf
+      {|{"channel":"l2Book","data":{"coin":"C0","n":%d,"c":%d,"levels":[[],[]]}}|}
+      seq
+      conn
   | 3 -> sprintf {|{"channel":"allDexsAssetCtxs","data":{"n":%d,"c":%d}}|} seq conn
   | 4 -> sprintf {|{"channel":"pong","n":%d,"c":%d}|} seq conn
   | 5 -> sprintf {|{"channel":"error","data":"boom","n":%d,"c":%d}|} seq conn
@@ -35,7 +43,11 @@ let channel_of_seq fake ~conn seq =
 
 let all_channels = [ "trades"; "l2Book"; "l2Book-fast"; "allDexsAssetCtxs"; "events" ]
 
-let sanitize s = String.map s ~f:(function '\r' | '\n' -> ' ' | c -> c)
+let sanitize s =
+  String.map s ~f:(function
+    | '\r' | '\n' -> ' '
+    | c -> c)
+;;
 
 let () =
   H.main "item 1 and 2: lines and routing, end to end" (fun () ->
@@ -55,7 +67,11 @@ let () =
     in
     let%bind status, _ = H.sigterm_and_wait process in
     H.check (Result.is_ok status) "exit status";
-    let data = Map.of_alist_exn (module String) (List.map all_channels ~f:(fun c -> c, H.raw_channel_data ~root ~channel:c)) in
+    let data =
+      Map.of_alist_exn
+        (module String)
+        (List.map all_channels ~f:(fun c -> c, H.raw_channel_data ~root ~channel:c))
+    in
     let checked = ref 0 in
     List.iter (F.accepts fake) ~f:(fun (conn, _) ->
       for seq = 1 to F.streamed fake ~conn - 20 do
@@ -77,9 +93,14 @@ let () =
     H.check (List.mem kinds true ~equal:Bool.equal) "no deep connection was seen";
     H.check (List.mem kinds false ~equal:Bool.equal) "no fast connection was seen";
     let events = Map.find_exn data "events" in
-    H.check (String.is_substring events ~substring:{|"channel":"subscriptionResponse"|}) "acks are in events";
     H.check
-      (not (String.is_substring (Map.find_exn data "trades") ~substring:"subscriptionResponse"))
+      (String.is_substring events ~substring:{|"channel":"subscriptionResponse"|})
+      "acks are in events";
+    H.check
+      (not
+         (String.is_substring
+            (Map.find_exn data "trades")
+            ~substring:"subscriptionResponse"))
       "ack in trades";
     F.stop fake)
 ;;
