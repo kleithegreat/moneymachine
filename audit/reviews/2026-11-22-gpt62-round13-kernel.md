@@ -1,6 +1,6 @@
 # GPT-6.2 on round 13's kernel half
 
-Model `gpt-6.2-sol` (codex, high reasoning) through `ops/gpt.sh`, its jail seeing only a clone of `rearchitecture` at `828a971` with the architect's brief, report and experiments. Split as before into part A (the build check) and part B (what the laws freeze and bind). Part A was refused by OpenAI's cybersecurity filter (87,579 tokens) and is rerun rephrased, on the human's standing instruction; its reply is appended below when it comes. Run 2026-11-22 02:02 to 02:17 UTC (2026-11-21 21:02 to 21:17 EST). The replies, verbatim (file links point into the clone):
+Model `gpt-6.2-sol` (codex, high reasoning) through `ops/gpt.sh`, its jail seeing only a clone of `rearchitecture` at `828a971` with the architect's brief, report and experiments. Split as before into part A (the build check) and part B (what the laws freeze and bind). Part A was refused by OpenAI's cybersecurity filter (87,579 tokens), and again when rerun as a question about the Lean toolchain's semantics with the demonstrations removed; it goes to Neon and a fresh Opus instead (`audit/decisions.md`, 2026-11-22). Run 2026-11-22 02:02 to 02:17 UTC (2026-11-21 21:02 to 21:17 EST). The replies, verbatim (file links point into the clone):
 
 ## Part B
 
