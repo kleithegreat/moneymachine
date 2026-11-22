@@ -1,7 +1,8 @@
 # Equivalence key (stage 4)
 
-Rationale and bit-exactness arguments: `docs/whitepaper.tex`, appendix A.3, K2–K3
-(`app:rewrites`, `app:kernel-checks`). This file defines the implemented key and rule set.
+Rationale and bit-exactness arguments: `docs/whitepaper.tex`, appendices "Exact rewrites" and "Canonical keys,
+tolerances and test inventories" (`app:rewrites`, `app:kernel-checks`). This file defines the implemented key and
+rule set.
 
 The strategy hash of stages 0–3 is unchanged. The equivalence key is a second, versioned identity:
 1. Build the `weight` DAG as an `egg` term. Each node is a symbol plus children: `input/close`,
@@ -39,7 +40,7 @@ yield 1.0 or 0.0, and `and`/`or`/`not` treat any nonzero as true.
 | `if(not c, a, b) ↔ if(c, b, a)` | c is Bool; branches have identical types |
 | `gt(a, b) ↔ lt(b, a)`, `ge(a, b) ↔ le(b, a)` | well-typed |
 
-Only R above is admitted; excluded-law counterexamples are in paper K2 (`app:rewrites`).
+Only R above is admitted; excluded-law counterexamples are in the paper's appendix "Exact rewrites" (`app:rewrites`).
 
 R is the 16 rules of `canon::rules`: the table's rows, with `and`/`or` commutativity as two rules and each comparison law as two directed rules.
-`lag(lag(x, a), b) = lag(x, a + b)` was a candidate in the stage 4 criteria (`audit/criteria.md`, stage 4) and is not in R: the paper (K2, `app:rewrites`) records that R v1 contains no lag-fusion law, and no exactness argument for it was written. Adding it forks R's hash, so it needs a new version.
+`lag(lag(x, a), b) = lag(x, a + b)` was a candidate in the stage 4 criteria (`audit/criteria.md`, stage 4) and is not in R: the paper (`app:rewrites`) records that R admits no law fusing lags, and no exactness argument for it was written. Adding it forks R's hash, so it needs a new version.

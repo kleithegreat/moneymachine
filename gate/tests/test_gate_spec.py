@@ -1,4 +1,4 @@
-"""Source-blind statistical contracts from whitepaper §8, NULLS.md and criteria.
+"""Source-blind statistical contracts from the whitepaper's statistical gate, NULLS.md and criteria.
 
 The dated stage-2 revisions define the screen used by stages 3/4.  Selection
 statistics are not inferential p-values after adaptive search.  All markets and
@@ -377,7 +377,7 @@ def test_betting_loss_bound_and_nonfinite_are_failures(bad: float) -> None:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="Paper §8 permits all finite returns >=-1 and requires λ=S/Q; overflowing Q makes [1e200,1e200] return p=1 instead of 1/2, and larger finite sums raise",
+    reason="The paper's holdout test permits all finite returns >=-1 and requires λ=S/Q; overflowing Q makes [1e200,1e200] return p=1 instead of 1/2, and larger finite sums raise",
 )
 @pytest.mark.parametrize("value, n", [(1e200, 2), (1e308, 3)])
 def test_betting_large_finite_constant_returns(value: float, n: int) -> None:
@@ -391,7 +391,7 @@ def test_betting_large_finite_constant_returns(value: float, n: int) -> None:
 
 @pytest.mark.xfail(
     strict=True,
-    reason="Paper §8 requires λ2=min(1/2,r1/r1²); Q underflows for r1=1e-300, so holdout_pvalue returns 1 instead of approximately 2e-300",
+    reason="The paper's holdout test requires λ2=min(1/2,r1/r1²); Q underflows for r1=1e-300, so holdout_pvalue returns 1 instead of approximately 2e-300",
 )
 def test_betting_small_finite_history_does_not_become_zero_history() -> None:
     """r1=1e-300 implies λ2=1/2, not zero; r2=1e300 gives K=1+5e299.

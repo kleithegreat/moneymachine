@@ -11,7 +11,7 @@ the hour, so both are known at eventTime + δ by the policy's rule.
 For a bar [b, b + 4h], write o = open, c = close, and f₁..f₄ for rates settled at
 b + 1h, ..., b + 4h. Funding is paid by the position held at h, at the containing bar's open:
 f₁..f₃ at o, f₄ at the next open, set equal to c. Settlement precedes same-instant fills.
-The no-edge accounting derivation is in `docs/whitepaper.tex`, appendix A.4, D1 (`app:nulls`).
+The no-edge accounting derivation is in `docs/whitepaper.tex`, appendix "Synthetic markets with no edge" (`app:nulls`).
 
 ## No edge
 
@@ -27,13 +27,14 @@ conditioned on surviving bankruptcy. A maintenance liquidation leaving positive 
 The betting process stops at bankruptcy, with predictable λ ∈ [0, 1/2] and required pre-absorption r′ ≥ −2.
 The frozen pilot does not establish that bound. Campaigns report every evaluation reaching reported −B;
 a bankrupt finalist stays in the complete Holm family with its earlier wealth maximum.
-Validity, absorption and this qualification: paper appendix A.1, S3 (`app:bet`).
+Validity, absorption and this qualification: the paper's appendix "Betting, absorption and multiplicity" (`app:bet`).
 
 *Revision 2026-11-04, corrected-engine campaigns only, with fresh ids; earlier campaigns keep their generators:*
 every ε clip below becomes ±0.3, and each wick's |u| is capped at 0.1. Markets remain gapless, with |f| ≤ 0.04.
 Construction requires κ = s + f + s·f ≤ 0.003 in every cell (s = bps/10⁴, f = taker fee), refusing otherwise.
 C2's old calibration and planted β do not carry over. The sufficient loss envelope and positivity are derived
-in paper appendix A.2, E2 (`app:loss`), not established for real gaps or the pilot.
+in the paper's appendix "A loss bound for corrected synthetic markets" (`app:loss`), not established for real gaps or
+the pilot.
 
 ## Common pieces
 
@@ -47,7 +48,7 @@ in paper appendix A.2, E2 (`app:loss`), not established for real gaps or the pil
   real hourly funding and premium of U over the search part of the stage 0 store. Blocks start at
   the same time for every coin, so cross-coin structure is kept, and synthetic coin S_i takes U's
   i-th coin. The short-history coin's slot (FTM) draws its blocks independently from the other
-  coins' series. Funding is exogenous to ε. Model and block-length choices: paper D1 (`app:nulls`).
+  coins' series. Funding is exogenous to ε. Model and block-length choices: paper, `app:nulls`.
 - **Seeds:** numpy `default_rng(seed)`, with the seed taken from the first 8 bytes of
   SHA-256(market id). Draws are made in a fixed order: per bar, then per coin.
 
@@ -101,7 +102,7 @@ identity, so the oracle trades all 12 coins and earns its edge on the planted on
 calibrated so that the oracle's annualized net Sharpe through the kernel is s, on ≥ 200
 simulated years.
 
-The clipped planted mean is calibrated through the kernel, not identified with βg (paper D1).
+The clipped planted mean is calibrated through the kernel, not identified with βg (paper, `app:nulls`).
 
 A coin of U with fewer than 1,000 traded bars in the search part (FTM, delisted 2025-01)
 takes the median over the other coins of every per-coin parameter.
@@ -113,7 +114,7 @@ never changed afterwards. A change means new campaign ids, logged.
 
 The probes' PnL unit is per-step gross return (change in equity plus that step's fees and
 slippage, over previous equity; `gross_return_mean` in `mm eval`'s summary). The regression F-test
-uses HC3-robust covariance. Statistical rationale and the pre-absorption scope: paper D1 and S3.
+uses HC3-robust covariance. Statistical rationale and the pre-absorption scope: paper, `app:nulls` and `app:bet`.
 
 ## Event inputs (stage 5)
 

@@ -1,4 +1,4 @@
-"""The statistical gate of paper §8 with the stage 2 parameters (audit/criteria.md, stage 2, Gate)."""
+"""The paper's statistical gate with the stage 2 parameters (audit/criteria.md, stage 2, Gate)."""
 
 import json
 import sqlite3
@@ -30,7 +30,7 @@ type Holdout = tuple[Returns, float, Any]
 
 
 def dsr(returns: npt.ArrayLike, n_trials: int) -> float:
-    """Deflated Sharpe ratio of one per-period return series (paper §8): S0 is the expected maximum of n_trials
+    """Deflated Sharpe ratio of one per-period return series (paper, app:dsr): S0 is the expected maximum of n_trials
     null Sharpe estimates, each with the null sampling variance 1 / (T - 1). Computed on r / max |r|, to which every
     statistic is invariant, so no finite input overflows."""
     r = np.asarray(returns, float)
@@ -157,9 +157,9 @@ def effective_n(r: pd.DataFrame, spa_p: float, seed: int) -> dict[str, Any]:
 def holdout_pvalues(r: npt.ArrayLike) -> Any:
     """Testing by betting (audit/criteria.md, stage 2, calibration v3) along the last axis: wealth prod(1 + λ_t r_t)
     with the aGRAPA bet λ_t = clip(S_{t-1} / Q_{t-1}, 0, 1/(2B)) from the past sums of r and r², and
-    p = min(1, 1 / max wealth). Valid by Ville's inequality under paper S3's conditional null on pre-absorption
-    returns r' >= -L; the frozen cap 1/(2B) equals S3's 1/L only at B = 1, and the reported floor -B is not a
-    substitute for r' >= -L (S3)."""
+    p = min(1, 1 / max wealth). Valid by Ville's inequality under the paper's conditional null on pre-absorption
+    returns r' >= -L (app:bet); the frozen cap 1/(2B) equals its 1/L only at B = 1, and the reported floor -B is not
+    a substitute for r' >= -L."""
     r = np.asarray(r, float)
     if not (np.isfinite(r).all() and (r >= -LOSS_BOUND).all()):
         raise ValueError("holdout return non-finite or below -B")

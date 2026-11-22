@@ -6,7 +6,7 @@
 //! fields give an equal summary. The markets are the gate's N1, N2 and N3 generator output
 //! (`c41/export_markets.py`, frozen by sha256), plus named cases for signed zeros, undefined
 //! conditions, window warm-up, a coin listing late and one delisting, and running-sum recompute
-//! boundaries (windows recompute their sum every window length, paper appendix K).
+//! boundaries (windows recompute their sum every window length, paper `app:kernel`).
 //!
 //! Nodes are matched by name: every node of a program is bound by a `let` named for the node's
 //! id, a rewrite keeps the ids of the nodes it keeps, and the replaced root is compared with its

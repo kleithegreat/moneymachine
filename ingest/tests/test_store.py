@@ -128,8 +128,8 @@ def test_a_later_revision_governs_its_key(tmp_path: Path) -> None:
 
 
 def test_a_corrected_value_is_hidden_until_it_was_fetched(tmp_path: Path) -> None:
-    """Paper §5: a later correction hides a value rather than replacing it with something nobody had then; the
-    original value, restored, is known by the rule again."""
+    """The paper's point-in-time store: a later correction hides a value rather than replacing it with something
+    nobody had then; the original value, restored, is known by the rule again."""
     s = market_store(tmp_path)
     s.write("bars_4h", rows(["A"], [3]), fetched_at=100, source="t")
     s.write("bars_4h", rows(["A"], [3], value=7.0), fetched_at=50 * H, source="t")

@@ -1,4 +1,4 @@
-"""The keyless data layer's recorder (paper §5, Acquisition): polls each feed of `venue/sources/datalayer.json` on its
+"""The keyless data layer's recorder (paper, sources, Acquisition): polls each feed of `venue/sources/datalayer.json` on its
 cadence, read-only, and keeps every response body gzip-compressed under `<out_dir>/raw/<sha256 of the body>.gz` beside a
 day-JSONL poll log {"feed", "url", "sent", "recv", "status", "sha256", "bytes"}. A stored body is checked before it is
 reused: a damaged one is moved aside, never deleted, and rewritten, on a day-JSONL `repairs` log. A body is known no earlier than

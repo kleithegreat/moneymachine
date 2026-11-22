@@ -1,7 +1,7 @@
 """Built-kernel counterexamples to findings 1–6 of the static kernel hunt.
 
 Oracles: kernel/INVARIANTS.md I1, I5, I9, I10; kernel/DSL.md target
-weights/hold/zero-close semantics; docs/whitepaper.tex §6 non-interference.
+weights/hold/zero-close semantics; the paper's non-interference theorem.
 Finding 3 tests the advertised portfolio budget, not just I9's emitted vector.
 N1–N3 never delist; liquidation/bankruptcy remain possible (unbounded wicks),
 and DSL expressions can be undefined even with complete, finite market inputs.

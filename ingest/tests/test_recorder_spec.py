@@ -1,4 +1,4 @@
-"""Independent synthetic examples from recorder docstrings, CLUSTER §2/§5 and paper §5.
+"""Independent synthetic examples from recorder docstrings, CLUSTER §2/§5 and the paper's section on sources.
 
 Only signatures/docstrings of production functions were inspected. No recording,
 credential, network service or cluster is used. Gaps are not filled by readers;

@@ -21,8 +21,9 @@ stage 6 model and C6.4 implement this file as of `f591e3b`. Each fix is tagged w
 | M2 undefined labels leave its denominator | §10 exposures | `test_undefined_prediction_cannot_pass_with_under_ten_percent_coverage` |
 | M4 `REPLACE` gets past the ledger's triggers | INVARIANTS.md I6 | `test_separate_connection_cannot_replace_kernel_result` |
 
-Derivations and policy reasons live in `docs/whitepaper.tex`, appendix A: E1–E2 (`app:execution`, `app:loss`)
-for execution and the conditional loss bound; K1–K3 for language/numerical choices; S3 for absorption and betting.
+Derivations and policy reasons live in `docs/whitepaper.tex`: `app:execution` and `app:loss` for execution and the
+conditional loss bound; `app:kernel`, `app:rewrites` and `app:kernel-checks` for language and numerical choices;
+`app:bet` for absorption and betting.
 This file specifies transitions, not a proof of the holdout test's real-market premises.
 
 Times are integer milliseconds. HOUR = 3,600,000; BAR = 4 · HOUR; δ is the store policy's
@@ -163,7 +164,7 @@ except as noted [machine.rs `eval`]:
   accepted by the checker, and x · f is then filtered by `finite` like any node value. Conversion
   nodes are interned by (factor bits, target unit, argument), as the engine does.
   *Revision 2026-10-21, recorded here 2026-10-23:* target unit is part of the interning key (commit `5f2b538`,
-  adversarial case t22); every C6.4 run uses this definition. Rationale: paper K1 (`app:kernel`).
+  adversarial case t22); every C6.4 run uses this definition. Rationale: paper, `app:kernel`.
 - Window nodes: the pointwise value is a(0), then pushed (below).
 
 ## 6. Windows
@@ -278,7 +279,7 @@ Marks start as NaN. With b = w_start, and while b + 2·BAR ≤ E, each step does
 absorption, and e_prev the previous step's e1, before its fills. κ is the maximum over cost cells of
 s + f + s·f (s = bps/10⁴, f = taker fee). m is the largest carrying loss per unit of mark notional through
 the next step's funding and adverse-extreme closeout, its cost included. The sufficient-domain assumptions
-and reviewed derivation are in paper appendix A.2, E2 (`app:loss`); the real-market −2 bound remains assumed.
+and reviewed derivation are in the paper's `app:loss`; the real-market −2 bound remains assumed.
 
 ## 8. Binding preflight
 

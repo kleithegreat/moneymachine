@@ -144,6 +144,10 @@ stops the run:
   without publishing an unchecked copy. Writers' transient `*.tmp`, locks and SQLite sidecars are excluded.
 - A mirrored file shorter than its manifest entry is refused.
 
+Pull-only copies, append-only prefixes, a manifest published last and checked SQLite snapshots are preservation
+choices: they keep prior bytes and separate a live writer from its verifier. They bound no throughput, backlog or
+recovery point, and a valid old mirror is no proof of freshness.
+
 Each volume's `MANIFEST.json` lists every file's size, mtime and sha256, and the source filesystem's capacity. It is written last,
 so readers trust only what it lists. The `mirror-verify` CronJob re-hashes daily every mirrored file, and every day
 file's source over its mirrored length, against the manifest. It refuses a missing manifest for any of the five
@@ -156,8 +160,11 @@ its manifest, and staged into batch inputs by hash.
 ### Capacity guard
 
 `ops/diskguard.py`, run hourly by `mm-diskguard.timer` (declared in `ops/units.nix`, the flake's `homeManagerModules.default`, running `nix run .#diskguard`), alarms when
-**available bytes or inodes are at or below 20% of the filesystem's total**. The choice and its limitations live in
-the paper's appendix O2. It measures this PC's `data/` and `/srv/moneymachine/mirror` directly and checks all five
+**available bytes or inodes are at or below 20% of the filesystem's total**. One fifth is a precautionary choice, not a
+response guarantee: it leaves a substantial minority of each filesystem for intervention and scales with the real
+filesystem, unlike a fixed byte allowance, at the cost of earlier alarms. At constant growth g on capacity C it leaves
+0.2C/g of time, and adequate warning needs that to exceed detection delay plus the human's response time; neither is
+measured, so that is not established, and a burst can exhaust the reserve. It measures this PC's `data/` and `/srv/moneymachine/mirror` directly and checks all five
 prodesk7 volumes through their manifests' `capacity` counters and `taken` timestamp. These are real filesystem
 capacities, not the local-path PVC requests (which do not enforce storage quotas). Shared filesystems need no
 separate rule. Byte availability excludes blocks reserved from the writer (`statvfs.f_bavail`); inode availability
@@ -169,8 +176,9 @@ Hyperliquid days until a pull has run. Nothing stops copying or deletes recordin
 Each unhealthy check exits nonzero, logs its reasons to the user service's journal, and sends a **critical, non-expiring
 desktop notification** with `notify-send`; it repeats hourly until healthy rather than suppressing an acknowledged
 alarm. The timer runs only while the human is logged in: **there is no off-PC alarm**.
-Missing reports alarm after login; while logged in, nominal stale-alarm delay is at most 90 minutes from the last
-report, plus scheduling and check delays (paper O2). Notification delivery failure fails the service, not a successful
+Missing reports alarm after login. Thirty minutes is a chosen tolerance of three ten-minute mirror periods, not a
+throughput bound; with the hourly checker, nominal stale-alarm delay while logged in is at most 30 + 60 = 90 minutes
+from the last report, plus scheduling and check delays, which is no hard bound or proof of a recovery point. Notification delivery failure fails the service, not a successful
 check. The desktop notification daemon and user service's session D-Bus environment must work; deployment must verify
 that the human actually sees the alarm.
 Daily `mirror-verify` integrity failures still appear in Kubernetes job status/logs; this is a capacity/freshness alarm,
