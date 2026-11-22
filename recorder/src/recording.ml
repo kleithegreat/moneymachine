@@ -11,7 +11,12 @@ let fold_lines path ~init ~f =
     let feed_lines content =
       let rec go start =
         match String.index_from content start '\n' with
-        | None -> Buffer.add_substring partial content ~pos:start ~len:(String.length content - start)
+        | None ->
+          Buffer.add_substring
+            partial
+            content
+            ~pos:start
+            ~len:(String.length content - start)
         | Some stop ->
           Buffer.add_substring partial content ~pos:start ~len:(stop - start);
           let line = Buffer.contents partial in
@@ -26,7 +31,9 @@ let fold_lines path ~init ~f =
       if n = 0
       then not (Zstd.at_frame_end reading)
       else (
-        match Zstd.feed reading (Bytes.To_string.sub input ~pos:0 ~len:n) ~f:feed_lines with
+        match
+          Zstd.feed reading (Bytes.To_string.sub input ~pos:0 ~len:n) ~f:feed_lines
+        with
         | () -> read ()
         | exception _ -> true)
     in

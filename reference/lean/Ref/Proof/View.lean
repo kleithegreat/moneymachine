@@ -400,7 +400,7 @@ theorem checkSpec_late (N : NumOps α) (f : Fill α) (v : Venue α) (ob : Option
       · rfl
       · have := hlat _ h; omega
     unfold checkSpec
-    cases hw : f.why <;> simp [hw, hl, ho, hlate, Int.not_le.mpr hlate] <;> rfl
+    cases hw : f.why <;> simp [hl, ho, Int.not_le.mpr hlate] <;> rfl
 
 theorem SameView.checkSpec (S : SameView m₁ m₂ T) (N : NumOps α) (f : Fill α) (v : Venue α) (hf : f.filled ≤ T) :
     checkSpec N f v (barAt m₁ f.coin f.sourceOpen) (fun s => decide (IsFirst (times m₁ f.coin).toList f.submitted s))

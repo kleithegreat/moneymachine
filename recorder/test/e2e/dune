@@ -21,7 +21,17 @@
   item18_stall_closes_e2e
   item19_tls_stalls_e2e
   item20_tls_after_handshake_e2e)
- (libraries core core_unix core_unix.signal_unix async async_unix async_websocket yojson mmrec rec_support core_unix.filename_unix)
+ (libraries
+  core
+  core_unix
+  core_unix.signal_unix
+  async
+  async_unix
+  async_websocket
+  yojson
+  mmrec
+  rec_support
+  core_unix.filename_unix)
  (preprocess
   (pps ppx_jane))
  (deps
@@ -30,4 +40,6 @@
   ../support/tls_server.key
   ../support/tls_unrelated_ca.pem
   %{bin:zstd}
-  %{bin:faketime}))
+  %{bin:faketime})
+ (lint
+  (pps ppx_js_style)))

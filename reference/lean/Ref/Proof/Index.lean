@@ -42,7 +42,7 @@ theorem indexFold_keep (l : List (BarRow α)) (acc : HashMap (Nat × Int) Nat ×
     simp only [List.foldl_cons]
     rw [ih _ fun b' hb' => h b' (by simp [hb'])]
     simp only [indexStep, HashMap.getElem?_insert]
-    rw [if_neg (by simpa using h b (by simp))]
+    rw [ite_eq_right (by simpa using h b (by simp))]
 
 omit [Inhabited α] in
 /-- With unique keys, every bar's key finds its position. -/
@@ -88,6 +88,7 @@ theorem barAt_complete (m : Market α) (coins : Nat) (hA : m.Admissible) {i : Na
   have := indexFold_complete m.bars.toList (HashMap.emptyWithCapacity, 0) hA.barKeys i (by simpa using hi)
   simpa using this
 
+omit [Inhabited α] in
 /-- With unique keys, the bar map agrees with the laws' `barAt`. -/
 theorem barAt_spec (m : Market α) (coins : Nat) (hA : m.Admissible) {c : Nat} {t : Int} {i : Nat}
     (h : (m.index coins).barAt[(c, t)]? = some i) : ∃ hi : i < m.bars.size, barAt m c t = some m.bars[i] := by
@@ -169,6 +170,7 @@ theorem maxOpen_fold_some (l : List (BarRow α)) (acc : Option (BarRow α)) (h :
     | nil => cases acc <;> simp [maxOpen] <;> split <;> simp
     | cons b' l => exact ih _ (by simp)
 
+omit [Inhabited α] in
 /-- The latest closed bar is a bar of the coin closed by t whose openTime no other such bar exceeds. -/
 theorem latestClosed_spec (m : Market α) (c : Nat) (t : Int) (x : BarRow α) (h : latestClosed m c t = some x) :
     x ∈ m.bars.toList ∧ x.coin = c ∧ x.event ≤ t ∧
@@ -180,6 +182,7 @@ theorem latestClosed_spec (m : Market α) (c : Nat) (t : Int) (x : BarRow α) (h
   · simp only [List.mem_filter, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hm
     exact ⟨hm.1, hm.2.1, hm.2.2, fun y hy hc he => hl y (by simp [hy, hc, he])⟩
 
+omit [Inhabited α] in
 /-- With unique keys, a bar of the coin closed by t that no such bar exceeds is the latest closed bar. -/
 theorem latestClosed_of_max (m : Market α) (hA : m.Admissible) (c : Nat) (t : Int) (x : BarRow α)
     (hx : x ∈ m.bars.toList) (hc : x.coin = c) (he : x.event ≤ t)

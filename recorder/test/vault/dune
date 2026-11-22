@@ -7,11 +7,23 @@
   vault_nothing_printed_e2e
   vault_stalled_handshake_e2e
   vault_stray_entries_e2e)
- (libraries core core_unix core_unix.signal_unix core_unix.sys_unix core_unix.filename_unix async async_unix async_ssl yojson rec_support)
+ (libraries
+  core
+  core_unix
+  core_unix.signal_unix
+  core_unix.sys_unix
+  core_unix.filename_unix
+  async
+  async_unix
+  async_ssl
+  yojson
+  rec_support)
  (preprocess
   (pps ppx_jane))
  (deps
   ../../bin/mmvault.exe
   ../support/tls_server.crt
   ../support/tls_server.key
-  %{bin:zstd}))
+  %{bin:zstd})
+ (lint
+  (pps ppx_js_style)))

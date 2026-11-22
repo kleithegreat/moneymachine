@@ -89,6 +89,17 @@
             '';
             installPhase = "touch $out";
           };
+          style = pkgs.stdenv.mkDerivation {
+            name = "recorder-style";
+            inherit src;
+            nativeBuildInputs = [ o.ocaml o.dune_3 o.findlib o.ocamlformat o.ppx_js_style pkgs.zstd ];
+            buildInputs = testLibs ++ [ o.ppx_js_style pkgs.zstd.dev ];
+            buildPhase = ''
+              export HOME=$TMPDIR DUNE_CACHE=disabled
+              dune build --root . @fmt @check @lint
+            '';
+            installPhase = "touch $out";
+          };
         };
     in
     {
@@ -327,6 +338,7 @@
           sandbox = pytestCheck { name = "sandbox"; paths = "sandbox/tests"; };
           lean-proofs = self.packages.${system}.refmm;
           mmrec-tests = (mmrecFor pkgs).tests;
+          recorder-style = (mmrecFor pkgs).style;
         };
 
       apps.x86_64-linux =

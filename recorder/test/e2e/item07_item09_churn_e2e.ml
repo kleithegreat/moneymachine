@@ -31,10 +31,16 @@ let () =
     H.check (Float.( < ) seconds 10.) "slow exit";
     let opens = List.map (F.accepts fake) ~f:snd in
     let sends = List.map (F.received fake) ~f:(fun (_, at, _) -> at) in
-    H.check (List.length opens >= 25) (sprintf "only %d connections in 80 s: no churn to judge" (List.length opens));
-    H.check (List.length sends >= 1500) (sprintf "only %d messages sent: no storm to judge" (List.length sends));
+    H.check
+      (List.length opens >= 25)
+      (sprintf "only %d connections in 80 s: no churn to judge" (List.length opens));
+    H.check
+      (List.length sends >= 1500)
+      (sprintf "only %d messages sent: no storm to judge" (List.length sends));
     let most_opens = H.max_in_window opens ~window_ms in
-    H.check (most_opens <= 30) (sprintf "%d connections opened inside one minute" most_opens);
+    H.check
+      (most_opens <= 30)
+      (sprintf "%d connections opened inside one minute" most_opens);
     let most_sends = H.max_in_window sends ~window_ms in
     H.check (most_sends <= 2000) (sprintf "%d messages sent inside one minute" most_sends);
     F.stop fake)

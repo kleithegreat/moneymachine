@@ -31,7 +31,8 @@ let file_hour_and_run path =
 let channel_of path = Filename.basename (Filename.dirname (Filename.dirname path))
 
 let files_of_hour root hour =
-  List.filter (H.recordings root) ~f:(fun path -> String.equal (fst (file_hour_and_run path)) hour)
+  List.filter (H.recordings root) ~f:(fun path ->
+    String.equal (fst (file_hour_and_run path)) hour)
 ;;
 
 let zstd_ok path =
@@ -49,18 +50,27 @@ let () =
     let started = H.now_ms () in
     let first_start = boundary - 3_000 in
     let%bind process1 =
-      H.spawn_run ~root ~env:(H.faketime_env ~at_ms:first_start) ~extra:[ "--connections"; "2" ] fake
+      H.spawn_run
+        ~root
+        ~env:(H.faketime_env ~at_ms:first_start)
+        ~extra:[ "--connections"; "2" ]
+        fake
     in
     let%bind () =
       H.wait_until ~timeout_s:90. ~what:"a trades file of hour 11" (fun () ->
-        List.exists (files_of_hour root "11") ~f:(fun path -> String.equal (channel_of path) "trades"))
+        List.exists (files_of_hour root "11") ~f:(fun path ->
+          String.equal (channel_of path) "trades"))
     in
     let channels_with_hour_11 =
-      List.map (files_of_hour root "11") ~f:channel_of |> List.dedup_and_sort ~compare:String.compare
+      List.map (files_of_hour root "11") ~f:channel_of
+      |> List.dedup_and_sort ~compare:String.compare
     in
     List.iter (files_of_hour root "10") ~f:(fun path ->
       if List.mem channels_with_hour_11 (channel_of path) ~equal:String.equal
-      then H.check (zstd_ok path) (sprintf "%s is not closed although its channel is in the next hour" path));
+      then
+        H.check
+          (zstd_ok path)
+          (sprintf "%s is not closed although its channel is in the next hour" path));
     let hour_10_at_rollover =
       List.filter_map (files_of_hour root "10") ~f:(fun path ->
         if List.mem channels_with_hour_11 (channel_of path) ~equal:String.equal
@@ -73,15 +83,22 @@ let () =
     H.check (Result.is_ok status1) "first run's exit status";
     let after_first_run = snapshot root in
     List.iter hour_10_at_rollover ~f:(fun (path, bytes) ->
-      H.check (String.equal (H.read_file path) bytes) (sprintf "%s changed after the next hour began" path));
+      H.check
+        (String.equal (H.read_file path) bytes)
+        (sprintf "%s changed after the next hour began" path));
     let runs_of_first =
-      List.map after_first_run ~f:(fun (path, _) -> snd (file_hour_and_run path)) |> List.dedup_and_sort ~compare:Int.compare
+      List.map after_first_run ~f:(fun (path, _) -> snd (file_hour_and_run path))
+      |> List.dedup_and_sort ~compare:Int.compare
     in
     (match runs_of_first with
      | [ run ] ->
        H.check
-         (run >= first_start - 1_000 && run <= first_start + (H.now_ms () - started) + 1_000)
-         (sprintf "run id %d is not the run's start in ms (clock set to %d)" run first_start)
+         (run >= first_start - 1_000
+          && run <= first_start + (H.now_ms () - started) + 1_000)
+         (sprintf
+            "run id %d is not the run's start in ms (clock set to %d)"
+            run
+            first_start)
      | runs -> failwithf "one run wrote files of %d run ids" (List.length runs) ());
     let lines = H.all_lines ~root in
     H.check (not (List.is_empty lines)) "no lines";
@@ -92,38 +109,61 @@ let () =
       List.iter in_file ~f:(fun recv ->
         H.check
           (String.equal (String.sub (H.hour_of_ms recv) ~pos:8 ~len:2) hour)
-          (sprintf "%s (%s): a line received at %d is in the wrong hour's file" path channel recv);
+          (sprintf
+             "%s (%s): a line received at %d is in the wrong hour's file"
+             path
+             channel
+             recv);
         H.check
           (Bool.equal (recv < boundary) (String.equal hour "10"))
           (sprintf "%s: line at %d on the wrong side of 11:00:00.000" path recv)));
     let trades_recvs =
-      List.filter_map lines ~f:(fun (channel, recv, _, _) -> if String.equal channel "trades" then Some recv else None)
+      List.filter_map lines ~f:(fun (channel, recv, _, _) ->
+        if String.equal channel "trades" then Some recv else None)
     in
-    H.check (List.exists trades_recvs ~f:(fun r -> r < boundary)) "no trades line before 11:00";
-    H.check (List.exists trades_recvs ~f:(fun r -> r >= boundary)) "no trades line from 11:00";
+    H.check
+      (List.exists trades_recvs ~f:(fun r -> r < boundary))
+      "no trades line before 11:00";
+    H.check
+      (List.exists trades_recvs ~f:(fun r -> r >= boundary))
+      "no trades line from 11:00";
     let second_start = boundary + 30_000 in
     let%bind process2 =
-      H.spawn_run ~root ~env:(H.faketime_env ~at_ms:second_start) ~extra:[ "--connections"; "2" ] fake
+      H.spawn_run
+        ~root
+        ~env:(H.faketime_env ~at_ms:second_start)
+        ~extra:[ "--connections"; "2" ]
+        fake
     in
     let%bind () =
       H.wait_until ~timeout_s:60. ~what:"a second run's file of hour 11" (fun () ->
         List.length
-          (List.dedup_and_sort ~compare:Int.compare
-             (List.map (files_of_hour root "11") ~f:(fun path -> snd (file_hour_and_run path))))
+          (List.dedup_and_sort
+             ~compare:Int.compare
+             (List.map (files_of_hour root "11") ~f:(fun path ->
+                snd (file_hour_and_run path))))
         >= 2)
     in
     let%bind () = after (Time_float.Span.of_sec 2.) in
     let%bind status2, _ = H.sigterm_and_wait process2 in
     H.check (Result.is_ok status2) "second run's exit status";
     List.iter after_first_run ~f:(fun (path, bytes) ->
-      H.check (String.equal (H.read_file path) bytes) (sprintf "%s changed when a later run started and stopped" path));
+      H.check
+        (String.equal (H.read_file path) bytes)
+        (sprintf "%s changed when a later run started and stopped" path));
     List.iter (H.recordings root) ~f:(fun path ->
-      H.check (zstd_ok path) (sprintf "%s is not a whole stream after both runs stopped" path));
+      H.check
+        (zstd_ok path)
+        (sprintf "%s is not a whole stream after both runs stopped" path));
     let runs_of_hour_11 =
       List.map (files_of_hour root "11") ~f:(fun path -> snd (file_hour_and_run path))
       |> List.dedup_and_sort ~compare:Int.compare
     in
-    H.check (List.length runs_of_hour_11 = 2) "hour 11 does not hold the files of exactly two runs";
-    H.check (List.exists runs_of_hour_11 ~f:(fun r -> r >= second_start - 1_000)) "second run's id is not its start";
+    H.check
+      (List.length runs_of_hour_11 = 2)
+      "hour 11 does not hold the files of exactly two runs";
+    H.check
+      (List.exists runs_of_hour_11 ~f:(fun r -> r >= second_start - 1_000))
+      "second run's id is not its start";
     F.stop fake)
 ;;

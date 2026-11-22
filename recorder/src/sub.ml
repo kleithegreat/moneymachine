@@ -16,7 +16,8 @@ let subscription = function
 ;;
 
 let request meth t =
-  Yojson.Safe.to_string (`Assoc [ "method", `String meth; "subscription", subscription t ])
+  Yojson.Safe.to_string
+    (`Assoc [ "method", `String meth; "subscription", subscription t ])
 ;;
 
 let subscribe_message = request "subscribe"
@@ -30,7 +31,9 @@ let of_ack frame =
     (match member "channel" json, member "data" json with
      | `String "subscriptionResponse", data ->
        let subscription = member "subscription" data in
-       (match member "method" data, member "type" subscription, member "coin" subscription with
+       (match
+          member "method" data, member "type" subscription, member "coin" subscription
+        with
         | `String "subscribe", `String "allDexsAssetCtxs", _ -> Some All_dexs_asset_ctxs
         | `String "subscribe", `String "trades", `String coin -> Some (Trades coin)
         | `String "subscribe", `String "l2Book", `String coin ->

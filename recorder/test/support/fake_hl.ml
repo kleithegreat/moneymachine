@@ -76,14 +76,16 @@ let header headers name =
     | _ -> None)
 ;;
 
-let json_of_text text = try Some (Yojson.Safe.from_string text) with _ -> None
+let json_of_text text =
+  try Some (Yojson.Safe.from_string text) with
+  | _ -> None
+;;
 
 let ack_frame subscription =
   Yojson.Safe.to_string
     (`Assoc
         [ "channel", `String "subscriptionResponse"
-        ; ( "data"
-          , `Assoc [ "method", `String "subscribe"; "subscription", subscription ] )
+        ; "data", `Assoc [ "method", `String "subscribe"; "subscription", subscription ]
         ])
 ;;
 
@@ -98,9 +100,11 @@ let wait_eof_or_stop t reader =
 ;;
 
 let serve_rest t config ~fault reader writer headers =
-  let length = Option.value_map (header headers "content-length") ~default:0 ~f:Int.of_string in
+  let length =
+    Option.value_map (header headers "content-length") ~default:0 ~f:Int.of_string
+  in
   let buffer = Bytes.create length in
-  let%bind _ = Reader.really_read reader buffer in
+  let%bind (_ : [ `Ok | `Eof of int ]) = Reader.really_read reader buffer in
   let request = Bytes.to_string buffer in
   t.rest_requests := request :: !(t.rest_requests);
   match fault with
@@ -108,21 +112,37 @@ let serve_rest t config ~fault reader writer headers =
   | Some Stall_in_chunked_body ->
     Writer.write
       writer
-      "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n1\r\n[\r\n";
+      "HTTP/1.1 200 OK\r\n\
+       Content-Type: application/json\r\n\
+       Transfer-Encoding: chunked\r\n\
+       \r\n\
+       1\r\n\
+       [\r\n";
     let%bind () = Writer.flushed writer in
     wait_eof_or_stop t reader
   | None ->
     if config.rest_stall ~request
     then (
       (* The answer starts and never ends: the headers promise more body than is ever sent. *)
-      Writer.write writer "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 100000\r\n\r\n[";
+      Writer.write
+        writer
+        "HTTP/1.1 200 OK\r\n\
+         Content-Type: application/json\r\n\
+         Content-Length: 100000\r\n\
+         \r\n\
+         [";
       Deferred.never ())
     else (
       let body = config.rest ~request in
       Writer.write
         writer
         (sprintf
-           "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s"
+           "HTTP/1.1 200 OK\r\n\
+            Content-Type: application/json\r\n\
+            Content-Length: %d\r\n\
+            Connection: close\r\n\
+            \r\n\
+            %s"
            (String.length body)
            body);
       Writer.close writer)
@@ -146,7 +166,11 @@ let serve_ws t config ~outer_wr reader writer headers conn =
   Writer.write
     writer
     (sprintf
-       "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n\r\n"
+       "HTTP/1.1 101 Switching Protocols\r\n\
+        Upgrade: websocket\r\n\
+        Connection: Upgrade\r\n\
+        Sec-WebSocket-Accept: %s\r\n\
+        \r\n"
        accept);
   let ws = Websocket.create ~role:Server reader writer in
   let rd, wr = Websocket.pipes ws in
@@ -205,15 +229,21 @@ let serve_ws t config ~outer_wr reader writer headers conn =
          | Some (`String "subscribe") ->
            subscribed := true;
            let subscription =
-             Option.value (List.Assoc.find fields ~equal:String.equal "subscription") ~default:`Null
+             Option.value
+               (List.Assoc.find fields ~equal:String.equal "subscription")
+               ~default:`Null
            in
            if config.ack_subscriptions then send (ack_frame subscription);
-           if Poly.equal (config.fault ~conn) (Some Tls_fatal_alert) then trigger_tls_alert ()
-         | Some (`String "ping") -> if config.ack_subscriptions then send {|{"channel":"pong"}|}
+           if Poly.equal (config.fault ~conn) (Some Tls_fatal_alert)
+           then trigger_tls_alert ()
+         | Some (`String "ping") ->
+           if config.ack_subscriptions then send {|{"channel":"pong"}|}
          | _ -> ())
       | _ -> ())
   in
-  let%bind () = Deferred.any [ Pipe.iter_without_pushback rd ~f:handle; Ivar.read t.stopped ] in
+  let%bind () =
+    Deferred.any [ Pipe.iter_without_pushback rd ~f:handle; Ivar.read t.stopped ]
+  in
   close ();
   Writer.close writer
 ;;
@@ -243,7 +273,9 @@ let start config =
       | Some (Answer_with code) ->
         Writer.write
           writer
-          (sprintf "HTTP/1.1 %d Refused\r\nContent-Length: 0\r\nConnection: close\r\n\r\n" code);
+          (sprintf
+             "HTTP/1.1 %d Refused\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+             code);
         Writer.close writer
       | Some (Reset_mid_frame | Tls_fatal_alert) | None ->
         serve_ws t config ~outer_wr reader writer headers conn)
@@ -268,14 +300,19 @@ let start config =
       (match rest_tls_config with
        | None -> run outer_rd outer_wr
        | Some tls_config ->
-         Async_ssl.Tls.wrap_server_connection tls_config outer_rd outer_wr ~f:(fun _ r w -> run r w))
+         Async_ssl.Tls.wrap_server_connection
+           tls_config
+           outer_rd
+           outer_wr
+           ~f:(fun _ r w -> run r w))
   in
   let where = Tcp.Where_to_listen.bind_to Localhost On_port_chosen_by_os in
   let%map servers, ws_port, ws_scheme, rest_port, rest_scheme =
     match config.tls, config.rest_tls with
     | None, None ->
       let%map plain =
-        Tcp.Server.create ~on_handler_error:`Ignore where (fun _ r w -> ws_or_rest_handler ~outer_wr:None r w)
+        Tcp.Server.create ~on_handler_error:`Ignore where (fun _ r w ->
+          ws_or_rest_handler ~outer_wr:None r w)
       in
       let port = Tcp.Server.listening_on plain in
       [ plain ], port, "ws", port, "http"
@@ -284,15 +321,26 @@ let start config =
         match ws_tls with
         | None ->
           let%map plain =
-            Tcp.Server.create ~on_handler_error:`Ignore where (fun _ r w -> ws_or_rest_handler ~outer_wr:None r w)
+            Tcp.Server.create ~on_handler_error:`Ignore where (fun _ r w ->
+              ws_or_rest_handler ~outer_wr:None r w)
           in
           plain, "ws"
         | Some { crt_file; key_file } ->
-          let tls_config = Async_ssl.Config.Server.create ~crt_file ~key_file ~ca_file:None ~ca_path:None () in
+          let tls_config =
+            Async_ssl.Config.Server.create
+              ~crt_file
+              ~key_file
+              ~ca_file:None
+              ~ca_path:None
+              ()
+          in
           let%map secure =
             Tcp.Server.create ~on_handler_error:`Ignore where (fun _ outer_rd outer_wr ->
-              Async_ssl.Tls.wrap_server_connection tls_config outer_rd outer_wr ~f:(fun _ r w ->
-                ws_or_rest_handler ~outer_wr:(Some outer_wr) r w))
+              Async_ssl.Tls.wrap_server_connection
+                tls_config
+                outer_rd
+                outer_wr
+                ~f:(fun _ r w -> ws_or_rest_handler ~outer_wr:(Some outer_wr) r w))
           in
           secure, "wss"
       in
@@ -326,7 +374,7 @@ let start config =
 
 let stop t =
   Ivar.fill_if_empty t.stopped ();
-  Deferred.List.iter ~how:`Sequential t.servers ~f:Tcp.Server.close
+  Deferred.List.iter ~how:`Sequential t.servers ~f:(fun server -> Tcp.Server.close server)
 ;;
 
 let ws_url t = sprintf "%s://127.0.0.1:%d/ws" t.ws_scheme t.ws_port
@@ -370,8 +418,12 @@ let carries_fast_book t ~conn =
          , List.Assoc.find fields ~equal:String.equal "subscription" )
        with
        | Some (`String "subscribe"), Some (`Assoc sub) ->
-         Poly.equal (List.Assoc.find sub ~equal:String.equal "type") (Some (`String "l2Book"))
-         && Poly.equal (List.Assoc.find sub ~equal:String.equal "fast") (Some (`Bool true))
+         Poly.equal
+           (List.Assoc.find sub ~equal:String.equal "type")
+           (Some (`String "l2Book"))
+         && Poly.equal
+              (List.Assoc.find sub ~equal:String.equal "fast")
+              (Some (`Bool true))
        | _ -> false)
     | _ -> false)
 ;;
@@ -385,15 +437,19 @@ let meta_json ~live ~delisted =
   Yojson.Safe.to_string
     (`Assoc
         [ ( "universe"
-          , `List (List.map live ~f:(fun c -> asset c) @ List.map delisted ~f:(asset ~flag:true))
-          )
+          , `List
+              (List.map live ~f:(fun c -> asset c)
+               @ List.map delisted ~f:(asset ~flag:true)) )
         ; "marginTables", `List []
         ])
 ;;
 
 let perp_dexs_json names =
   Yojson.Safe.to_string
-    (`List (`Null :: List.map names ~f:(fun n -> `Assoc [ "name", `String n; "fullName", `String n ])))
+    (`List
+        (`Null
+         :: List.map names ~f:(fun n ->
+           `Assoc [ "name", `String n; "fullName", `String n ])))
 ;;
 
 let rest_of_universe coins ~request =

@@ -6,19 +6,21 @@
 open Async
 
 type config =
-  { rest : request:string -> string  (** the response body for each REST request body *)
-  ; ack_subscriptions : bool  (** answer subscribe with a [subscriptionResponse], ping with a [pong] *)
-  ; close_after_ms : conn:int -> int option  (** the server closes connection [conn] this long after accepting it *)
+  { rest : request:string -> string (** the response body for each REST request body *)
+  ; ack_subscriptions : bool
+    (** answer subscribe with a [subscriptionResponse], ping with a [pong] *)
+  ; close_after_ms : conn:int -> int option
+    (** the server closes connection [conn] this long after accepting it *)
   ; stream : (conn:int -> seq:int -> string) option
-        (** once a connection has subscribed, send this frame every [stream_interval_ms] *)
+    (** once a connection has subscribed, send this frame every [stream_interval_ms] *)
   ; stream_interval_ms : int
-  ; tls : tls option  (** serve the websocket over TLS with this certificate *)
-  ; rest_tls : tls option  (** serve REST over HTTPS with this certificate *)
-  ; fault : conn:int -> fault option  (** how connection [conn] misbehaves, if it does *)
+  ; tls : tls option (** serve the websocket over TLS with this certificate *)
+  ; rest_tls : tls option (** serve REST over HTTPS with this certificate *)
+  ; fault : conn:int -> fault option (** how connection [conn] misbehaves, if it does *)
   ; rest_stall : request:string -> bool
-        (** the server accepts this REST request, starts its answer and never finishes it *)
+    (** the server accepts this REST request, starts its answer and never finishes it *)
   ; rest_fault : unit -> rest_stall_mode option
-        (** called on each REST accept; if [Some mode], stalls at that stage instead of answering *)
+    (** called on each REST accept; if [Some mode], stalls at that stage instead of answering *)
   }
 
 (** A connection's failure: the server closes the socket on reading the upgrade request, answering nothing; closes it

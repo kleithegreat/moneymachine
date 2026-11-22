@@ -6,18 +6,19 @@ structurally, and the check itself passes because its return is built from a fin
 positive one, or is −1 or 0. -/
 
 namespace Ref
-open Except
+open Ref.Except
 
 variable {α : Type} [Inhabited α]
 
+omit [Inhabited α] in
 theorem ret_bounded (N : NumOps α) (hB : N.Bounded) (prev e1 g g' : α) (he : N.finite e1 = true) :
     N.le (N.neg N.one) (if N.lt N.zero prev = true then
       (if N.lt N.zero e1 = true then N.sub (N.div e1 prev) N.one else N.neg N.one, g) else (N.zero, g')).fst = true := by
   by_cases hp : N.lt N.zero prev = true
   · by_cases hq : N.lt N.zero e1 = true
-    · simp only [hp, hq, if_true]; exact hB.ret e1 prev he hq hp
-    · simp only [hp, hq, if_true, if_false, Bool.false_eq_true]; exact hB.floor
-  · simp only [hp, if_false, Bool.false_eq_true]; exact hB.flat
+    · simp only [hp, hq, ite_true]; exact hB.ret e1 prev he hq hp
+    · simp only [hp, hq, ite_true, ite_false, Bool.false_eq_true]; exact hB.floor
+  · simp only [hp, ite_false, Bool.false_eq_true]; exact hB.flat
 
 /-- Walk a do-block that cannot raise R_BOUND. -/
 macro "bwalk" : tactic => `(tactic| repeat (first

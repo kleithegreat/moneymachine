@@ -82,6 +82,7 @@ structure InsProg (p q : Program) (i : Nat) : Prop where
 /-- States alike but for their machines, which correspond. -/
 def SRel (i : Nat) (a b : SState α) : Prop := b = { a with machine := b.machine } ∧ Ins i a.machine b.machine
 
+omit [Inhabited α] in
 theorem Ins.local {i : Nat} {M M' : MState α} (h : Ins i M M') : M' = M.withLocal M'.vals M'.wins M'.since := by
   have := h.funding; have := h.bar; have := h.events; have := h.hour; have := h.maxKnown
   cases M; cases M'
@@ -108,7 +109,7 @@ theorem insProg_of {p : Program} {i c : Nat} (hi0 : 0 < i) (hi : i ≤ p.nodes.s
   slots := by
     unfold Program.eventSlots Program.insertAt
     dsimp only
-    rw [Array.insertIdx!, dif_pos (by simpa using hi), Array.toList_insertIdx, filterMap_insertIdx _ _ _ _ rfl,
+    rw [Array.insertIdx!, dite_eq_left (by simpa using hi), Array.toList_insertIdx, filterMap_insertIdx _ _ _ _ rfl,
       Array.toList_map, List.filterMap_map]
     congr 1
     congr 1
@@ -122,6 +123,7 @@ theorem replicate_shift {β : Type} [Inhabited β] {i n : Nat} (hi : i ≤ n) (x
   · rw [getElem!_pos _ _ (by simpa using hsz.mpr hk), getElem!_pos _ _ (by simpa using hk)]; simp
   · rw [getElem!_neg _ _ (by simpa using fun h => hk (hsz.mp h)), getElem!_neg _ _ (by simpa using hk)]
 
+omit [Inhabited α] in
 theorem init_ins (N : NumOps α) {p q : Program} {i : Nat} (P : InsProg p q i) (coins : Nat) :
     Ins i (MState.init N p coins) (MState.init N q coins) where
   vals k := by unfold MState.init; rw [P.size]; exact replicate_shift P.le _ k
@@ -172,15 +174,18 @@ theorem deliver_ins (c : Ctx α) {i : Nat} {a b : SState α} (h : SRel i a b) (t
       isin := by rw [hs]; exact hI.isin
       funding := rfl, bar := rfl, events := rfl, hour := rfl, maxKnown := rfl }
 
+omit [Inhabited α] in
 theorem SRel.machine {i : Nat} {a b : SState α} (h : SRel i a b) {X X' : MState α} (hX : Ins i X X') :
     SRel i { a with machine := X } { b with machine := X' } := by
   obtain ⟨hb, -⟩ := h
   refine ⟨?_, hX⟩
   rw [hb]
 
+omit [Inhabited α] in
 theorem SRel.exists {i : Nat} {a b : SState α} (h : SRel i a b) :
     ∃ M', b = { a with machine := M' } ∧ Ins i a.machine M' := ⟨b.machine, h.1, h.2⟩
 
+omit [Inhabited α] in
 theorem SRel.same {i : Nat} {a : SState α} {M' : MState α} (h : Ins i a.machine M') :
     SRel i a { a with machine := M' } := ⟨rfl, h⟩
 
@@ -318,6 +323,7 @@ theorem steps_ins (n : Nat) :
 end
 
 
+omit [Inhabited α] in
 /-- `ite(c, b, a)` at i + 1 equals `ite(not c, a, b)`, its negation sitting at i, on the rows a tick has written. -/
 theorem ifNotRev_eval (N : NumOps α) (hN : N.Lawful) {q : Program} {i c a b : Nat}
     (hn : q.nodes[i + 1]! = .op .ite [c, b, a]) (hc : q.nodes[i]! = .op .not [c]) (L : Array Bool) (m s : MState α)
@@ -332,7 +338,7 @@ theorem ifNotRev_eval (N : NumOps α) (hN : N.Lawful) {q : Program} {i c a b : N
   cases C with
   | none => rfl
   | some v =>
-    simp only [NumOps.keep, hN.finite_truth, Option.bind_some, ite_true, bind, Option.bind, hN.truth_zero]
+    simp only [NumOps.keep, hN.finite_truth, ite_true, bind, Option.bind, hN.truth_zero]
     cases N.isZero v <;> rfl
 
 theorem RelH.eq_of {ε β : Type} {x y : Except ε β} (h : RelH x y (· = ·)) : x = y := by
@@ -371,7 +377,7 @@ theorem ifNotRev_sound (N : NumOps α) (hN : N.Lawful) {p p' : Program} {i : Nat
   have hiC : i ≤ p.convTo.size := by obtain ⟨h1, h2, h3, -⟩ := hp; omega
   have hT : ∀ j, (p.insertAt i (.op .not [c]) .bool).types[shift i j]! = p.types[j]! := fun j => insert_shift _ hiT _ j
   have hC : (p.insertAt i (.op .not [c]) .bool).convTo[i + 1]! = p.convTo[i]! := by
-    have := insert_shift p.convTo hiC (none : Option Dim) i; rwa [if_pos (Nat.le_refl i)] at this
+    have := insert_shift p.convTo hiC (none : Option Dim) i; rwa [ite_eq_left (Nat.le_refl i)] at this
   have hTi : (p.insertAt i (.op .not [c]) .bool).types[i]! = .bool := by
     show (p.types.insertIdx! i .bool)[i]! = .bool; rw [insert_get _ hiT]; simp
   have T := twin_set N hq (i := i + 1) (by rw [P.size]; omega) (o := .ite) (args := [i, a, b])

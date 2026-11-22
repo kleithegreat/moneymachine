@@ -1,6 +1,10 @@
 open Core
 
-let sanitize s = String.map s ~f:(function '\r' | '\n' -> ' ' | c -> c)
+let sanitize s =
+  String.map s ~f:(function
+    | '\r' | '\n' -> ' '
+    | c -> c)
+;;
 
 let of_frame ~recv_ms ~conn frame =
   sprintf {|{"recv":%d,"conn":%d,"msg":%s}|} recv_ms conn (sanitize frame) ^ "\n"
@@ -16,7 +20,9 @@ let envelope line =
     while !stop < String.length line && Char.is_digit line.[!stop] do
       incr stop
     done;
-    if !stop = from then None else Some (Int.of_string (String.sub line ~pos:from ~len:(!stop - from)), !stop)
+    if !stop = from
+    then None
+    else Some (Int.of_string (String.sub line ~pos:from ~len:(!stop - from)), !stop)
   in
   let recv_key = {|{"recv":|} in
   let conn_key = {|,"conn":|} in

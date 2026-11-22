@@ -205,6 +205,7 @@ theorem keepT_some {N : NumOps α} {v : TVal α} {x : α} {t : Ty} (h : keepT N 
   | none => cases h
   | some xt => cases xt; simp only [keepT, NumOps.keep, Option.bind_some] at h; split at h <;> simp_all
 
+omit [Inhabited α] in
 /-- One coin of one node written on both sides keeps the relation, if the written value is tagged by the
 node's type, the window's tag is too, and an untagged window stays blank. -/
 theorem URel_update (N : NumOps α) (p : Program) {u : UState α} {m : MState α} (hR : URel N p u m) (i c : Nat)
@@ -237,8 +238,8 @@ theorem URel_update (N : NumOps α) (p : Program) {u : UState α} {m : MState α
     have hs : (j = i ∧ i < u.wtag.size ∧ c < u.wtag[i]!.size ∧ k = c) ↔
         (j = i ∧ i < u.m.wins.size ∧ c < u.m.wins[i]!.size ∧ k = c) := by rw [hR.shape.1, hR.shape.2 i]
     split at hw
-    · rw [if_pos (hs.2 ‹_›)] at ht; exact hblank w' ht hw
-    · rw [if_neg (fun h => ‹¬_› (hs.1 h))] at ht; exact hR.blank j k w' ht hw
+    · rw [ite_eq_left (hs.2 ‹_›)] at ht; exact hblank w' ht hw
+    · rw [ite_eq_right (fun h => ‹¬_› (hs.1 h))] at ht; exact hR.blank j k w' ht hw
   · intro j k w' hw
     simp only at hw
     rw [get_modify_set] at hw
@@ -248,6 +249,7 @@ theorem URel_update (N : NumOps α) (p : Program) {u : UState α} {m : MState α
   · simp only [Array.size_modify, size_modify_set]
     exact hR.shape
 
+omit [Inhabited α] in
 /-- A raw value written on both sides, with the same `since` state, keeps the relation. -/
 theorem URel_raw (N : NumOps α) (p : Program) {u : UState α} {m : MState α} (hR : URel N p u m) (i c : Nat)
     (v : TVal α) (hv : ∀ x t, v = some (x, t) → t = p.types[i]! ∧ (t = .bool → ∃ b, x = N.truth b))
@@ -289,6 +291,7 @@ theorem get_set {β : Type} [Inhabited β] (xs : Array (Array β)) (i j k : Nat)
   · rw [getElem!_neg _ j (by simpa using hj), getElem!_neg xs j hj]
     split <;> simp_all
 
+omit [Inhabited α] in
 /-- A whole node row written on both sides keeps the relation, if the written values are tagged by the
 node's type. -/
 theorem URel_setRow (N : NumOps α) (p : Program) {u : UState α} {m : MState α} (hR : URel N p u m) (i : Nat)
@@ -339,7 +342,7 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
     (m : MState α) (h : URel N p u m) :
     ∃ u', u.tick N p listed hour = .ok u' ∧ URel N p u' (m.tick N p listed hour) := by
   unfold UState.tick MState.tick
-  simp only [Std.Legacy.Range.forIn_eq_forIn_range', bind_pure, Id.run]
+  simp only [Std.Legacy.Range.forIn_eq_forIn_range', bind_pure]
   refine forIn_rel _ _ _ (URel N p) ?_ _ _ ?_
   · intro i hi u m hR
     unfold MState.tickNode
@@ -573,12 +576,12 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
           exact URel_setRow N p hR i _ _ (by simp [replicate_none_get]) (by simp)
         | cons x0 X =>
           simp only [List.map_cons, List.headD_cons, List.isEmpty_cons, Bool.false_eq_true, ite_false]
-          rw [if_neg (by simp), if_neg (by simp)]
+          rw [ite_eq_right (by simp), ite_eq_right (by simp)]
           refine ⟨_, _, rfl, rfl, ?_⟩
           refine URel_setRow N p hR i _ _ ?_ ?_
           · intro k x t hx
             have hm := getElem!_some_mem _ k hx
-            simp only [List.toList_toArray, List.mem_map] at hm
+            simp only [List.mem_map] at hm
             obtain ⟨c, -, hc⟩ := hm
             split at hc
             · cases hc
@@ -632,12 +635,12 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
           exact URel_setRow N p hR i _ _ (by simp [replicate_none_get]) (by simp)
         | cons x0 X =>
           simp only [List.map_cons, List.headD_cons, List.isEmpty_cons, Bool.false_eq_true, ite_false]
-          rw [if_neg (by simp), if_neg (by simp)]
+          rw [ite_eq_right (by simp), ite_eq_right (by simp)]
           refine ⟨_, _, rfl, rfl, ?_⟩
           refine URel_setRow N p hR i _ _ ?_ ?_
           · intro k x t hx
             have hm := getElem!_some_mem _ k hx
-            simp only [List.toList_toArray, List.mem_map] at hm
+            simp only [List.mem_map] at hm
             obtain ⟨c, -, hc⟩ := hm
             split at hc
             · cases hc
@@ -692,12 +695,12 @@ theorem tick_rel (N : NumOps α) (p : Program) (hW : p.WF) (listed : Array Bool)
           exact URel_setRow N p hR i _ _ (by simp [replicate_none_get]) (by simp)
         | cons x0 X =>
           simp only [List.map_cons, List.headD_cons, List.isEmpty_cons, Bool.false_eq_true, ite_false]
-          rw [if_neg (by simp), if_neg (by simp [hd1'])]
+          rw [ite_eq_right (by simp), ite_eq_right (by simp [hd1'])]
           refine ⟨_, _, rfl, rfl, ?_⟩
           refine URel_setRow N p hR i _ _ ?_ ?_
           · intro k x t hx
             have hm := getElem!_some_mem _ k hx
-            simp only [List.toList_toArray, List.mem_map] at hm
+            simp only [List.mem_map] at hm
             obtain ⟨c, -, hc⟩ := hm
             split at hc
             · cases hc
@@ -766,6 +769,7 @@ theorem nested_none_get {β : Type} (n k i c : Nat) : (Array.replicate n (Array.
   · rw [getElem!_pos _ i (by simpa using hi)]; simp only [Array.getElem_replicate]; exact replicate_none_get k c
   · rw [getElem!_neg _ i (by simpa using hi)]; rfl
 
+omit [Inhabited α] in
 theorem init_rel (N : NumOps α) (p : Program) (hW : p.WF) (coins : Nat) :
     URel N p (UState.init N p coins) (MState.init N p coins) := by
   refine ⟨?_, rfl, rfl, rfl, rfl, rfl, rfl, rfl, ?_, ?_, ?_, ?_, ?_⟩
@@ -826,6 +830,7 @@ theorem forIn_corr {β σ τ : Type} (l : List β) (F : β → σ → Except (Ab
         obtain ⟨x', y', rfl, rfl, hxy⟩ := hs
         exact ih x' y' hxy
 
+omit [Inhabited α] in
 theorem URel_machine (N : NumOps α) (p : Program) {u : UState α} {m : MState α} (hR : URel N p u m) :
     u.m = m.withLocal u.m.vals m.wins m.since := by
   have h₁ := hR.wins; have h₂ := hR.since; have h₃ := hR.funding; have h₄ := hR.bar; have h₅ := hR.events
