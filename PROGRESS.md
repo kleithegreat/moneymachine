@@ -11,12 +11,11 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli -
   - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`).
   - prodesk7 builds test checks as a remote builder, inside `mmtest.slice` (`CLUSTER.md` §6).
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).
-- **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers run only while the human is logged in. `/tmp` is a small tmpfs: set `CARGO_TARGET_DIR`/`TMPDIR` on disk for builds.
+- **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers run only while the human is logged in.
 - **Accounts** (the human, 2026-11-11 and 12):
   - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
-  - **The architect** is a fresh Opus 5.5 session at maximum reasoning after Fable's last session, 2026-11-16 (`CLAUDE.md`).
-  - **Neon** (`gemini-4-neon-xhigh`, `agy`) is the Gemini reviewer, and architected rounds 8 to 11 while Claude was short. Opus subagents on this account are allowed again (the human, 2026-11-21). agy builds go through `ops/agy-write.sh on DIR | off`; no review runs while it is on.
-- **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-arms` (study 1's arms, at the manifest's commit); `../mm-k2` (`kernel2-build`); `../mm-k2-step5` (`kernel2-step5`); `../mm-review-cs2` (the CS2 reviewer's); `../mm-paper` (`paper-rewrite`); one per agent.
+  - **Architect:** a fresh Opus 5.5 at maximum effort (`CLAUDE.md`). **GPT** through `ops/gpt.sh` (`gpt-6.2-sol`). **Neon** reviews through the web UI (bundles in `~/Downloads`); its agy writes go through `ops/agy-write.sh`.
+- **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-arms` (study 1's arms, at the manifest's commit); `../mm-k2` (`kernel2-build`); `../mm-k2-step5` (`kernel2-step5`); `../mm-program-s2` (`rearchitecture-s2`); `../mm-rec-urgent` (`recorder-urgent`); one per agent.
 
 ### Work in progress
 
@@ -37,16 +36,14 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
      - **The vault collector** (`recorder/VAULT.md`, `mmvault`) runs hourly as CronJob `vault` (`CLUSTER.md`).
    - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
    - **The websocket recorder** (`recorder/RECORDER.md`): every perp on every Hyperliquid dex, crypto and builder-deployed stocks, commodities and indices. **Running** since 2026-11-14 03:43 UTC (22:43 EST) as StatefulSet `ws` (image `851fc77`, `sha256:9a6e0b2a…` since 2026-11-20 14:57 UTC, 09:57 EST; `vault` likewise), one copy on prodesk7 (PVC `ws`, not mirrored, the human's choice): fast five-level books for all 350 perps, 20-level books for the main dex's 179, trades, asset contexts, listings. About 2.0 GB a day (sizes only); its volume fills about April 2027, and enough disk is assumed by then (the human, 2026-11-21; the sizing measurement is the advisor's).
-2. **Erasure pass** (list `audit/erasure/2026-11-12-deletion-list.md`): phases A to F are done, `ops/shards.py` included.
-   - Tests are 11 flake checks on the remote builders and `nix run .#test` (`CLUSTER.md` §6); the launcher is `nix run .#session`; the timers are `homeManagerModules.default`, imported by dotfiles.
-   - Phase A: the thesis track and `ops/crossmachine.py` are gone, archived at `archive/thesis` and `archive/thesis-refreeze`.
-   - **Constraint:** `flake.lock` does not move while study 1 runs on the frozen harness.
+2. **Erasure pass** (`audit/erasure/2026-11-12-deletion-list.md`): phases A to F done. Tests: flake checks on the remote builders and `nix run .#test` (`CLUSTER.md` §6). **Constraint:** `flake.lock` does not move while study 1 runs.
 
 ### Next, in order
 
 1. **Kernel version 2:** step 5 built; B4 passes on it (3,120 of 3,120, rerun with the hardened stub); test 12's inputs are `data/x4-inputs/test12/` (root `7bab5c43…`).
    - **Test 12 is too slow** (15 days a host, exact `exp`/`log`). Round 11 (Neon, answering Opus's review) plans step 5x: X4's series carried incrementally, proved equal (law X6), about 1 hour a host; GPT reviews it. Step 5 merges after step 5x passes test 12 and B4.
-   - **Round 13** (fresh Opus, both halves done, pushed): kernel on `rearchitecture` (the build boundary re-derived after an `autoParam` bypass), study 2 on `rearchitecture-s2` (a cash reserve on buys; only `isDelisted` delists). In review: GPT-6.2 now, Neon's bundles in `~/Downloads`. The urgent recorder fix needs new tests for the changed step 1 before deploy. CS2 texts: four drafts, then a fresh Opus and GPT, then the commit.
+   - **Rounds 14 and 15** (fresh Opus): study 2's round 14 done (`rearchitecture-s2` `be858e5`: delisting by the venue's funding, stops by whether a later line could undo them, the recorders on libcurl and `jsont` with an enforced request allocation); GPT-6.2 reviewing it, Neon's bundle in `~/Downloads`. The kernel's round 15 under way, with Neon's and GPT's round 14 reads and study 2's routed changes. The urgent recorder fix waits for study 2's new client (its build plan's steps 1 and 2).
+   - **Overnight 2026-11-22 (the human asleep):** each finished round goes to GPT-6.2 at once and, if not converged, to the next fresh Opus round; Neon's bundles wait in `~/Downloads` for the morning; GPT's filter refusing a review is logged, never worked around except by the human's standing rephrasing rule. Study 1's runner is watched; at its verdict, its report (step 9) is run and sent to a fresh Opus and GPT. A usage stop pauses the agents; they resume at the reset.
    - **TAMU** (the human, 2026-11-21) runs the queued Opus work in every window (`audit/decisions.md`).
    - **Recorder:** the lint gate and the six catch-alls.
 2. **Study 1:** runs to its end (about 2026-11-23), then its report.
