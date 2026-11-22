@@ -57,11 +57,6 @@
           runtimeInputs = [ (pythonFor linux) linux.libnotify ];
           text = "exec python ops/diskguard.py";
         };
-        oci-pull = linux.writeShellApplication {
-          name = "oci-pull";
-          runtimeInputs = [ (pythonFor linux) linux.bash linux.coreutils linux.rsync linux.openssh ];
-          text = "exec bash ops/oci/pull.sh";
-        };
       };
       # The websocket recorder (recorder/RECORDER.md): OCaml 5 with Jane Street's stack, every library from the pinned
       # nixpkgs. Its tests need `zstd` (an independent decoder) and loopback sockets, which the sandbox has.
@@ -126,14 +121,6 @@
             ];
             RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
             shellHook = "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks";
-          };
-          # The HL recorder alone (`python -m cli record`), for hosts that only record (ops/oci).
-          recorder = pkgs.mkShell {
-            packages = [ (pkgs.python313.withPackages (ps: [ ps.httpx ])) ];
-          };
-          # OCI access (the recorder VM, ops/oci).
-          cloud = pkgs.mkShell {
-            packages = [ pkgs.oci-cli ];
           };
         });
 
@@ -362,7 +349,7 @@
           });
         };
 
-      homeManagerModules.default = import ./ops/units.nix { inherit (apps64) diskguard; ociPull = apps64.oci-pull; };
+      homeManagerModules.default = import ./ops/units.nix { inherit (apps64) diskguard; };
 
       formatter = forAll (pkgs: pkgs.nixfmt-rfc-style);
     };

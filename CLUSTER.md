@@ -2,7 +2,7 @@
 
 The recorders and the mirror run on the homelab's k3s cluster (1.36, containerd 2.3), so this PC can be off without
 stopping them. The agent series (stages 3 and 4) has finished. Batch Jobs run in namespace `moneymachine`,
-submitted from this PC, inputs and results on its NFS. The Oracle VM recorded independently until its retirement on 2026-11-22; it now only holds the forward window's Hyperliquid day files until 2027-02-01.
+submitted from this PC, inputs and results on its NFS.
 
 Agent sessions run in bubblewrap with private unix sockets inside runner pods that have their own user namespace. The
 CLI's credential reaches a session as `CLAUDE_CODE_OAUTH_TOKEN`, passed by `sandbox/session.py`.
@@ -67,7 +67,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - **Clocks.** `sources` logs the node kernel's own bound on its clock error (`adjtimex`: `maxerror_ms`, `esterror_ms`,
   `unsynced`) every cycle as source "clock", key "kernel". It is a bound the kernel's NTP daemon reports, never an
   offset against anything, and it does not prove freshness. C5.3's 72 h segment reports its maximum and requires
-  `unsynced` false and `maxerror_ms` under 1000. The Oracle VM keeps its own timesyncd offset log (`ops/oci/clocklog.py`).
+  `unsynced` false and `maxerror_ms` under 1000.
 - **Image** `moneymachine`, one for batch and live, built by `nix build .#image`, pushed and pinned by digest:
   - contents: the repo at `/app`, the Python env, `mm`, claude-code pinned in the flake at exactly 2.1.304,
     bubblewrap, sqlite3, and the Nix store database that the sandbox's closure query (`nix-store -qR`)
@@ -82,8 +82,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
   through `CARGO_TARGET_DIR`.
 - **Requests and limits**: recorders 100m and 256Mi (limit 512Mi); series 1 CPU and 3Gi
   (6Gi); mirror jobs 200m and 256Mi (512Mi). Each emptyDir is capped at 2Gi. Capacity alarms: section 5.
-- **Availability.** One node holds every volume, so a prodesk7 outage stops everything, and its disk holds the only copy of what the mirror has not yet copied. The Oracle VM is the only
-  independent recorder, and only for Hyperliquid.
+- **Availability.** One node holds every volume, so a prodesk7 outage stops everything, and its disk holds the only copy of what the mirror has not yet copied. No second host records.
 
 **`agent-series`** runs a series' declared campaigns (`gate/agent/campaigns.py`, `COHORTS`): stage 4's C4.5,
 logged in `agent/swarm-null-3.jsonl` (v1's and v2's `swarm-null*.jsonl` and stage 3's `agent-null*.jsonl` logs stay, their records). N2's funding source comes from
@@ -168,9 +167,7 @@ prodesk7 volumes through their manifests' `capacity` counters and `taken` timest
 capacities, not the local-path PVC requests (which do not enforce storage quotas). Shared filesystems need no
 separate rule. Byte availability excludes blocks reserved from the writer (`statvfs.f_bavail`); inode availability
 uses `f_favail`. Missing, malformed, future-dated or older-than-30-minute reports and unmeasurable filesystems also alarm.
-It also alarms when `data/live-oci/last-pull` (written by each good `ops/oci/pull.sh` run, which on failure only exits
-nonzero) is missing, future-dated or over an hour old: the Oracle VM keeps the only copy of the forward window's
-Hyperliquid days until a pull has run. Nothing stops copying or deletes recordings.
+Nothing stops copying or deletes recordings.
 
 Each unhealthy check exits nonzero, logs its reasons to the user service's journal, and sends a **critical, non-expiring
 desktop notification** with `notify-send`; it repeats hourly until healthy rather than suppressing an acknowledged
