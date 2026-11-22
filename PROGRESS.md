@@ -10,7 +10,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli -
   - Recorders (`sha256:97b2817f…`): StatefulSets `sources`, `datalayer` (`CLUSTER.md`); `hl` retired 2026-11-22, its StatefulSet at 0 replicas until the next push removes it.
   - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`).
   - prodesk7 builds test checks as a remote builder, inside `mmtest.slice` (`CLUSTER.md` §6).
-- **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): **retired** 2026-11-22 21:16 UTC (16:16 EST), its four recording units stopped and disabled; it stays up only to hold the forward window's Hyperliquid day files (`forward-window.exclude`, their only copy) until 2027-02-01, when they are pulled and the VM is terminated. `mm-oci-pull.timer` still runs.
+- **Oracle VM** `mm-recorder`: **retired** 2026-11-22 (its recorders stopped); its forward-window Hyperliquid files are embargoed in `~/embargo/oci-forward-window/` (integrity only until the window ends); the VM holds nothing else, so terminating it is the human's call.
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers run only while the human is logged in.
 - **Accounts** (the human, 2026-11-11 and 12):
   - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
@@ -67,7 +67,7 @@ None.
 
 Failed criteria, labeled amendments and known limitations, each beside its criterion in `audit/criteria.md`; reports cite this list.
 
-- **Study 1 (CS1.1 met):** every counted response from `claude-opus-5-5`, no fallback, so not the pilot's share; size 0.0431 (note under CS1.1) and the brief's Lean statements of the test owed; the strategy guide's first example is a funding fade like the plant (search apart from prior is excluded); market 1's sandbox never started (a miss); bubblewrap 0.12.0 from market 2 on; fixed-sample intervals (`audit/decisions.md`, 2026-11-22).
+- **Study 1 (CS1.1 met):** every counted response from `claude-opus-5-5`, no fallback, so not the pilot's share; size 0.0431 (note under CS1.1; the test's statements proved in Lean, `Ref/Study1.lean`); the strategy guide's first example is a funding fade like the plant (search apart from prior is excluded); market 1's sandbox never started (a miss); bubblewrap 0.12.0 from market 2 on; fixed-sample intervals (`audit/decisions.md`, 2026-11-22).
 
 - **The agent's model (stages 3 and 4):** many sessions fell back from Opus 5.5 to Opus 4.8 after a "cyber" safeguard flag: 9 of 20 stage 3 null sessions, the real campaign's search session, and 31 of 40 in stage 4's swarm (`audit/decisions.md`, 2026-11-12). No judged number changes. Reports name the model that answered.
 
