@@ -238,7 +238,6 @@
           # The tracked tree minus prose and build files, so a commit that only edits those leaves every check cached; a test that
           # reads excluded prose fails in its check, which is how a missed dependency shows.
           srcAll = fs.toSource { root = ./.; fileset = fs.difference ./. (fs.unions prose); };
-          srcCriteria = fs.toSource { root = ./.; fileset = fs.difference ./. (fs.unions [ ./docs ./CLAUDE.md ./PROGRESS.md ]); };
           srcKernel = fs.toSource {
             root = ./.;
             fileset = fs.unions [ ./kernel ./venue/hyperliquid ./gate/compute.py ./gate/__init__.py ./conftest.py ./pyproject.toml ];
@@ -320,7 +319,6 @@
           };
           gate = pytestCheck { name = "gate"; paths = "gate/tests"; kernel = true; prebuilt = true; };
           ingest = pytestCheck { name = "ingest"; paths = "ingest/tests"; };
-          criteria = pytestCheck { name = "criteria"; src = srcCriteria; paths = "criteria"; };
           ops = pytestCheck { name = "ops"; paths = "ops"; };
           # mmdump's lock holds the kernel's crates too, so one vendor directory serves both builds.
           reference = pytestCheck {

@@ -136,7 +136,7 @@ A flake sees only tracked files, so `git add` new ones first. `nix build -L .#ch
 and `nix log <drv>` shows a failure's full output.
 
 - **The checks** (`flake.nix`, `checks.x86_64-linux`): `style`, `progress-cap`, `kernel-cargo`, `kernel-mutants`,
-  `kernel-py`, `gate`, `ingest`, `criteria`, `ops`, `reference`, `sandbox` and `lean-proofs`. Each runs `pytest -m "not local"`
+  `kernel-py`, `gate`, `ingest`, `ops`, `reference`, `sandbox` and `lean-proofs`. Each runs `pytest -m "not local"`
   over its paths in a Nix sandbox, so it is rebuilt only when its inputs (its source subset) change. Prose (`docs`, `CLAUDE.md`,
   `PROGRESS.md`, ...) is outside every source subset, so a prose-only commit leaves all of them cached.
 - **The `local` marker** (`pyproject.toml`): tests that need this PC, because they read the real `data/` (`data/store`; link it
