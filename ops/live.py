@@ -1,27 +1,19 @@
-"""The live workloads on the homelab cluster (CLUSTER.md): their manifests, applied with the `deployer` account; the
-seeding of their volumes from this PC; the gates; and the mirror steps that run in pods.
+"""The live workloads on the homelab cluster (CLUSTER.md): their manifests, applied with the `deployer` account, and
+the mirror steps that run in pods.
 
     python ops/live.py push                          build and push the image; prints its digest
     python ops/live.py apply <digest> <name>...      apply workloads (WORKLOADS' names)
-    python ops/live.py seed <digest> <volume> <src:dest>...   copy files of this PC into a volume, checked by sha256
-    python ops/live.py gate <digest>                                the credential and sandbox gates in a runner pod
-    python ops/live.py view                          the sandbox's view (namespaces, maps, mounts), as the gate
-                                                     records it
-In pods: `mirror`, `verify`, `seed-run <volume> <stage>`, `gate-run <targets>`.
+In pods: `mirror`, `verify`.
 """
 
 import json
-import os
 import shutil
-import socket
 import sqlite3
-import subprocess
 import sys
-import tempfile
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import jobs  # noqa: E402
@@ -35,36 +27,20 @@ MIRROR = Path("/srv/moneymachine/mirror")
 MIRROR_VERIFY_WAIT = 2 * 10 * 60  # next ten-minute run plus ten minutes to finish copying
 LEDGERS = ("thesis", "agent")
 CLAIMS = {**VOLUMES, "ws": "data/ws"}  # ws is not mirrored: one copy, the human's choice of 2026-11-14
-SECCOMP, APPARMOR = "profiles/moneymachine-sandbox.json", "moneymachine-sandbox"
-CORNELL = "CLAUDE_CODE_OAUTH_TOKEN"  # claude-token's key of the Cornell account; TAMU is the other
 
 
 Json = dict[str, Any]
 
 
-def token(key: str) -> Json:
-    return {"name": "CLAUDE_CODE_OAUTH_TOKEN", "valueFrom": {"secretKeyRef": {"name": "claude-token", "key": key}}}
-
-
-POOL = [
-    {
-        "name": f"CLAUDE_CODE_OAUTH_TOKEN_{account.upper()}",
-        "valueFrom": {"secretKeyRef": {"name": "claude-token", "key": key}},
-    }
-    for account, key in (("TAMU", "TAMU"), ("Cornell", CORNELL))
-]
-PROC = "Unmasked"  # the runners' procMount, as the sandbox gate settled it
-
 Size = tuple[str, str, str]
-Workload = tuple[str, list[str], dict[str, bool], str | Literal[False], Size, int, Json]
+Workload = tuple[str, list[str], dict[str, bool], Size, int, Json]
 
-# name: (kind, command, {volume: read-only}, runner, (cpu, memory request, memory limit), grace seconds, extra)
+# name: (kind, command, {volume: read-only}, (cpu, memory request, memory limit), grace seconds, extra)
 WORKLOADS: dict[str, Workload] = {
     "sources": (
         "StatefulSet",
         ["python", "-m", "cli", "sources-record", "data/sources_live"],
         {"sources": False},
-        False,
         ("100m", "256Mi", "512Mi"),
         300,
         {},
@@ -73,25 +49,14 @@ WORKLOADS: dict[str, Workload] = {
         "StatefulSet",
         ["python", "-m", "cli", "datalayer-record", "data/datalayer"],
         {"datalayer": False},
-        False,
         ("100m", "256Mi", "512Mi"),
         300,
         {"keys": True},
-    ),
-    "agent-series": (
-        "Job",
-        ["python", "-m", "cli", "agent-null", "swarm"],
-        {"agent": False},
-        CORNELL,
-        ("1", "3Gi", "6Gi"),
-        9_000,
-        {"env": [*POOL, {"name": "CARGO_TARGET_DIR", "value": f"{APP}/data/agent/kernel"}]},
     ),
     "ws": (
         "StatefulSet",
         ["mmrec", "run", "data/ws"],
         {"ws": False},
-        False,
         ("250m", "512Mi", "1Gi"),
         30,
         {},
@@ -100,7 +65,6 @@ WORKLOADS: dict[str, Workload] = {
         "CronJob",
         ["mmvault", "run", "data/ws", "--user", "0x53375ca9a649f337d83d0834fec0db97640a2a06"],
         {"ws": False},
-        False,
         ("100m", "256Mi", "512Mi"),
         30,
         {"schedule": "7 * * * *"},
@@ -109,7 +73,6 @@ WORKLOADS: dict[str, Workload] = {
         "CronJob",
         ["python", "ops/live.py", "mirror"],
         {**{v: v not in LEDGERS for v in VOLUMES}, "mirror": False},
-        False,
         ("200m", "256Mi", "512Mi"),
         600,
         {"schedule": "*/10 * * * *"},
@@ -118,7 +81,6 @@ WORKLOADS: dict[str, Workload] = {
         "CronJob",
         ["python", "ops/live.py", "verify"],
         {**{v: True for v in VOLUMES}, "mirror": True},
-        False,
         ("200m", "256Mi", "512Mi"),
         600,
         {"schedule": "41 3 * * *"},
@@ -136,13 +98,11 @@ def pod_spec(
     digest: str,
     command: list[str],
     volumes: dict[str, bool],
-    runner: str | Literal[False],
     size: Size,
     grace: int,
     extra: Json,
 ) -> Json:
-    """A restricted pod on prodesk7 running `command`, each volume at its repo path; a runner (series, gates), `runner` naming the claude-token key it reads, also gets its own user
-    namespace, the bubblewrap profiles and that token."""
+    """A restricted pod on prodesk7 running `command`, each volume at its repo path."""
     cpu, memory, limit = size
     mounts: list[Json] = [{"name": "tmp", "mountPath": "/tmp"}, {"name": "scratch", "mountPath": "/scratch"}]
     mounts += [
@@ -154,11 +114,6 @@ def pod_spec(
     if extra.get("keys"):
         mounts.append({"name": "keys", "mountPath": f"{APP}/.keys.env", "subPath": ".keys.env", "readOnly": True})
         vols.append({"name": "keys", "secret": {"secretName": "datalayer-keys"}})
-    profile = (
-        ({"type": "Localhost", "localhostProfile": SECCOMP}, {"type": "Localhost", "localhostProfile": APPARMOR})
-        if runner
-        else ({"type": "RuntimeDefault"}, {"type": "RuntimeDefault"})
-    )
     return {
         "serviceAccountName": "live",
         "automountServiceAccountToken": False,
@@ -166,14 +121,13 @@ def pod_spec(
         "priorityClassName": NAMESPACE,
         "nodeSelector": {"kubernetes.io/hostname": NODE},
         "terminationGracePeriodSeconds": grace,
-        **({"hostUsers": False} if runner else {}),
         "securityContext": {
             "runAsUser": 1000,
             "runAsGroup": 100,
             "fsGroup": 100,
             "runAsNonRoot": True,
-            "seccompProfile": profile[0],
-            "appArmorProfile": profile[1],
+            "seccompProfile": {"type": "RuntimeDefault"},
+            "appArmorProfile": {"type": "RuntimeDefault"},
         },
         "containers": [
             {
@@ -181,13 +135,11 @@ def pod_spec(
                 "image": f"{jobs.REGISTRY}@{digest}",
                 "workingDir": APP,
                 "command": command,
-                "env": [*([token(runner)] if runner else []), *extra.get("env", [])],
                 "resources": {"requests": {"cpu": cpu, "memory": memory}, "limits": {"memory": limit}},
                 "securityContext": {
                     "allowPrivilegeEscalation": False,
                     "readOnlyRootFilesystem": True,
                     "capabilities": {"drop": ["ALL"]},
-                    **({"procMount": PROC} if runner else {}),
                 },
                 "volumeMounts": mounts,
             }
@@ -197,11 +149,11 @@ def pod_spec(
 
 
 def manifest(name: str, digest: str) -> Json:
-    kind, command, volumes, runner, size, grace, extra = WORKLOADS[name]
+    kind, command, volumes, size, grace, extra = WORKLOADS[name]
     meta: Json = {"name": name, "labels": {"app": name}}
     template: Json = {
         "metadata": {"labels": {"app": name}},
-        "spec": pod_spec(name, digest, command, volumes, runner, size, grace, extra),
+        "spec": pod_spec(name, digest, command, volumes, size, grace, extra),
     }
     spec: Json
     if kind == "StatefulSet":
@@ -237,115 +189,6 @@ def apply(digest: str, *names: str) -> None:
         "-",
         stdin=json.dumps({"apiVersion": "v1", "kind": "List", "items": [manifest(n, digest) for n in names]}),
     )
-
-
-def run_pod(name: str, spec: Json) -> tuple[str, bool]:
-    """Run one pod to completion; its log, and whether it succeeded. The pod is deleted afterwards."""
-    spec["restartPolicy"] = "Never"
-    created = kubectl(
-        "create",
-        "-f",
-        "-",
-        "-o",
-        "json",
-        stdin=json.dumps({"apiVersion": "v1", "kind": "Pod", "metadata": {"generateName": name + "-"}, "spec": spec}),
-    )
-    name = json.loads(created)["metadata"]["name"]
-    started = time.time()
-    while (phase := kubectl("get", "pod", name, "-o", "jsonpath={.status.phase}")) not in ("Succeeded", "Failed"):
-        if phase == "Pending" and time.time() - started > 900:
-            state = kubectl("get", "pod", name, "-o", "jsonpath={.status}")
-            kubectl("delete", "pod", name, "--wait=false")
-            raise SystemExit(f"{name} still pending after 15 min: {state}")
-        time.sleep(5)
-    log = kubectl("logs", name)
-    kubectl("delete", "pod", name, "--wait=false")
-    return log, phase == "Succeeded"
-
-
-def seed_paths(root: Path | None, names: Sequence[str | Path]) -> list[Path]:
-    paths = [Path(n) for n in names]
-    for p in paths:
-        if p.is_absolute() or not p.parts or ".." in p.parts or p.parts[0] == "SHA256.json":
-            raise SystemExit(f"invalid seed destination: {p}")
-        if root is not None and any((root / part).is_symlink() for part in (p, *p.parents)):
-            raise SystemExit(f"symlink seed destination: {p}")
-        if root is not None and any((root / part).exists() and not (root / part).is_dir() for part in p.parents):
-            raise SystemExit(f"seed destination parent is not a directory: {p}")
-        if any(p != other and p in other.parents for other in paths):
-            raise SystemExit(f"overlapping seed destinations: {p}")
-    return paths
-
-
-def seed(digest: str, volume: str, *pairs: str) -> None:
-    """Copy `src:dest` pairs (a file or directory of this PC, a path in the volume) through the mirror export; a pod
-    copies them into the volume and checks every sha256. An existing file is never overwritten."""
-    VOLUMES[volume]
-    files: list[tuple[Path, Path]] = []
-    for pair in pairs:
-        src, dest = (Path(p) for p in pair.split(":"))
-        seed_paths(None, [dest])
-        if not src.exists():
-            raise SystemExit(f"missing seed source: {src}")
-        files.extend(
-            (f, dest / f.relative_to(src) if src.is_dir() else dest)
-            for f in ([src] if src.is_file() else sorted(p for p in src.rglob("*") if p.is_file()))
-        )
-    paths = seed_paths(None, [rel for _, rel in files])
-    if len(set(paths)) != len(paths):
-        raise SystemExit("duplicate seed destination")
-    (MIRROR / "seed").mkdir(exist_ok=True, parents=True)
-    stage = Path(tempfile.mkdtemp(prefix=volume + "-", dir=MIRROR / "seed"))
-    sums: dict[str, str] = {}
-    for f, rel in files:
-        (stage / rel).parent.mkdir(parents=True, exist_ok=True)
-        if f.suffix == ".sqlite":
-            with sqlite3.connect(f"file:{f}?mode=ro", uri=True) as a, sqlite3.connect(stage / rel) as b:
-                a.backup(b)
-        else:
-            shutil.copy2(f, stage / rel)
-        sums[str(rel)] = sha256(stage / rel)
-    (stage / "SHA256.json").write_text(json.dumps(sums, indent=1))
-    spec = pod_spec(
-        "seed",
-        digest,
-        ["python", "ops/live.py", "seed-run", volume, f"/mirror/seed/{stage.name}"],
-        {volume: False, "mirror": True},
-        False,
-        ("100m", "128Mi", "512Mi"),
-        60,
-        {},
-    )
-    log, ok = run_pod(f"seed-{volume}", spec)
-    print(log)
-    if not ok:
-        raise SystemExit(f"seeding {volume} failed")
-    shutil.rmtree(stage)
-
-
-def seed_run(volume: str, stage: str | Path) -> None:
-    src, dst = Path(stage), Path(APP) / VOLUMES[volume]
-    sums = json.loads((src / "SHA256.json").read_text())
-    seed_paths(dst, sums)
-    pending: list[tuple[str, str]] = []
-    for rel, digest in sums.items():
-        target = dst / rel
-        if target.exists():
-            if sha256(target) != digest:
-                raise SystemExit(f"{volume}/{rel} exists with other content")
-        else:
-            pending.append((rel, digest))
-    for rel, digest in pending:
-        target = dst / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(dir=target.parent, suffix=".tmp") as tmp:
-            with (src / rel).open("rb") as source:
-                shutil.copyfileobj(source, tmp)
-            tmp.flush()
-            if sha256(tmp.name) != digest:
-                raise SystemExit(f"{volume}/{rel}: sha256 differs after the copy")
-            os.link(tmp.name, target)
-    print(json.dumps({"volume": volume, "files": len(sums)}))
 
 
 def mirror_kind(rel: str | Path) -> str:
@@ -493,180 +336,12 @@ def verify(app: str | Path = APP, out: str | Path = "/mirror") -> None:
     print("verified")
 
 
-VIEW = "cat /proc/self/uid_map /proc/self/gid_map /proc/self/status /proc/self/mountinfo; ls /proc/self/ns /proc"
-
-
-def view() -> list[str]:
-    """The sandbox's view from inside a stage 3 session: UID/GID maps, capabilities, namespaces, mounts, processes."""
-    from gate.agent import harness
-    from sandbox import session
-
-    work = Path(tempfile.mkdtemp())
-    harness.build_workspace(work)
-    r = subprocess.run(
-        session.sandbox_command(work, harness.CLIENT, ["/bin/sh", "-c", VIEW]),
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    keep = [
-        l
-        for l in r.stdout.splitlines()
-        if not l.startswith(
-            (
-                "Name",
-                "Umask",
-                "State",
-                "Tgid",
-                "Ngid",
-                "Pid",
-                "PPid",
-                "TracerPid",
-                "Vm",
-                "Rss",
-                "Threads",
-                "voluntary",
-                "nonvoluntary",
-                "Cpus",
-                "Mems",
-                "Sig",
-                "Shd",
-                "FD",
-            )
-        )
-    ]
-    return [" ".join(l.split()[4:5] + l.split()[8:9]) if l.count(" - ") == 1 else l for l in keep if not l.isdigit()]
-
-
-def reach(host: str, port: int) -> bool:
-    try:
-        socket.create_connection((host, port), timeout=5).close()
-        return True
-    except OSError:
-        return False
-
-
-def gate_run(targets: str) -> None:
-    """In a runner pod: the frozen hashes, the isolation tests, the sandbox's view, the network from the runner, the
-    subscription's windows, and one sandboxed session authenticated by the token alone. Each part is recorded, its
-    error included, whether or not another fails."""
-    from gate.agent import campaigns, harness
-    from sandbox import session
-
-    def session_record() -> Json:
-        work = Path(tempfile.mkdtemp())
-        session.workspace(work, {}, harness.CLIENT, {})
-        run = session.run(work, harness.CLIENT, harness.MODEL, 3, 600, "Reply with the single word READY.")
-        lines = (work / "transcript.jsonl").read_text().splitlines()
-        events = [json.loads(l) for l in lines if l.startswith("{")]
-        result = [e for e in events if e.get("type") == "result"]
-        return {
-            "stopped": run["stopped"],
-            "exit": run["exit"],
-            "other_output": [l for l in lines if not l.startswith("{")][:20],
-            **({k: result[-1].get(k) for k in ("is_error", "result")} if result else {}),
-            "models": sorted(result[-1].get("modelUsage", {})) if result else [],
-        }
-
-    def tests() -> Json:
-        run = subprocess.run(
-            [sys.executable, "-m", "pytest", "-q", "-n0", "-p", "no:cacheprovider", "gate/tests/test_sandbox.py"],
-            capture_output=True,
-            text=True,
-        )
-        return {"exit": run.returncode, "output": run.stdout.strip().splitlines()[-12:]}
-
-    parts: dict[str, tuple[Callable[[], Any], Callable[[Any], bool]]] = {
-        "harness": (
-            lambda: {
-                "current": harness.harness_hash(),
-                "frozen": json.loads((REPO / "audit/stage3/harness.json").read_text())["harness"],
-            },
-            lambda r: r["current"] == r["frozen"],
-        ),
-        "tests": (tests, lambda r: r["exit"] == 0),
-        "view": (view, bool),
-        "windows": (campaigns.windows, bool),
-        "network": (
-            lambda: {f"{h}:{p}": reach(h, p) for h, p in json.loads(targets)},
-            lambda r: (
-                r.get("api.anthropic.com:443") is True
-                and all(v == (k == "api.anthropic.com:443") for k, v in r.items())
-            ),
-        ),
-        "session": (
-            session_record,
-            lambda r: (
-                r["exit"] == 0
-                and r["stopped"] == "finished"
-                and r.get("is_error") is False
-                and r.get("result", "").strip() == "READY"
-            ),
-        ),
-    }
-    record: Json = {}
-    failed: list[str] = []
-    for name, (part, passes) in parts.items():
-        try:
-            record[name] = part()
-            if not passes(record[name]):
-                failed.append(name)
-        except Exception as e:
-            record[name] = {"error": repr(e)}
-            failed.append(name)
-    print(json.dumps(record))
-    if failed:
-        raise SystemExit("gate failed: " + ", ".join(failed))
-
-
-# Reachable from a runner: the model API only; refused: every node's services, the API server, the registry, this
-# PC's NFS, the cluster's service network, the tailnet, and IPv6.
-TARGETS = [
-    ("api.anthropic.com", 443),
-    *[(f"192.168.8.{n}", p) for n in (131, 153, 222, 229) for p in (22, 6443, 10250)],
-    ("192.168.8.239", 6443),
-    ("192.168.8.240", 443),
-    ("192.168.8.131", 2049),
-    ("10.43.0.1", 443),
-    ("100.126.146.120", 22),
-    ("2606:4700:4700::1111", 443),
-]
-
-
-def gate(digest: str) -> None:
-    spec = pod_spec(
-        "gate",
-        digest,
-        ["python", "ops/live.py", "gate-run", json.dumps(TARGETS)],
-        {},
-        CORNELL,
-        ("500m", "1Gi", "2Gi"),
-        60,
-        {},
-    )
-    log, ok = run_pod("gate", spec)
-    out = REPO / "audit/cluster/gate.json"
-    out.write_text(log)
-    print(log[-3000:], "ok" if ok else "FAILED", out)
-    if not ok:
-        raise SystemExit("gate failed; see " + str(out))
-
-
 if __name__ == "__main__":
     cmd, *args = sys.argv[1:]
     if cmd == "push":
         jobs.push()
     elif cmd == "apply":
         apply(*args)
-    elif cmd == "view":
-        print("\n".join(view()))
     else:
-        commands: dict[str, Callable[..., None]] = {
-            "seed": seed,
-            "seed-run": seed_run,
-            "gate": gate,
-            "gate-run": gate_run,
-            "mirror": mirror,
-            "verify": verify,
-        }
+        commands: dict[str, Callable[..., None]] = {"mirror": mirror, "verify": verify}
         commands[cmd](*args)

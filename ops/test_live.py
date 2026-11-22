@@ -1,24 +1,21 @@
-"""The live workloads' manifests keep CLUSTER.md's boundaries: only live volumes, the token only in runners, the
-datalayer keys only in its recorder, restricted pods with read-only roots, user namespaces and the bubblewrap profiles
-only where sessions run."""
+"""The live workloads' manifests keep CLUSTER.md's boundaries: only live volumes, the datalayer keys only in its
+recorder, restricted pods with read-only roots."""
 
 import gzip
 import hashlib
 import json
 import multiprocessing
-import os
 import shutil
 import sqlite3
-import subprocess
 import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
-from typing import Any, Never
+from types import SimpleNamespace
+from typing import Any
 
 import live
 import pytest
-from jobs import REGISTRY, sha256
+from jobs import REGISTRY
 
 
 def killed_at(action: Callable[[], object], install: Callable[[Callable[[], None]], None]) -> None:
@@ -45,312 +42,6 @@ def killed_at(action: Callable[[], object], install: Callable[[Callable[[], None
             process.kill()
             process.join()
     assert process.exitcode == -9
-
-
-@pytest.mark.parametrize("dest", ["../../hl/record.jsonl", "absolute", "safe/../record", "SHA256.json"])
-def test_seed_validates_all_destinations_before_copy(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, dest: str
-) -> None:
-    if dest == "absolute":
-        dest = str(tmp_path / "outside/record.jsonl")
-    monkeypatch.setattr(live, "MIRROR", tmp_path)
-    source = tmp_path / "source"
-    source.write_bytes(b"new")
-    copied: list[tuple[Any, ...]] = []
-    copy = shutil.copy2
-
-    def tracked(*a: Any) -> Any:
-        copied.append(a)
-        return copy(*a)
-
-    monkeypatch.setattr(shutil, "copy2", tracked)
-    monkeypatch.setattr(live, "run_pod", lambda *a: ("", True))
-    with pytest.raises((SystemExit, ValueError)):
-        live.seed("sha256:A", "agent", f"{source}:valid", f"{source}:{dest}")
-    assert copied == []
-
-
-def local_seed_runner(name: str, spec: live.Json) -> tuple[str, bool]:
-    def mapped(p: str | Path) -> Path:
-        path = Path(p)
-        return live.MIRROR / path.relative_to("/mirror") if path.is_relative_to("/mirror") else path
-
-    with pytest.MonkeyPatch.context() as patcher:
-        patcher.setattr(live, "Path", mapped)
-        live.seed_run(*spec["containers"][0]["command"][3:])
-    return "", True
-
-
-@pytest.mark.parametrize("success", [False, True])
-def test_seed_removes_only_its_own_successful_stage(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, success: bool
-) -> None:
-    monkeypatch.setattr(live, "APP", tmp_path / "app")
-    monkeypatch.setattr(live, "MIRROR", tmp_path / "mirror")
-    leftover = live.MIRROR / "seed/earlier-stage"
-    leftover.mkdir(parents=True)
-    (leftover / "diagnostic").write_text("keep")
-    source = tmp_path / "source"
-    source.write_bytes(b"complete")
-    stages: list[Path] = []
-
-    def runner(name: str, spec: live.Json) -> tuple[str, bool]:
-        stages.extend(p.parent for p in live.MIRROR.rglob("SHA256.json"))
-        assert len(stages) == 1
-        return local_seed_runner(name, spec) if success else ("diagnostic failure", False)
-
-    monkeypatch.setattr(live, "run_pod", runner)
-    if success:
-        live.seed("sha256:A", "agent", f"{source}:input")
-        assert (Path(live.APP) / "data/agent/input").read_bytes() == b"complete"
-        assert not stages[0].exists()
-    else:
-        with pytest.raises(SystemExit):
-            live.seed("sha256:A", "agent", f"{source}:input")
-        assert (stages[0] / "input").read_bytes() == b"complete"
-        assert json.loads((stages[0] / "SHA256.json").read_text())["input"] == sha256(source)
-    assert (leftover / "diagnostic").read_text() == "keep"
-
-
-def test_reseed_never_replaces_concurrently_appended_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(live, "APP", tmp_path / "app")
-    monkeypatch.setattr(live, "MIRROR", tmp_path / "mirror")
-    source = tmp_path / "source"
-    source.write_bytes(b"A")
-    target = tmp_path / "app/data/agent/day.jsonl"
-    target.parent.mkdir(parents=True)
-    target.write_bytes(b"A")
-    digest = sha256
-    checked: list[bool] = []
-
-    def append_after_check(path: str | Path, *a: Any) -> str:
-        result: str = digest(path, *a)
-        if Path(path) == target and not checked:
-            checked.append(True)
-            with target.open("ab") as f:
-                f.write(b"B")
-        return result
-
-    monkeypatch.setattr(live, "sha256", append_after_check)
-    monkeypatch.setattr(live, "run_pod", local_seed_runner)
-    live.seed("sha256:A", "agent", f"{source}:day.jsonl")
-    assert target.read_bytes() == b"AB"
-
-
-@pytest.mark.local
-def test_seed_interruption_does_not_publish_partial_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(live, "APP", tmp_path / "app")
-    monkeypatch.setattr(live, "MIRROR", tmp_path / "mirror")
-    source = tmp_path / "source"
-    source.write_bytes(b"complete")
-    target = tmp_path / "app/data/agent/input"
-
-    def install(stop: Callable[[], None]) -> None:
-        copy = shutil.copyfileobj
-        copy2 = shutil.copy2
-
-        def interrupted(a: Any, b: Any, *args: Any) -> Any:
-            if not Path(b.name).is_relative_to(tmp_path / "app"):
-                return copy(a, b, *args)
-            b.write(a.read(1))
-            b.flush()
-            stop()
-
-        monkeypatch.setattr(shutil, "copyfileobj", interrupted)
-
-        def copy_file(a: Any, b: Any) -> Any:
-            if not Path(b).is_relative_to(tmp_path / "app"):
-                return copy2(a, b)
-            with open(a, "rb") as src, open(b, "wb") as dst:
-                interrupted(src, dst)
-
-        monkeypatch.setattr(shutil, "copy2", copy_file)
-        monkeypatch.setattr(live, "run_pod", local_seed_runner)
-
-    killed_at(lambda: live.seed("sha256:A", "agent", f"{source}:input"), install)
-    assert not target.exists()
-
-
-def test_seed_refuses_conflicts_and_symlinks_before_installing_any_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(live, "APP", tmp_path / "app")
-    target = tmp_path / "app/data/agent"
-    target.mkdir(parents=True)
-    stage = tmp_path / "stage"
-    stage.mkdir()
-    (stage / "first").write_bytes(b"new")
-    (stage / "second").write_bytes(b"new")
-    digest = sha256(stage / "first")
-    (stage / "SHA256.json").write_text(json.dumps({"first": digest, "second": digest}))
-    (target / "second").write_bytes(b"recording")
-    with pytest.raises(SystemExit, match="other content"):
-        live.seed_run("agent", stage)
-    assert not (target / "first").exists()
-    assert (target / "second").read_bytes() == b"recording"
-    (stage / "SHA256.json").write_text(json.dumps({"first": digest, "link/second": digest}))
-    (target / "link").symlink_to(tmp_path, target_is_directory=True)
-    with pytest.raises(SystemExit, match="symlink"):
-        live.seed_run("agent", stage)
-    assert not (target / "first").exists()
-    (stage / "SHA256.json").write_text(json.dumps({"first": digest, "second/child": digest}))
-    with pytest.raises(SystemExit, match="not a directory"):
-        live.seed_run("agent", stage)
-    assert not (target / "first").exists()
-
-
-def test_concurrent_seed_destination_creation_is_not_overwritten(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(live, "APP", tmp_path / "app")
-    stage = tmp_path / "stage"
-    stage.mkdir()
-    (stage / "input").write_bytes(b"new")
-    (stage / "SHA256.json").write_text(json.dumps({"input": sha256(stage / "input")}))
-    target = tmp_path / "app/data/agent/input"
-    link = os.link
-
-    def concurrent(src: Any, dst: Any) -> None:
-        target.write_bytes(b"recording")
-        return link(src, dst)
-
-    monkeypatch.setattr(os, "link", concurrent)
-    with pytest.raises(FileExistsError):
-        live.seed_run("agent", stage)
-    assert target.read_bytes() == b"recording"
-
-
-@pytest.mark.local
-def test_helper_after_killed_client_cannot_reuse_completed_pod(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    store = tmp_path / "pods.json"
-    store.write_text("{}")
-
-    def fake(*args: str, stdin: str | None = None) -> str:
-        pods = json.loads(store.read_text())
-        if args[0] in ("apply", "create"):
-            assert stdin is not None
-            pod = json.loads(stdin)
-            name = pod["metadata"].get("name") or pod["metadata"]["generateName"] + str(len(pods))
-            if args[0] == "create" and name in pods:
-                raise RuntimeError("already exists")
-            pods[name] = "Succeeded"
-            store.write_text(json.dumps(pods))
-            return json.dumps({"metadata": {"name": name}})
-        if args[0] == "get":
-            return str(pods[args[2]])
-        if args[0] == "logs":
-            return args[1]
-        if args[0] == "delete":
-            pods.pop(args[2])
-            store.write_text(json.dumps(pods))
-            return ""
-        raise AssertionError(args)
-
-    monkeypatch.setattr(live, "kubectl", fake)
-
-    def install(stop: Callable[[], None]) -> None:
-        def interrupted(*args: str, **kw: Any) -> str:
-            if args[0] == "delete":
-                stop()
-            return fake(*args, **kw)
-
-        monkeypatch.setattr(live, "kubectl", interrupted)
-
-    killed_at(lambda: live.run_pod("seed-agent", {}), install)
-    leftover = set(json.loads(store.read_text()))
-    log, ok = live.run_pod("seed-agent", {})
-    assert ok and log not in leftover
-
-
-@pytest.fixture
-def passing_gate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType, ModuleType, ModuleType]:
-    from gate.agent import campaigns, harness
-    from sandbox import session
-
-    frozen = tmp_path / "audit/stage3/harness.json"
-    frozen.parent.mkdir(parents=True)
-    frozen.write_text(json.dumps({"harness": "frozen"}))
-    monkeypatch.setattr(live, "REPO", tmp_path)
-    monkeypatch.setattr(harness, "harness_hash", lambda: "frozen")
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: SimpleNamespace(returncode=0, stdout="passed"))
-    monkeypatch.setattr(live, "view", lambda: ["view"])
-    monkeypatch.setattr(campaigns, "windows", lambda: {"five_hour": 0.1})
-    monkeypatch.setattr(live, "reach", lambda h, p: h == "api.anthropic.com")
-    monkeypatch.setattr(session, "workspace", lambda *a: None)
-
-    def run(work: Path, *a: Any) -> dict[str, Any]:
-        (work / "transcript.jsonl").write_text(json.dumps({"type": "result", "is_error": False, "result": "READY"}))
-        return {"stopped": "finished", "exit": 0}
-
-    monkeypatch.setattr(session, "run", run)
-    return harness, campaigns, session
-
-
-@pytest.mark.parametrize("failure", ["tests", "harness", "session", "windows", "network", "view"])
-def test_gate_exits_nonzero_with_named_failure(
-    passing_gate: tuple[ModuleType, ModuleType, ModuleType],
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-    failure: str,
-) -> None:
-    harness, campaigns, session = passing_gate
-    if failure == "tests":
-        monkeypatch.setattr(subprocess, "run", lambda *a, **kw: SimpleNamespace(returncode=1, stdout="failed"))
-    elif failure == "harness":
-        monkeypatch.setattr(harness, "harness_hash", lambda: "different")
-    elif failure == "session":
-        monkeypatch.setattr(session, "run", lambda *a: {"stopped": "turn limit", "exit": 1})
-    elif failure == "windows":
-
-        def broken() -> Never:
-            raise RuntimeError("unavailable")
-
-        monkeypatch.setattr(campaigns, "windows", broken)
-    elif failure == "network":
-        monkeypatch.setattr(live, "reach", lambda *a: True)
-    else:
-        monkeypatch.setattr(live, "view", lambda: [])
-    with pytest.raises(SystemExit) as error:
-        live.gate_run(json.dumps(live.TARGETS))
-    assert error.value.code
-    assert failure in str(error.value) + capsys.readouterr().out
-
-
-@pytest.mark.parametrize(
-    "result", [{"is_error": True, "result": "READY"}, {"is_error": False, "result": "NOT READY"}, {}]
-)
-def test_gate_refuses_unsuccessful_session_results(
-    passing_gate: tuple[ModuleType, ModuleType, ModuleType], monkeypatch: pytest.MonkeyPatch, result: dict[str, Any]
-) -> None:
-    _, _, session = passing_gate
-
-    def run(work: Path, *a: Any) -> dict[str, Any]:
-        (work / "transcript.jsonl").write_text(json.dumps({"type": "result"} | result))
-        return {"stopped": "finished", "exit": 0}
-
-    monkeypatch.setattr(session, "run", run)
-    with pytest.raises(SystemExit, match="session"):
-        live.gate_run(json.dumps(live.TARGETS))
-
-
-def test_gate_requires_model_api_reachable(
-    passing_gate: tuple[ModuleType, ModuleType, ModuleType], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(live, "reach", lambda *a: False)
-    with pytest.raises(SystemExit, match="network"):
-        live.gate_run(json.dumps(live.TARGETS))
-
-
-def test_gate_accepts_all_passing_checks(passing_gate: tuple[ModuleType, ModuleType, ModuleType]) -> None:
-    live.gate_run(json.dumps(live.TARGETS))
-
-
-def test_gate_propagates_failed_helper(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(live, "REPO", tmp_path)
-    (tmp_path / "audit/cluster").mkdir(parents=True)
-    monkeypatch.setattr(live, "run_pod", lambda *a: ("tests failed", False))
-    with pytest.raises(SystemExit, match="gate"):
-        live.gate("sha256:A")
 
 
 def changing_mirror(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
@@ -691,21 +382,17 @@ def test_manifests_keep_the_boundaries() -> None:
     for name in live.WORKLOADS:
         m = live.manifest(name, "sha256:0")
         spec = m["spec"].get("template", m["spec"].get("jobTemplate", {}).get("spec", {}).get("template"))["spec"]
-        c, runner = spec["containers"][0], live.WORKLOADS[name][3]
+        c = spec["containers"][0]
         claims = {v["persistentVolumeClaim"]["claimName"] for v in spec["volumes"] if "persistentVolumeClaim" in v}
         assert claims <= set(live.CLAIMS) | {"mirror"} and not claims & {"inputs", "results"}
-        assert [e["valueFrom"]["secretKeyRef"]["key"] for e in c["env"] if e["name"] == "CLAUDE_CODE_OAUTH_TOKEN"] == (
-            [runner] if runner else []
-        )
-        assert (spec.get("hostUsers") is False) == bool(runner)
+        assert "env" not in c and "hostUsers" not in spec
         assert ("keys" in {v["name"] for v in spec["volumes"]}) == (name == "datalayer")
-        assert spec["securityContext"]["seccompProfile"]["type"] == ("Localhost" if runner else "RuntimeDefault")
+        assert spec["securityContext"]["seccompProfile"]["type"] == "RuntimeDefault"
         assert c["securityContext"]["readOnlyRootFilesystem"] and c["securityContext"]["capabilities"] == {
             "drop": ["ALL"]
         }
         assert not spec["automountServiceAccountToken"] and spec["priorityClassName"] == live.NAMESPACE
         assert c["image"].startswith(REGISTRY + "@sha256:")
-    assert {n for n, w in live.WORKLOADS.items() if w[3]} == {"agent-series"}
     json.dumps([live.manifest(n, "sha256:0") for n in live.WORKLOADS])
 
 

@@ -1,34 +1,22 @@
 # CLUSTER: the live workloads on the homelab cluster
 
 The recorders and the mirror run on the homelab's k3s cluster (1.36, containerd 2.3), so this PC can be off without
-stopping them. The agent series (stages 3 and 4) has finished. Batch Jobs run in namespace `moneymachine`,
+stopping them. Batch Jobs run in namespace `moneymachine`,
 submitted from this PC, inputs and results on its NFS. The Oracle VM recorded independently until its retirement on 2026-11-22; it now only holds the forward window's Hyperliquid day files until 2027-02-01.
 
-Agent sessions run in bubblewrap with private unix sockets inside runner pods that have their own user namespace. The
-CLI's credential reaches a session as `CLAUDE_CODE_OAUTH_TOKEN`, passed by `sandbox/session.py`.
-
-Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this repo builds against it.
+Section 1 is what the Homelab repo (Flux) builds; sections 2, 5 and 6 are what this repo builds against it.
 
 ## 1. Homelab objects
 
-- **Namespace** `moneymachine-live`, Pod Security `enforce: baseline` with `warn` and `audit: restricted`: baseline
-  admits `procMount: Unmasked` for user-namespaced pods, which restricted refuses. No volume of `moneymachine` is mounted in it, so
+- **Namespace** `moneymachine-live`, Pod Security `enforce: baseline` with `warn` and `audit: restricted`. No volume of `moneymachine` is mounted in it, so
   no licensed kernel-only data reaches it.
-- **Node profiles**, installed on prodesk7 only, for the runner pods: the Localhost seccomp profile
-  `profiles/moneymachine-sandbox.json`, RuntimeDefault plus what bubblewrap needs (`unshare`, `clone` and `clone3` with
-  namespace flags, `mount`, `pivot_root`, `umount2`); and the Localhost AppArmor profile `moneymachine-sandbox`,
-  allowing `userns` creation and those mounts (Ubuntu 26.04 restricts unprivileged user namespaces).
-  prodesk7 also sets `kernel.apparmor_restrict_unprivileged_userns=0` (live and persistent): Ubuntu's restriction
-  otherwise denies a nested user namespace's uid map under any pod profile (`audit/cluster/gate-diagnosis.md`).
 - **PriorityClass** `moneymachine-live`: value −50, `preemptionPolicy: Never`, so homelab services always win.
 - **PVCs**, local-path, ReadWriteOnce, bound on the first pod's node (prodesk7), and not backed up: `hl` 50Gi (retained, its recorder retired 2026-11-22), `sources` 5Gi, `datalayer` 20Gi, `ws` 300Gi (not mirrored: its only copy, the human's choice of 2026-11-14), `thesis`
   20Gi, `agent` 20Gi. Every SQLite ledger lives on one of them, never on NFS.
 - **PV and PVC** `mirror`: NFS from this PC, `/srv/moneymachine/mirror`, ReadWriteMany, 200Gi. This PC's NixOS
   configuration exports that directory beside `inputs` and `results`. It holds the only copy of the live data.
-- **Secrets**, created by the advisor with kubectl from local files, outside Git:
-  - `claude-token`: key `CLAUDE_CODE_OAUTH_TOKEN`, a `claude setup-token` token of the Cornell account; key `TAMU`, the TAMU account's, which only `agent-series` reads (as `CLAUDE_CODE_OAUTH_TOKEN_TAMU` and `_CORNELL`; `wait_for_room` sets `CLAUDE_CODE_OAUTH_TOKEN` to the account it picks);
-  - `datalayer-keys`: one key `.keys.env`, the lines `BLS_API_KEY`, `BEA_API_KEY`, `EIA_API_KEY` and `SEC_USER_AGENT`
-    (the datalayer feeds' declared `auth`). No `DATABENTO_API_KEY` and no FRED key.
+- **Secret** `datalayer-keys`, created by the advisor with kubectl from a local file, outside Git: one key `.keys.env`, the lines `BLS_API_KEY`, `BEA_API_KEY`, `EIA_API_KEY` and `SEC_USER_AGENT`
+  (the datalayer feeds' declared `auth`). No `DATABENTO_API_KEY` and no FRED key.
 - **RBAC**: ServiceAccount `deployer`, its kubeconfig at this PC's `~/.kube/moneymachine-live.yaml`, may create, get, list, watch, update, patch and
   delete statefulsets, jobs, cronjobs and pods; read pods/log and events; and read PVCs and the quota. It cannot read
   Secrets. Its scope is `moneymachine-live` only. It can therefore mount
@@ -46,7 +34,6 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 |---|---|---|---|---|---|
 | `sources` | StatefulSet | `cli sources-record data/sources_live` | `sources` | none | 300 s |
 | `datalayer` | StatefulSet | `cli datalayer-record data/datalayer` | `datalayer` | `datalayer-keys` | 300 s |
-| `agent-series` | Job | `cli agent-null swarm` (stage 4's C4.5) | `agent` | `claude-token` | 9,000 s |
 | `ws` | StatefulSet | `mmrec run data/ws` (`recorder/RECORDER.md`) | `ws` | none | 30 s |
 | `vault` | CronJob, hourly at :07 | `mmvault run data/ws --user 0x53375ca9…2a06` (`recorder/VAULT.md`) | `ws` | none | 30 s |
 | `mirror` | CronJob, every 10 min | section 5 | the five read-only; `mirror` | none | 600 s |
@@ -55,76 +42,23 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2 to 5 are what this 
 - Each volume is mounted at its repo path (`hl` at `data/live`, `sources` at `data/sources_live`, `datalayer` at
   `data/datalayer`, `thesis` at `data/thesis`, `agent` at `data/agent`), so every command runs as it does here.
 - All run on prodesk7 (a `kubernetes.io/hostname` node selector) with the `moneymachine-live` priority, as uid 1000, gid 100, read-only root and the commands in exec
-  form (Python is PID 1). The series pods add `hostUsers: false`, `procMount: Unmasked` and the Localhost
-  profiles. The recorders and the mirror jobs are ordinary restricted pods with RuntimeDefault: NFS takes no
+  form (Python is PID 1). All are ordinary restricted pods with RuntimeDefault: NFS takes no
   idmapped mounts.
 - **One writer per directory.** Each writer holds an exclusive `flock` on a lock file in its directory and exits if it
-  is held: the series does already, and the recorders take one too. A pod on an
+  is held. A pod on an
   unreachable node is never force-deleted until the node is confirmed down.
-- **Stopping.** On SIGTERM, recorders stop between polls and the series between campaigns. Their waits wake on SIGTERM. Bubblewrap's `--die-with-parent` ends a session with its runner.
-- **Retries.** A restarted series resumes: a campaign started and unrecorded is recorded as a crash (counted as a
-  promotion), never rerun. A rollback never reruns a consumed campaign or date.
+- **Stopping.** On SIGTERM, recorders stop between polls. Their waits wake on SIGTERM.
+- **Retries.** A rollback never reruns a consumed date.
 - **Clocks.** `sources` logs the node kernel's own bound on its clock error (`adjtimex`: `maxerror_ms`, `esterror_ms`,
   `unsynced`) every cycle as source "clock", key "kernel". It is a bound the kernel's NTP daemon reports, never an
   offset against anything, and it does not prove freshness. C5.3's 72 h segment reports its maximum and requires
   `unsynced` false and `maxerror_ms` under 1000. The Oracle VM keeps its own timesyncd offset log (`ops/oci/clocklog.py`).
-- **Image** `moneymachine`, one for batch and live, built by `nix build .#image`, pushed and pinned by digest:
-  - contents: the repo at `/app`, the Python env, `mm`, claude-code pinned in the flake at exactly 2.1.304,
-    bubblewrap, sqlite3, and the Nix store database that the sandbox's closure query (`nix-store -qR`)
-    reads;
-  - writable `emptyDir` for `/tmp` and the sessions' work directories;
-  - its `/bin` and `/usr`, which bubblewrap binds into the sandbox, hold what the PC's do: `/bin/sh` and `/usr/bin/env`.
-  The dev shell carries the same claude-code, so the harness hash computed here equal the
-  pod's. Each result records the image digest beside the frozen hashes, not inside them.
-- **Seeding.** `mm` is never in the image (its identity embeds its build path). `ops/live.py seed` delivers the exact
-  bytes: files go through the mirror export, and a pod copies
-  them into the volume and checks every sha256. It never overwrites a file with other content. The series finds `mm`
-  through `CARGO_TARGET_DIR`.
-- **Requests and limits**: recorders 100m and 256Mi (limit 512Mi); series 1 CPU and 3Gi
-  (6Gi); mirror jobs 200m and 256Mi (512Mi). Each emptyDir is capped at 2Gi. Capacity alarms: section 5.
+- **Image** `moneymachine`, built by `nix build .#image`, pushed and pinned by digest: the repo at `/app`, the Python
+  env, sqlite3, and a writable `emptyDir` for `/tmp`. Its `/bin` and `/usr` hold what the PC's do: `/bin/sh` and
+  `/usr/bin/env`.
+- **Requests and limits**: recorders 100m and 256Mi (limit 512Mi); mirror jobs 200m and 256Mi (512Mi). Each emptyDir is capped at 2Gi. Capacity alarms: section 5.
 - **Availability.** One node holds every volume, so a prodesk7 outage stops everything, and its disk holds the only copy of what the mirror has not yet copied. The Oracle VM is the only
   independent recorder, and only for Hyperliquid.
-
-**`agent-series`** runs a series' declared campaigns (`gate/agent/campaigns.py`, `COHORTS`): stage 4's C4.5,
-logged in `agent/swarm-null-3.jsonl` (v1's and v2's `swarm-null*.jsonl` and stage 3's `agent-null*.jsonl` logs stay, their records). N2's funding source comes from
-the blob batch Jobs stage, seeded once into the volume under its frozen sha256:
-```
-python ops/live.py seed <digest> agent /srv/moneymachine/inputs/d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39:inputs/d07162b80359580d73d78934aa2cba4a47d6e0ce7c14153d6f32ca2adf295c39
-```
-Before its first campaign it loads that blob, the cost cells and `mm` (run once, its sha256 in every row); if one
-fails, it exits with nothing started.
-
-## 3. Credentials and usage
-
-The series pods take `CLAUDE_CODE_OAUTH_TOKEN` from `claude-token`, and `sandbox/session.py` passes it into
-each session's cleared environment. That is the only way a session gets a credential: no credential file is copied.
-Pacing (`wait_for_room`) runs in the series pod and reads each account's windows, TAMU first; it runs the next campaign on the first with room, and the series log records the account's name, never
-the token. Recorders hold no credential but `datalayer-keys`.
-
-## 4. Agent sessions
-
-`sandbox/session.py` runs `claude -p` in bubblewrap (`--unshare-all`, cleared environment, read-only store closures,
-workspace and private HOME, unix sockets for the client and the egress relay allowing only `api.anthropic.com`). The
-egress relay is a hostname-level CONNECT allowlist, not an inference-only gateway. The token is visible to the agent,
-in its own environment. The pod adds an outer layer: its own user namespace,
-the network policy above, and no service account token.
-
-**Gate**, all in the deployed pod and never repaired with `privileged`, host namespaces or added capabilities:
-- A sandboxed session in the runner pod authenticates with the token alone, as the intended account and model, and the
-  pacing probe reads that account's windows.
-- Stage 3's isolation test reruns there: the client is immutable, there is no repo, ledger or `data/`, no other
-  session's files, and no direct network.
-- It also records the sandboxed process's UID/GID maps, capabilities, namespaces, mount table and `/proc`, beside
-  the same record taken on this PC. Any difference is explained or fixed.
-- The seccomp and AppArmor profiles are committed in full. A missing profile makes the pod fail to start.
-- `procMount: Unmasked`: under `Default`, bubblewrap's `/proc` mount fails (`audit/cluster/gate-diagnosis.md`).
-- Signals: processes in the pod must be able to signal their own children (the harness ends a session by killing
-  bubblewrap, and bubblewrap's reaper ends by its parent-death signal), so the AppArmor profile allows signals among its
-  own, stacked label included.
-- From the runner pod, the network policy is tested on the cluster's actual dataplane: node addresses and their
-  services, the API server, the LAN, this PC's NFS, IPv6, and a homelab service's public address all refused.
-- The stage 3 harness hash is computed in the pod. Each launch checks it against the frozen
-  one.
 
 ## 5. The mirror on this PC: the live data's only copy
 

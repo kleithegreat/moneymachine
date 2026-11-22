@@ -138,18 +138,14 @@
         });
 
       packages = forAll (pkgs: let system = pkgs.stdenv.hostPlatform.system; in {
-        # The cluster's one image (CLAUDE.md, heavy jobs): the research environment and this commit's tree; `mm` is
-        # staged beside it as a content-addressed input, never built here (its identity embeds its build path).
-        # The live workloads (CLUSTER.md) run agent sessions in bubblewrap, which binds /bin and /usr into the sandbox:
-        # those hold only /bin/sh and /usr/bin/env, as on the dev hosts, and every tool is on PATH. The Nix database
-        # serves the sandbox's closure query, read-only; the tools reach it through a file naming them.
+        # The cluster's one image (CLAUDE.md, heavy jobs): the research environment and this commit's tree. The
+        # workloads find every tool on PATH; /bin and /usr hold only /bin/sh and /usr/bin/env, as on the dev hosts.
         image = let
-          tools = with pkgs; [ (pythonFor pkgs) coreutils util-linux self.packages.${system}.claude-code bubblewrap sqlite
-                               nix self.packages.${system}.mmrec cacert ];
-        in pkgs.dockerTools.buildLayeredImageWithNixDb {
+          tools = with pkgs; [ (pythonFor pkgs) coreutils util-linux sqlite self.packages.${system}.mmrec cacert ];
+        in pkgs.dockerTools.buildLayeredImage {
           name = "moneymachine";
           tag = self.shortRev or "dirty";
-          contents = [ pkgs.dockerTools.binSh pkgs.dockerTools.usrBinEnv (pkgs.writeTextDir "share/tools" (toString tools)) ];
+          contents = [ pkgs.dockerTools.binSh pkgs.dockerTools.usrBinEnv ] ++ tools;
           extraCommands = ''
             mkdir -p app scratch tmp etc && cp -r ${self} app/repo
             printf 'root:x:0:0::/root:/bin/sh\nlive:x:1000:100::/scratch:/bin/sh\n' > etc/passwd
@@ -162,8 +158,6 @@
               "HOME=/scratch"
               "PYTHONDONTWRITEBYTECODE=1"
               "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
-              "NIX_REMOTE=local?read-only=true"
-              "NIX_CONFIG=extra-experimental-features = read-only-local-store"
               "PATH=${pkgs.lib.makeBinPath tools}:/bin:/usr/bin"
             ];
           };
