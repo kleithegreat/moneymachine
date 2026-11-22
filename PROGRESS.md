@@ -51,7 +51,7 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
    - **Recorder:** the lint gate and the six catch-alls.
 2. **Study 1:** runs to its end (about 2026-11-23), then its report.
    - **After a reboot**, restart the runner: `systemd-run --user --unit mm-study1` from `../mm-s1-arms`, running `nix develop -c python -m gate.control.runner` with bubblewrap (`nix build --inputs-from . nixpkgs#bubblewrap`) first on `PATH`, `CARGO_TARGET_DIR=~/.cache/mm-study1/k`, `TMPDIR=~/.cache/mm-study1/tmp`, `CLAUDE_CODE_OAUTH_TOKEN_CORNELL`, output appended to `~/.cache/mm-study1/runner.log`.
-3. **The paper, free-standing and academic:** rewritten on `paper-rewrite` (`../mm-paper`, started by the human 2026-11-21); GPT-6.2's accuracy review in, its fixes next (Neon through agy, the human), then the merge.
+3. **The paper** ("The Confirmation Wall in Agentic Trading Research"): rewritten as a free-standing academic work and merged 2026-11-22 after three accuracy checks by GPT-6.2 (`audit/reviews/2026-11-2*-gpt62-paper-accuracy*.md`). Study results are added as each study reports.
 4. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. Stage 7 parked; stages 8 and 9 superseded.
 
 ### Finished
