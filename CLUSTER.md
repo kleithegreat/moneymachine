@@ -1,7 +1,7 @@
 # CLUSTER: the live workloads on the homelab cluster
 
 The recorders and the mirror run on the homelab's k3s cluster (1.36, containerd 2.3), so this PC can be off without
-stopping them. The Oracle VM recorded independently until its retirement on 2026-11-22; it now only holds the forward window's Hyperliquid day files until 2027-02-01.
+stopping them.
 
 Section 1 is what the Homelab repo (Flux) builds; sections 2, 5 and 6 are what this repo builds against it.
 
@@ -85,8 +85,7 @@ file's source over its mirrored length, against the manifest. It refuses a missi
 expected volumes, including an entirely empty mirror.
 
 When this PC is off, runs fail and the next one catches up. Until then, prodesk7's volumes hold the only copy of
-anything newer. On this PC, each mirrored recorder is one more host directory, read like `data/live-oci`'s through
-its manifest, and staged into batch inputs by hash.
+anything newer.
 
 ### Capacity guard
 
@@ -100,9 +99,7 @@ prodesk7 volumes through their manifests' `capacity` counters and `taken` timest
 capacities, not the local-path PVC requests (which do not enforce storage quotas). Shared filesystems need no
 separate rule. Byte availability excludes blocks reserved from the writer (`statvfs.f_bavail`); inode availability
 uses `f_favail`. Missing, malformed, future-dated or older-than-30-minute reports and unmeasurable filesystems also alarm.
-It also alarms when `data/live-oci/last-pull` (written by each good `ops/oci/pull.sh` run, which on failure only exits
-nonzero) is missing, future-dated or over an hour old: the Oracle VM keeps the only copy of the forward window's
-Hyperliquid days until a pull has run. Nothing stops copying or deletes recordings.
+Nothing stops copying or deletes recordings.
 
 Each unhealthy check exits nonzero, logs its reasons to the user service's journal, and sends a **critical, non-expiring
 desktop notification** with `notify-send`; it repeats hourly until healthy rather than suppressing an acknowledged

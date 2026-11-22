@@ -7,9 +7,13 @@ module R = Mmrec.Rate_limit
 let constant x () = x
 let bases = [ 1.; 2.; 4.; 8.; 16.; 32.; 60.; 60.; 60. ]
 
-let%expect_test "item 7: backoff follows 1, 2, 4 ... 60 s without jitter at the median draw" =
+let%expect_test
+    "item 7: backoff follows 1, 2, 4 ... 60 s without jitter at the median draw"
+  =
   let b = B.create ~random:(constant 0.5) in
-  let delays = Rec_support.Harness.in_order 9 ~f:(fun i -> B.failed b ~now:(Float.of_int i)) in
+  let delays =
+    Rec_support.Harness.in_order 9 ~f:(fun i -> B.failed b ~now:(Float.of_int i))
+  in
   print_s [%sexp (delays : float list)];
   [%expect {| (1 2 4 8 16 32 60 60 60) |}]
 ;;
@@ -17,10 +21,14 @@ let%expect_test "item 7: backoff follows 1, 2, 4 ... 60 s without jitter at the 
 let%expect_test "item 7: jitter is plus or minus 20 percent" =
   let low = B.create ~random:(constant 0.) in
   let high = B.create ~random:(constant 0.999999) in
-  let show b = Rec_support.Harness.in_order 4 ~f:(fun i -> Float.round_decimal (B.failed b ~now:(Float.of_int i)) ~decimal_digits:3) in
+  let show b =
+    Rec_support.Harness.in_order 4 ~f:(fun i ->
+      Float.round_decimal (B.failed b ~now:(Float.of_int i)) ~decimal_digits:3)
+  in
   print_s [%sexp (show low : float list)];
   print_s [%sexp (show high : float list)];
-  [%expect {|
+  [%expect
+    {|
     (0.8 1.6 3.2 6.4)
     (1.2 2.4 4.8 9.6) |}]
 ;;
@@ -51,11 +59,13 @@ let%test_unit "item 7: every delay is within 20 percent of 1, 2, 4 ... 60 (quick
       List.iteri draws ~f:(fun i _ ->
         let delay = B.failed b ~now:(Float.of_int i) in
         let base = Float.min 60. (2. ** Float.of_int i) in
-        assert (Float.( >= ) delay (0.8 *. base -. 1e-9));
-        assert (Float.( <= ) delay (1.2 *. base +. 1e-9))))
+        assert (Float.( >= ) delay ((0.8 *. base) -. 1e-9));
+        assert (Float.( <= ) delay ((1.2 *. base) +. 1e-9))))
 ;;
 
-let%expect_test "item 7: a connection up for 10 minutes resets the backoff, one up for less does not" =
+let%expect_test
+    "item 7: a connection up for 10 minutes resets the backoff, one up for less does not"
+  =
   let b = B.create ~random:(constant 0.5) in
   let d1 = B.failed b ~now:0. in
   B.opened b ~now:d1;
@@ -70,7 +80,9 @@ let%expect_test "item 7: a connection up for 10 minutes resets the backoff, one 
   [%expect {| (1 2 4 1) |}]
 ;;
 
-let%expect_test "item 7: the sequence continues from where it was when the connection was up briefly" =
+let%expect_test
+    "item 7: the sequence continues from where it was when the connection was up briefly"
+  =
   let b = B.create ~random:(constant 0.5) in
   let delays =
     Rec_support.Harness.in_order 5 ~f:(fun i ->
@@ -97,7 +109,10 @@ let max_in_window times ~window_ms =
   !best
 ;;
 
-let%test_unit "item 7: no more than 30 connections in any minute, however often every connection fails" =
+let%test_unit
+    "item 7: no more than 30 connections in any minute, however often every connection \
+     fails"
+  =
   let limiter = R.create ~limit:30 ~window_ms:60_000 in
   let opens = ref [] in
   let clock = ref 0 in
@@ -123,7 +138,9 @@ let%test_unit "item 7: no more than 30 connections in any minute, however often 
   assert (max_in_window !opens ~window_ms:60_000 <= 30)
 ;;
 
-let%test_unit "item 7: a rate limit keeps its bound for any schedule of requests (quickcheck)" =
+let%test_unit
+    "item 7: a rate limit keeps its bound for any schedule of requests (quickcheck)"
+  =
   Base_quickcheck.Test.run_exn
     ~config:{ Base_quickcheck.Test.default_config with test_count = 300 }
     (module struct
@@ -154,10 +171,14 @@ let%test_unit "item 7: a rate limit keeps its bound for any schedule of requests
       assert (max_in_window !booked ~window_ms:60_000 <= limit))
 ;;
 
-let%expect_test "item 7: a rate limit books at once when it can and waits for the window when it cannot" =
+let%expect_test
+    "item 7: a rate limit books at once when it can and waits for the window when it \
+     cannot"
+  =
   let limiter = R.create ~limit:3 ~window_ms:1000 in
   let times =
-    Rec_support.Harness.in_order 8 ~f:(fun i -> R.reserve limiter ~now_ms:(if i < 4 then 0 else 100) ~n:1)
+    Rec_support.Harness.in_order 8 ~f:(fun i ->
+      R.reserve limiter ~now_ms:(if i < 4 then 0 else 100) ~n:1)
   in
   print_s [%sexp (times : int list)];
   [%expect {| (0 0 0 1000 1000 1000 2000 2000) |}]

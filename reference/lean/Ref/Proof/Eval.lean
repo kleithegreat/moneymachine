@@ -54,9 +54,9 @@ theorem evalU_op (N : NumOps α) (p : Program) (m : MState α) (tv : Array (Arra
   all_goals (try obtain ⟨rfl, hb1⟩ := hT a1 c x1 t1 hv1)
   all_goals (try obtain ⟨rfl, hb2⟩ := hT a2 c x2 t2 hv2)
   all_goals clear hT
-  all_goals simp_all [pure, Except.pure, bind, Except.bind, discard_some]
+  all_goals simp_all [pure, Except.pure, bind, Except.bind]
   all_goals (try split) <;> (try simp_all [truth_cases])
-  all_goals (try split) <;> (try simp_all [truth_cases])
+  all_goals (try split) <;> (try simp_all)
 
 omit [Inhabited α] in
 theorem evalU_leaf (N : NumOps α) (p : Program) (m : MState α) (tv : Array (Array (TVal α))) (i c : Nat)

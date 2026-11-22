@@ -160,7 +160,7 @@ theorem latestOf_some (m : Market α) (hA : m.Admissible) (b : Int) (x : Nat × 
   refine ⟨m.bars[j], j, hj', ?_, rfl, by rw [hyo]; exact hix⟩
   have hix' : (m.index m.intervals.size).barAt[(x.1, times[k - 1])]! = j := by
     rw [getElem!_def, hix]
-  rw [if_neg (by simp; omega), getElem!_pos times (k - 1) hk, hix', getElem!_pos m.bars j hj']
+  rw [ite_eq_right (by simp; omega), getElem!_pos times (k - 1) hk, hix', getElem!_pos m.bars j hj']
 
 theorem latestOf_fst (ix : Index α) (bars : Array (BarRow α)) (b : Int) {x y : Nat × α} (h : x.1 = y.1) :
     latestOf ix bars b x = latestOf ix bars b y := by
@@ -179,7 +179,7 @@ theorem assoc_latest (ix : Index α) (bars : Array (BarRow α)) (b : Int) (c : N
     by_cases hx : x.1 = c
     · have : latestOf ix bars b x = some (c, bar') := by
         rw [latestOf_fst ix bars b (y := (c, x.2)) hx]; exact hc x.2
-      simp [List.filterMap_cons, this, assoc?]
+      simp [this, assoc?]
     · have hq' : (c, q) ∈ l := by
         simp only [List.mem_cons] at hq; rcases hq with rfl | hq
         · exact absurd rfl hx
@@ -211,7 +211,7 @@ theorem fold_set (l : List (Nat × BarRow α)) (i : Nat) (v : α) (hv : ∀ z �
         · exact Or.inl ⟨z, hz, hzi⟩
       · right
         rw [Array.set!_eq_setIfInBounds, getElem!_pos _ i (by simpa using hi), Array.getElem_setIfInBounds hi,
-          if_neg hy, ← getElem!_pos mk i hi, h]
+          ite_eq_right hy, ← getElem!_pos mk i hi, h]
 
 /-- After the marks loop, a listed coin's mark is its latest bar's close. -/
 theorem marks_set (ix : Index α) (bars : Array (BarRow α)) (b : Int) (held : List (Nat × α)) (mk : Array α)

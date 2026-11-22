@@ -19,7 +19,7 @@ strict = true
 follow_imports = "skip"
 
 [[tool.mypy.overrides]]
-module = ["pytest.*", "_pytest.*", "hypothesis.*"]
+module = ["pytest.*", "_pytest.*"]
 follow_imports = "normal"
 
 [[tool.mypy.overrides]]

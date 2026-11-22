@@ -33,6 +33,7 @@ theorem forIn_range_to {σ : Type} (n : Nat) (init : σ) (f : Nat → σ → Id 
     (hP : ∀ x, I n x → P x) : P (forIn (m := Id) (List.range' 0 n) init f) :=
   hP _ (forIn_range0 n init f I h0 hf)
 
+omit [Inhabited α] in
 /-- An operator node's pointwise value reads only its arguments' rows and the inputs. -/
 theorem eval_rows (N : NumOps α) (p : Program) (hp : p.WF) {m₁ m₂ : MState α} {a : Nat}
     (hv : ∀ b < a, m₁.vals[b]! = m₂.vals[b]!)
@@ -111,6 +112,7 @@ structure Done (N : NumOps α) (p : Program) (L : Array Bool) (m : MState α) (k
   maxKnown : s.maxKnown = m.maxKnown
   rows : ∀ a < k, RowOK N p L s a
 
+omit [Inhabited α] in
 /-- Writing row k keeps the rows before it done. -/
 theorem Done.write {N : NumOps α} {p : Program} (hp : p.WF) {L : Array Bool} {m : MState α} {k : Nat} {s y : MState α}
     (h : Done N p L m k s) (hy : Shape p L y) (hv : ∀ b ≠ k, y.vals[b]! = s.vals[b]!) (hf : y.funding = s.funding)
@@ -129,12 +131,14 @@ theorem Done.write {N : NumOps α} {p : Program} (hp : p.WF) {L : Array Bool} {m
 omit [Inhabited α] in
 theorem modify_ne {β : Type} [Inhabited β] (xs : Array β) {k b : Nat} (f : β → β) (h : b ≠ k) :
     (xs.modify k f)[b]! = xs[b]! := by
-  simp only [getElem!_def, Array.getElem?_modify, if_neg (Ne.symm h)]
+  simp only [getElem!_def, Array.getElem?_modify, ite_eq_right (Ne.symm h)]
 
+omit [Inhabited α] in
 theorem bind_keep_ite (N : NumOps α) (b : Bool) (v : Val α) :
     (if b = true then v else none).bind N.keep = if b = true then v.bind N.keep else none := by
   cases b <;> rfl
 
+omit [Inhabited α] in
 /-- One node's step keeps the tick's invariant and writes its row. -/
 theorem tickNode_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool) (hour : Int) (m : MState α)
     {k : Nat} (hk : k < p.nodes.size) {s : MState α} (hd : Done N p L m k s) (hh : s.hour = hour) :
@@ -166,7 +170,7 @@ theorem tickNode_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool)
         rw [get_modify_set]
         by_cases hcc : c' = c
         · subst hcc
-          simp only [true_and, hkt, hct, and_self, ite_true]
+          simp only [hkt, hct, and_self, ite_true]
           exact ⟨hv, hl⟩
         · simp only [hcc, and_false, ite_false]
           exact hE c' (by omega)
@@ -353,7 +357,7 @@ theorem tickNode_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool)
       · rw [get_modify_set]
         by_cases hcc : c' = c
         · subst hcc
-          simp only [true_and, hkt, hct, and_self, ite_true]
+          simp only [hkt, hct, and_self, ite_true]
           refine ⟨fin_keep _ _, fun hl => ?_, fun hpt => ?_⟩
           · cases ow <;> simp [hl]
           · have hnw : p.nodes[k]!.isWin = false := by
@@ -383,6 +387,7 @@ theorem tickNode_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool)
           rw [hnone, hL]
           exact ⟨Or.inl rfl, fun _ => rfl, fun _ => rfl⟩
 
+omit [Inhabited α] in
 theorem tick_spec (N : NumOps α) (p : Program) (hp : p.WF) (L : Array Bool) (hour : Int) (m : MState α)
     (hs : Shape p L m) : Done N p L m p.nodes.size (m.tick N p L hour) ∧ (m.tick N p L hour).hour = hour := by
   unfold MState.tick

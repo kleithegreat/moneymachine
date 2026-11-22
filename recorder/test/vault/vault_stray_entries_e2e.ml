@@ -17,8 +17,12 @@ let plant_strays day_dir =
   let sub = Filename.concat day_dir "stray_subdir" in
   Core_unix.mkdir_p sub;
   Out_channel.write_all (Filename.concat sub "ignored.jsonl.zst") ~data:"not valid zstd\n";
-  Out_channel.write_all (Filename.concat day_dir "notes.txt") ~data:"stray non-recording file\n";
-  Out_channel.write_all (Filename.concat day_dir "00.jsonl.zst.tmp") ~data:"partial temp file\n"
+  Out_channel.write_all
+    (Filename.concat day_dir "notes.txt")
+    ~data:"stray non-recording file\n";
+  Out_channel.write_all
+    (Filename.concat day_dir "00.jsonl.zst.tmp")
+    ~data:"partial temp file\n"
 ;;
 
 let () =
@@ -50,10 +54,16 @@ let () =
     let%bind stray2 = V.run ~root:root_stray ~fake ~now_ms:t2 in
     V.check_exit stray2 ~expected:0 "second run with stray entries";
     H.check
-      (List.equal Int.equal (V.stored_tids ~root:root_stray) (V.stored_tids ~root:root_clean))
+      (List.equal
+         Int.equal
+         (V.stored_tids ~root:root_stray)
+         (V.stored_tids ~root:root_clean))
       "stored fill identities differ when stray entries are present";
     H.check
-      (List.equal [%equal: string * int] (V.stored_funding ~root:root_stray) (V.stored_funding ~root:root_clean))
+      (List.equal
+         [%equal: string * int]
+         (V.stored_funding ~root:root_stray)
+         (V.stored_funding ~root:root_clean))
       "stored funding identities differ when stray entries are present";
     H.check
       (V.watermark root_stray = V.watermark root_clean)
@@ -64,7 +74,11 @@ let () =
       (List.equal Yojson.Safe.equal stray_events clean_events)
       (sprintf
          "events with stray entries differ from clean run:\nstray: %s\nclean: %s"
-         (String.concat ~sep:"; " (List.map stray_events ~f:Yojson.Safe.to_string))
-         (String.concat ~sep:"; " (List.map clean_events ~f:Yojson.Safe.to_string)));
+         (String.concat
+            ~sep:"; "
+            (List.map stray_events ~f:(fun event -> Yojson.Safe.to_string event)))
+         (String.concat
+            ~sep:"; "
+            (List.map clean_events ~f:(fun event -> Yojson.Safe.to_string event))));
     V.stop fake)
 ;;

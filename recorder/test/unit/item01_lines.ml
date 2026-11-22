@@ -3,7 +3,11 @@
 open Core
 module G = Base_quickcheck.Generator
 
-let replace_crlf s = String.map s ~f:(function '\r' | '\n' -> ' ' | c -> c)
+let replace_crlf s =
+  String.map s ~f:(function
+    | '\r' | '\n' -> ' '
+    | c -> c)
+;;
 
 let%expect_test "item 1: a frame is spliced in byte for byte, CR and LF become spaces" =
   let frame = "{\"channel\":\"trades\",\r\n  \"data\":[{\"px\":\"1.5\"}]\n}" in
@@ -16,7 +20,8 @@ let%expect_test "item 1: a frame is spliced in byte for byte, CR and LF become s
   let json = Yojson.Safe.from_string line in
   print_endline (Yojson.Safe.to_string (Yojson.Safe.Util.member "recv" json));
   print_endline (Yojson.Safe.to_string (Yojson.Safe.Util.member "conn" json));
-  [%expect {|
+  [%expect
+    {|
     1794653999999
     3 |}]
 ;;
@@ -83,7 +88,9 @@ let rec to_yojson = function
   | Obj kvs -> `Assoc (List.map kvs ~f:(fun (k, v) -> k, to_yojson v))
 ;;
 
-let%test_unit "item 1: a pretty-printed frame round-trips to an equal JSON value (quickcheck)" =
+let%test_unit
+    "item 1: a pretty-printed frame round-trips to an equal JSON value (quickcheck)"
+  =
   Base_quickcheck.Test.run_exn
     ~config:{ Base_quickcheck.Test.default_config with test_count = 300 }
     (module struct
@@ -121,13 +128,16 @@ let%expect_test "item 1: an event is a line whose msg carries the event name" =
   print_endline (Yojson.Safe.to_string (Yojson.Safe.Util.member "event" msg));
   print_endline (Yojson.Safe.to_string (Yojson.Safe.Util.member "coin" msg));
   print_endline (Yojson.Safe.to_string (Yojson.Safe.Util.member "recv" json));
-  [%expect {|
+  [%expect
+    {|
     "refused"
     "xyz:TSLA"
     42 |}];
   print_endline (Mmrec.Event.name event);
   [%expect {| refused |}];
   let line = Mmrec.Event.to_line ~recv_ms:43 ~conn:None event in
-  print_endline (Yojson.Safe.to_string (Yojson.Safe.Util.member "conn" (Yojson.Safe.from_string line)));
+  print_endline
+    (Yojson.Safe.to_string
+       (Yojson.Safe.Util.member "conn" (Yojson.Safe.from_string line)));
   [%expect {| null |}]
 ;;

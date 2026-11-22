@@ -5,7 +5,9 @@
  (modules mmrec)
  (libraries mmrec core core_unix async async_unix)
  (preprocess
-  (pps ppx_jane)))
+  (pps ppx_jane))
+ (lint
+  (pps ppx_js_style)))
 
 (executable
  (name mmvault)
@@ -14,4 +16,6 @@
  (modules mmvault)
  (libraries mmrec core core_unix async async_unix)
  (preprocess
-  (pps ppx_jane)))
+  (pps ppx_jane))
+ (lint
+  (pps ppx_js_style)))

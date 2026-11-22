@@ -82,7 +82,9 @@ let zstd_binary_decode path =
   | Error _ -> failwithf "zstd -dc failed on %s" path ()
 ;;
 
-let lines_of_text text = List.filter (String.split_lines text) ~f:(fun l -> not (String.is_empty l))
+let lines_of_text text =
+  List.filter (String.split_lines text) ~f:(fun l -> not (String.is_empty l))
+;;
 
 let whole_lines text =
   match String.rindex text '\n' with
@@ -192,8 +194,15 @@ let cut_copy ~src ~dst ~bytes =
 let hour_of_ms ms =
   let time = Time_ns.of_int_ns_since_epoch (ms * 1_000_000) in
   let date, ofday = Time_ns.to_date_ofday time ~zone:Time_float.Zone.utc in
-  let hour = Time_ns.Ofday.to_span_since_start_of_day ofday |> Time_ns.Span.to_hr |> Float.to_int in
-  sprintf "%04d%02d%02d%02d" (Date.year date) (Month.to_int (Date.month date)) (Date.day date) hour
+  let hour =
+    Time_ns.Ofday.to_span_since_start_of_day ofday |> Time_ns.Span.to_hr |> Float.to_int
+  in
+  sprintf
+    "%04d%02d%02d%02d"
+    (Date.year date)
+    (Month.to_int (Date.month date))
+    (Date.day date)
+    hour
 ;;
 
 let faketime_library () =
@@ -212,7 +221,7 @@ let faketime_library () =
 ;;
 
 let faketime_env ~at_ms =
-  let offset_s = ((at_ms - now_ms ()) / 1000) in
+  let offset_s = (at_ms - now_ms ()) / 1000 in
   [ "LD_PRELOAD", faketime_library ()
   ; "FAKETIME", sprintf "%+d" offset_s
   ; "FAKETIME_NO_CACHE", "1"
@@ -236,19 +245,19 @@ let run_all scenarios =
       | Ok () -> None
       | Error exn -> Some (sprintf "[%s] %s" name (Exn.to_string exn)))
   in
-  if List.is_empty failures then return () else failwith (String.concat ~sep:"\n" failures)
+  if List.is_empty failures
+  then return ()
+  else failwith (String.concat ~sep:"\n" failures)
 ;;
 
 let main name scenario =
-  upon
-    (Monitor.try_with scenario)
-    (function
-      | Ok () ->
-        printf "PASS %s\n" name;
-        shutdown 0
-      | Error exn ->
-        eprintf "FAIL %s: %s\n" name (Exn.to_string exn);
-        shutdown 1);
+  upon (Monitor.try_with scenario) (function
+    | Ok () ->
+      printf "PASS %s\n" name;
+      shutdown 0
+    | Error exn ->
+      eprintf "FAIL %s: %s\n" name (Exn.to_string exn);
+      shutdown 1);
   never_returns (Scheduler.go ())
 ;;
 
@@ -260,7 +269,8 @@ let channel_dirs root =
 
 let all_lines ~root =
   List.concat_map (channel_dirs root) ~f:(fun channel ->
-    List.map (channel_lines ~root ~channel) ~f:(fun (recv, conn, msg) -> channel, recv, conn, msg))
+    List.map (channel_lines ~root ~channel) ~f:(fun (recv, conn, msg) ->
+      channel, recv, conn, msg))
 ;;
 
 let parse_check text =
@@ -268,7 +278,8 @@ let parse_check text =
   |> List.map ~f:(fun line ->
     let fields = String.split line ~on:'\t' in
     match fields with
-    | "gap" :: _ -> fields @ List.init (Int.max 0 (4 - List.length fields)) ~f:(fun _ -> "")
+    | "gap" :: _ ->
+      fields @ List.init (Int.max 0 (4 - List.length fields)) ~f:(fun _ -> "")
     | _ -> fields)
 ;;
 

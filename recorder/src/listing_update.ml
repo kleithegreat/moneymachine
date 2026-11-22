@@ -18,8 +18,11 @@ let add_coin planner coin ~change =
   | Planner.Refused -> [ Record (Event.make "refused" [ "coin", `String coin ]) ]
   | Planner.Added ->
     let subscribes =
-      List.filter_map [ Sub.Trades coin; Sub.L2_book_fast coin; Sub.L2_book coin ] ~f:(fun sub ->
-        Option.map (Planner.conn_of planner sub) ~f:(fun conn -> Subscribe { conn; sub }))
+      List.filter_map
+        [ Sub.Trades coin; Sub.L2_book_fast coin; Sub.L2_book coin ]
+        ~f:(fun sub ->
+          Option.map (Planner.conn_of planner sub) ~f:(fun conn ->
+            Subscribe { conn; sub }))
     in
     let listing =
       Option.to_list
@@ -27,7 +30,10 @@ let add_coin planner coin ~change =
            Record
              (Event.make
                 "listing"
-                [ "coin", `String coin; "dex", `String (dex_of coin); "change", `String change ])))
+                [ "coin", `String coin
+                ; "dex", `String (dex_of coin)
+                ; "change", `String change
+                ])))
     in
     subscribes @ listing
 ;;
@@ -46,17 +52,25 @@ let first_read planner coins =
 ;;
 
 let apply planner ~before ~after =
-  let gone = List.filter before ~f:(fun coin -> not (List.mem after coin ~equal:String.equal)) in
-  let added = List.filter after ~f:(fun coin -> not (List.mem before coin ~equal:String.equal)) in
+  let gone =
+    List.filter before ~f:(fun coin -> not (List.mem after coin ~equal:String.equal))
+  in
+  let added =
+    List.filter after ~f:(fun coin -> not (List.mem before coin ~equal:String.equal))
+  in
   let removals =
     List.concat_map gone ~f:(fun coin ->
       let unsubscribes =
-        List.map (Planner.remove planner ~coin) ~f:(fun (conn, sub) -> Unsubscribe { conn; sub })
+        List.map (Planner.remove planner ~coin) ~f:(fun (conn, sub) ->
+          Unsubscribe { conn; sub })
       in
       let listing =
         Event.make
           "listing"
-          [ "coin", `String coin; "dex", `String (dex_of coin); "change", `String "delisted" ]
+          [ "coin", `String coin
+          ; "dex", `String (dex_of coin)
+          ; "change", `String "delisted"
+          ]
       in
       unsubscribes @ [ Record listing ])
   in

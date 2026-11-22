@@ -4,11 +4,11 @@
 
 type entry =
   { channel : string
-  ; hour : string  (** [YYYYMMDDHH] *)
-  ; bytes : int  (** the compressed size of the hour's files *)
+  ; hour : string (** [YYYYMMDDHH] *)
+  ; bytes : int (** the compressed size of the hour's files *)
   ; files : int
-  ; lines : int  (** the whole lines of the files *)
-  ; truncated : bool  (** whether any file is *)
+  ; lines : int (** the whole lines of the files *)
+  ; truncated : bool (** whether any file is *)
   }
 [@@deriving sexp_of, equal]
 
@@ -23,8 +23,8 @@ type gap =
 [@@deriving sexp_of, equal]
 
 type report =
-  { entries : entry list  (** in no specified order *)
-  ; gaps : gap list  (** by [closed_ms] *)
+  { entries : entry list (** in no specified order *)
+  ; gaps : gap list (** by [closed_ms] *)
   }
 [@@deriving sexp_of, equal]
 

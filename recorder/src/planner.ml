@@ -17,7 +17,8 @@ type outcome =
   | Refused
 
 let create ~connections ~max_subscriptions =
-  if connections < 2 then invalid_argf "planner: %d connections, need at least 2" connections ();
+  if connections < 2
+  then invalid_argf "planner: %d connections, need at least 2" connections ();
   let deep = (connections + 3) / 4 in
   let held = Array.create ~len:connections [] in
   held.(0) <- [ Sub.All_dexs_asset_ctxs ];
@@ -79,8 +80,9 @@ let add t ~coin =
 
 let remove t ~coin =
   let dropped =
-    List.filter_map [ Sub.Trades coin; Sub.L2_book_fast coin; Sub.L2_book coin ] ~f:(fun sub ->
-      Option.map (conn_of t sub) ~f:(fun conn -> conn, sub))
+    List.filter_map
+      [ Sub.Trades coin; Sub.L2_book_fast coin; Sub.L2_book coin ]
+      ~f:(fun sub -> Option.map (conn_of t sub) ~f:(fun conn -> conn, sub))
   in
   List.iter dropped ~f:(fun (conn, sub) ->
     t.held.(conn) <- List.filter t.held.(conn) ~f:(fun held -> not (Sub.equal held sub));

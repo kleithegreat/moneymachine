@@ -4,20 +4,29 @@ open Core
 module H = Mmrec.Conn_health
 
 let actions_to_string actions =
-  List.map actions ~f:(function H.Send_ping -> "ping" | H.Reopen -> "reopen")
+  List.map actions ~f:(function
+    | H.Send_ping -> "ping"
+    | H.Reopen -> "reopen")
   |> String.concat ~sep:","
 ;;
 
-let%expect_test "item 8: after 30 s with nothing received a ping is sent, after 45 s the connection is reopened" =
+let%expect_test
+    "item 8: after 30 s with nothing received a ping is sent, after 45 s the connection \
+     is reopened"
+  =
   let h = H.create ~now_ms:1_000 in
-  let at t = print_endline (sprintf "%d: [%s]" t (actions_to_string (H.poll h ~now_ms:(1_000 + t)))) in
+  let at t =
+    print_endline
+      (sprintf "%d: [%s]" t (actions_to_string (H.poll h ~now_ms:(1_000 + t))))
+  in
   at 0;
   at 29_999;
   at 30_000;
   at 31_000;
   at 44_999;
   at 45_000;
-  [%expect {|
+  [%expect
+    {|
     0: []
     29999: []
     30000: [ping]
@@ -30,12 +39,15 @@ let%expect_test "item 8: anything received starts a new idle spell" =
   let h = H.create ~now_ms:0 in
   assert (List.equal Poly.equal (H.poll h ~now_ms:30_000) [ H.Send_ping ]);
   H.received h ~now_ms:40_000;
-  let at t = print_endline (sprintf "%d: [%s]" t (actions_to_string (H.poll h ~now_ms:t))) in
+  let at t =
+    print_endline (sprintf "%d: [%s]" t (actions_to_string (H.poll h ~now_ms:t)))
+  in
   at 69_999;
   at 70_000;
   at 84_999;
   at 85_000;
-  [%expect {|
+  [%expect
+    {|
     69999: []
     70000: [ping]
     84999: []
@@ -69,7 +81,10 @@ let%test_unit "item 8: a busy connection is neither pinged nor reopened (quickch
         H.received h ~now_ms:!now))
 ;;
 
-let%test_unit "item 8: reopening is reported once the idle time reaches 45 s and never before (quickcheck)" =
+let%test_unit
+    "item 8: reopening is reported once the idle time reaches 45 s and never before \
+     (quickcheck)"
+  =
   Base_quickcheck.Test.run_exn
     ~config:{ Base_quickcheck.Test.default_config with test_count = 200 }
     (module struct

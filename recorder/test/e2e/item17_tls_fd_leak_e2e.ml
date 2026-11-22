@@ -12,7 +12,10 @@ module H = Rec_support.Harness
 module F = Rec_support.Fake_hl
 
 let support file = Filename_unix.realpath (Filename.concat "../support" file)
-let open_fds ~pid = Array.length (Stdlib.Sys.readdir (sprintf "/proc/%d/fd" (Pid.to_int pid)))
+
+let open_fds ~pid =
+  Array.length (Stdlib.Sys.readdir (sprintf "/proc/%d/fd" (Pid.to_int pid)))
+;;
 
 let reason_of msg =
   match Yojson.Safe.Util.member "reason" msg with
@@ -72,7 +75,9 @@ let failing_run ~connections =
   let config =
     { F.default_config with
       rest = F.rest_of_universe (fun () -> [ "C0"; "C1"; "C2" ])
-    ; tls = Some { F.crt_file = support "tls_server.crt"; key_file = support "tls_server.key" }
+    ; tls =
+        Some
+          { F.crt_file = support "tls_server.crt"; key_file = support "tls_server.key" }
     }
   in
   let%bind fake = F.start config in
@@ -84,7 +89,10 @@ let failing_run ~connections =
         [ "run"
         ; root
         ; "--ws-url"
-        ; String.substr_replace_first (F.ws_url fake) ~pattern:"127.0.0.1" ~with_:"localhost"
+        ; String.substr_replace_first
+            (F.ws_url fake)
+            ~pattern:"127.0.0.1"
+            ~with_:"localhost"
         ; "--rest-url"
         ; F.rest_url fake
         ; "--connections"
@@ -101,7 +109,7 @@ let failing_run ~connections =
       if exited ()
       then return ()
       else (
-        let%map _ = H.sigterm_and_wait process in
+        let%map _status, _seconds = H.sigterm_and_wait process in
         ())
     in
     F.stop fake
@@ -110,7 +118,8 @@ let failing_run ~connections =
     let%bind () =
       H.wait_until
         ~timeout_s:60.
-        ~what:(sprintf "%d host-check error events (%d connections)" connections connections)
+        ~what:
+          (sprintf "%d host-check error events (%d connections)" connections connections)
         (fun () ->
            H.check (not (exited ())) "the process exited";
            List.length (host_check_errors ~root) >= connections)
@@ -118,9 +127,13 @@ let failing_run ~connections =
     let%bind fds = settled_fds ~pid:(Process.pid process) in
     let%bind status, _ = H.sigterm_and_wait process in
     H.check (Result.is_ok status) "exit status";
-    H.check (List.is_empty (F.accepts fake)) "a websocket was accepted despite the host check";
+    H.check
+      (List.is_empty (F.accepts fake))
+      "a websocket was accepted despite the host check";
     List.iter (all_errors ~root) ~f:(fun reason ->
-      H.check (names_host_check reason) (sprintf "error event does not name host-check failure: %s" reason));
+      H.check
+        (names_host_check reason)
+        (sprintf "error event does not name host-check failure: %s" reason));
     return (fds, List.length (host_check_errors ~root)))
 ;;
 
@@ -128,17 +141,25 @@ let matching_host_control () =
   let config =
     { F.default_config with
       rest = F.rest_of_universe (fun () -> [ "C0"; "C1"; "C2" ])
-    ; tls = Some { F.crt_file = support "tls_server.crt"; key_file = support "tls_server.key" }
+    ; tls =
+        Some
+          { F.crt_file = support "tls_server.crt"; key_file = support "tls_server.key" }
     }
   in
   let%bind fake = F.start config in
   let root = H.tmp_dir () in
   let%bind process =
-    H.spawn_run ~root ~env:[ "SSL_CERT_FILE", support "tls_server.crt" ] ~extra:[ "--connections"; "2" ] fake
+    H.spawn_run
+      ~root
+      ~env:[ "SSL_CERT_FILE", support "tls_server.crt" ]
+      ~extra:[ "--connections"; "2" ]
+      fake
   in
   let%bind () =
-    H.wait_until ~timeout_s:10. ~what:"control run connects over TLS when host matches" (fun () ->
-      List.length (F.accepts fake) >= 2)
+    H.wait_until
+      ~timeout_s:10.
+      ~what:"control run connects over TLS when host matches"
+      (fun () -> List.length (F.accepts fake) >= 2)
   in
   let%bind status, _ = H.sigterm_and_wait process in
   H.check (Result.is_ok status) "control exit status";
@@ -151,14 +172,19 @@ let () =
     let%bind () = matching_host_control () in
     let%bind few_fds, few_errors = failing_run ~connections:2 in
     let%bind many_fds, many_errors = failing_run ~connections:20 in
-    H.check (few_errors >= 2) (sprintf "the run with 2 connections had %d host-check error events" few_errors);
+    H.check
+      (few_errors >= 2)
+      (sprintf "the run with 2 connections had %d host-check error events" few_errors);
     H.check
       (many_errors >= 20)
-      (sprintf "the run with 20 connections had %d host-check error events, expected >= 20" many_errors);
+      (sprintf
+         "the run with 20 connections had %d host-check error events, expected >= 20"
+         many_errors);
     H.check
       (many_fds <= few_fds + 3)
       (sprintf
-         "open file count %d after %d host-check failures (20 connections), against %d after %d (2 connections)"
+         "open file count %d after %d host-check failures (20 connections), against %d \
+          after %d (2 connections)"
          many_fds
          many_errors
          few_fds

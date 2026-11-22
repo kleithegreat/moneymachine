@@ -96,12 +96,15 @@ theorem Resolved.lift {δ : Int} {T : List (Event α)} {i : Nat} {t : Int} {c : 
 namespace Ledger
 variable {m : Market α} {δ stop : Int} {U : Int → Prop} {T : List (Event α)} {P : List (Order α)} {d : Int}
 
+omit [Inhabited α] in
 theorem weaken {U' : Int → Prop} (h : Ledger m δ stop U T P d) (hU : ∀ t, U t → U' t) : Ledger m δ stop U' T P d :=
   { h with unfilled := fun t c q hu => (h.unfilled t c q hu).imp_right (hU t) }
 
+omit [Inhabited α] in
 theorem mono {d' : Int} (h : Ledger m δ stop U T P d) (hd : d ≤ d') : Ledger m δ stop U T P d' :=
   { h with dmax := fun e he t c hk => Int.le_trans (h.dmax e he t c hk) hd }
 
+omit [Inhabited α] in
 /-- An event that is neither a decision nor a resolution keeps the ledger. -/
 theorem push {e : Event α} (h : Ledger m δ stop U T P d) (hd : dkey e = none) (hr : rkey δ e = none) :
     Ledger m δ stop U (T ++ [e]) P d where
@@ -131,6 +134,7 @@ theorem push {e : Event α} (h : Ledger m δ stop U T P d) (hd : dkey e = none) 
     · exact h.unfilled t c q hu
     · rw [← List.mem_singleton.mp hu] at hr; cases hr
 
+omit [Inhabited α] in
 /-- The first pending order's resolution. -/
 theorem resolve {o : Order α} {e : Event α} (h : Ledger m δ stop U T (o :: P) d) (hd : dkey e = none)
     (hr : rkey δ e = some (o.decided, o.coin)) (hres : Resolves δ o.decided o.coin o.qty e)
@@ -198,6 +202,7 @@ theorem drop (h : Ledger m δ stop U T P d) (hP : ∀ o ∈ P, stop < o.decided 
   cause := h.cause
   unfilled := h.unfilled
 
+omit [Inhabited α] in
 /-- A new decision, no earlier than every decision before it and with a fresh key, and its pending order. -/
 theorem decide {t : Int} {c : Nat} {w q : α} {o : Order α} (h : Ledger m δ stop U T P d) (hdt : d ≤ t)
     (ho : o.decided = t ∧ o.coin = c ∧ o.qty = q) (hnew : ∀ e ∈ T, dkey e ≠ some (t, c)) :
@@ -264,12 +269,14 @@ theorem nil : Ledger m δ stop U [] [] d where
   cause := by simp
   unfilled := by simp
 
+omit [Inhabited α] in
 theorem push' {t : Array (Event α)} {e : Event α} (h : Ledger m δ stop U t.toList P d) (hd : dkey e = none)
     (hr : rkey δ e = none) : Ledger m δ stop U (t.push e).toList P d := by
   rw [Array.toList_push]; exact h.push hd hr
 
 end Ledger
 
+omit [Inhabited α] in
 theorem barAt_none (m : Market α) (coins : Nat) (hA : m.Admissible) {c : Nat} {t : Int}
     (h : (m.index coins).barAt[(c, t)]? = none) : barAt m c t = none := by
   unfold barAt
@@ -290,13 +297,16 @@ def Insolvent (N : NumOps α) (w0 : Int) (E : Array α) (t : Int) : Prop :=
 def Solvent (N : NumOps α) (w0 : Int) (E : Array α) (t : Int) : Prop :=
   ∃ (k : Nat) (e : α), E[k]? = some e ∧ t = w0 + ((k : Int) + 1) * BAR ∧ N.lt N.zero e = true
 
+omit [Inhabited α] in
 theorem get_push {E : Array α} {k : Nat} {e : α} (x : α) (h : E[k]? = some e) : (E.push x)[k]? = some e := by
-  rw [Array.getElem?_push, if_neg (Nat.ne_of_lt (Array.getElem?_eq_some_iff.mp h).1)]; exact h
+  rw [Array.getElem?_push, ite_eq_right (Nat.ne_of_lt (Array.getElem?_eq_some_iff.mp h).1)]; exact h
 
+omit [Inhabited α] in
 theorem Insolvent.push {N : NumOps α} {w0 : Int} {E : Array α} {t : Int} (x : α) (h : Insolvent N w0 E t) :
     Insolvent N w0 (E.push x) t :=
   let ⟨k, e, hk, ht, he⟩ := h; ⟨k, e, get_push x hk, ht, he⟩
 
+omit [Inhabited α] in
 theorem Solvent.push {N : NumOps α} {w0 : Int} {E : Array α} {t : Int} (x : α) (h : Solvent N w0 E t) :
     Solvent N w0 (E.push x) t :=
   let ⟨k, e, hk, ht, he⟩ := h; ⟨k, e, get_push x hk, ht, he⟩
@@ -316,6 +326,7 @@ theorem execute_equity (N : NumOps α) (c : Ctx α) (s r : SState α) (f : Fill 
   | error e => rw [hc] at h; cases h
   | ok u => rw [hc] at h; cases h; rfl
 
+omit [Inhabited α] in
 /-- Fills that are not ordinary, or pushes of other events, keep the solvency of ordinary fills. -/
 theorem solvent_push {N : NumOps α} {w0 : Int} {E : Array α} {t : Array (Event α)} {e : Event α}
     (h : ∀ f, Event.fill f ∈ t.toList → f.why = .fill → Solvent N w0 E f.filled)

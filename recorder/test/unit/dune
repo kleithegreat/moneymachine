@@ -1,7 +1,16 @@
 (library
  (name unit_tests)
- (libraries core core_unix core_unix.sys_unix mmrec rec_support yojson base_quickcheck)
+ (libraries
+  core
+  core_unix
+  core_unix.sys_unix
+  mmrec
+  rec_support
+  yojson
+  base_quickcheck)
  (inline_tests
   (deps %{bin:zstd}))
  (preprocess
-  (pps ppx_jane)))
+  (pps ppx_jane))
+ (lint
+  (pps ppx_js_style)))

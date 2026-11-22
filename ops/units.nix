@@ -1,7 +1,7 @@
 # The user timers that guard the recordings, as a home-manager module (CLAUDE.md, Running things; CLUSTER.md §5). The
 # dotfiles import it as `homeManagerModules.default` of this flake. Each unit runs an app of this flake in the main
 # checkout, so a guard changes by merging into that checkout, as before.
-{ diskguard, ociPull }:
+{ diskguard }:
 { config, lib, ... }:
 let
   checkout = config.services.moneymachine.checkout;
@@ -24,7 +24,5 @@ in
   config.systemd.user = {
     services.mm-diskguard = service "moneymachine disk-space guard" diskguard;
     timers.mm-diskguard = timer "moneymachine disk-space guard, hourly" "hourly";
-    services.mm-oci-pull = service "Pull the cloud HL recorder's files (moneymachine)" ociPull;
-    timers.mm-oci-pull = timer "Pull the cloud HL recorder's files every 10 minutes" "*:0/10";
   };
 }

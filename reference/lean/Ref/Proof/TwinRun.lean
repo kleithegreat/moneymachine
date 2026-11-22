@@ -7,6 +7,7 @@ namespace Ref
 
 variable {α : Type} [Inhabited α]
 
+omit [Inhabited α] in
 theorem shape_size {p : Program} {L L' : Array Bool} {m : MState α} (h : Shape p L m) (hL : L'.size = L.size) :
     Shape p L' m :=
   ⟨h.size, fun a ha => (h.rows a ha).trans hL.symm, h.wins⟩
@@ -14,6 +15,7 @@ theorem shape_size {p : Program} {L L' : Array Bool} {m : MState α} (h : Shape 
 /-- A machine of p over `coins` coins: value rows sized to them, and no window state off window nodes. -/
 def Fits (p : Program) (coins : Nat) (m : MState α) : Prop := Shape p (Array.replicate coins false) m
 
+omit [Inhabited α] in
 theorem fits_init (N : NumOps α) (p : Program) (coins : Nat) : Fits p coins (MState.init N p coins) := by
   refine ⟨by simp [MState.init], fun a ha => ?_, fun a ha hw c => ?_⟩
   · simp only [MState.init]
@@ -35,6 +37,7 @@ theorem fits_deliver {c : Ctx α} {p : Program} {coins : Nat} {s r : SState α} 
   obtain ⟨hv, hw, -⟩ := deliver_keeps_local c s r t h
   exact ⟨hv ▸ hs.size, fun a ha => hv ▸ hs.rows a ha, fun a ha hn => hw ▸ hs.wins a ha hn⟩
 
+omit [Inhabited α] in
 theorem fits_tick (N : NumOps α) {p : Program} (hp : p.WF) {coins : Nat} {L : Array Bool} (hL : L.size = coins)
     (hour : Int) {m : MState α} (hm : Fits p coins m) : Fits p coins (m.tick N p L hour) :=
   shape_size (tick_spec N p hp L hour m (shape_size hm (by simp [hL]))).1.shape (by simp [hL])
@@ -53,6 +56,7 @@ variable {N : NumOps α} {p p' : Program} {i j : Nat} (T : Twin N p p' i j) (m :
   (stop : Int)
 include T
 
+omit [Inhabited α] in
 theorem tick_fits {L : Array Bool} (hL : L.size = m.intervals.size) (hour : Int) {mm : MState α}
     (hm : Fits p m.intervals.size mm) : mm.tick N p' L hour = mm.tick N p L hour :=
   (tick_twin T L hour mm (shape_size hm (by simp [hL]))).1
@@ -61,6 +65,7 @@ theorem tick_fits {L : Array Bool} (hL : L.size = m.intervals.size) (hour : Int)
 def Good (p : Program) (coins i j : Nat) (s : SState α) : Prop :=
   Fits p coins s.machine ∧ s.machine.vals[i]! = s.machine.vals[j]!
 
+omit [Inhabited α] in
 theorem tick_good {L : Array Bool} (hL : L.size = m.intervals.size) (hour : Int) {mm : MState α}
     (hm : Fits p m.intervals.size mm) :
     Fits p m.intervals.size (mm.tick N p L hour) ∧ (mm.tick N p L hour).vals[i]! = (mm.tick N p L hour).vals[j]! :=

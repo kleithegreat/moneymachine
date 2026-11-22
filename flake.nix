@@ -17,7 +17,6 @@
         ruff
         pytest-xdist
         pytest-timeout
-        hypothesis
         lz4
         boto3
       ]);
@@ -42,11 +41,6 @@
           name = "diskguard";
           runtimeInputs = [ (pythonFor linux) linux.libnotify ];
           text = "exec python ops/diskguard.py";
-        };
-        oci-pull = linux.writeShellApplication {
-          name = "oci-pull";
-          runtimeInputs = [ (pythonFor linux) linux.bash linux.coreutils linux.rsync linux.openssh ];
-          text = "exec bash ops/oci/pull.sh";
         };
       };
       # The websocket recorder (recorder/RECORDER.md): OCaml 5 with Jane Street's stack, every library from the pinned
@@ -80,6 +74,17 @@
             '';
             installPhase = "touch $out";
           };
+          style = pkgs.stdenv.mkDerivation {
+            name = "recorder-style";
+            inherit src;
+            nativeBuildInputs = [ o.ocaml o.dune_3 o.findlib o.ocamlformat o.ppx_js_style pkgs.zstd ];
+            buildInputs = testLibs ++ [ o.ppx_js_style pkgs.zstd.dev ];
+            buildPhase = ''
+              export HOME=$TMPDIR DUNE_CACHE=disabled
+              dune build --root . @fmt @check @lint
+            '';
+            installPhase = "touch $out";
+          };
         };
     in
     {
@@ -104,14 +109,6 @@
               bubblewrap
             ];
             shellHook = "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks";
-          };
-          # The HL recorder alone (`python -m cli record`), for hosts that only record (ops/oci).
-          recorder = pkgs.mkShell {
-            packages = [ (pkgs.python313.withPackages (ps: [ ps.httpx ])) ];
-          };
-          # OCI access (the recorder VM, ops/oci).
-          cloud = pkgs.mkShell {
-            packages = [ pkgs.oci-cli ];
           };
         });
 
@@ -233,6 +230,7 @@
           ops = pytestCheck { name = "ops"; paths = "ops"; };
           lean-proofs = self.packages.${system}.refmm;
           mmrec-tests = (mmrecFor pkgs).tests;
+          recorder-style = (mmrecFor pkgs).style;
         };
 
       apps.x86_64-linux =
@@ -255,7 +253,7 @@
           });
         };
 
-      homeManagerModules.default = import ./ops/units.nix { inherit (apps64) diskguard; ociPull = apps64.oci-pull; };
+      homeManagerModules.default = import ./ops/units.nix { inherit (apps64) diskguard; };
 
       formatter = forAll (pkgs: pkgs.nixfmt-rfc-style);
     };

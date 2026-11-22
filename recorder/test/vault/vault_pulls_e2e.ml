@@ -26,7 +26,8 @@ let paging () =
   let%bind fake =
     V.start
       ~on_request:(fun ~request_start:_ ~kind ->
-        if String.equal kind "userFillsByTime" then watermarks_seen := V.watermark root :: !watermarks_seen)
+        if String.equal kind "userFillsByTime"
+        then watermarks_seen := V.watermark root :: !watermarks_seen)
       ()
   in
   let time i = V.nov 2 0 0 + (i * 1000) in
@@ -38,7 +39,8 @@ let paging () =
   let starts = List.map first_three ~f:(fun r -> Option.value_exn r.V.start_ms) in
   H.check
     (List.equal Int.equal starts [ V.nov 1 0 0; time 1999; time 3998 ])
-    "pages must start at the watermark, then at the last time of the page before, inclusive";
+    "pages must start at the watermark, then at the last time of the page before, \
+     inclusive";
   H.check
     (List.for_all first_three ~f:(fun r -> Option.equal Int.equal r.V.end_ms (Some now)))
     "every hourly page must end at now";
@@ -50,8 +52,12 @@ let paging () =
     "the pages must be two at the cap, then a shorter one";
   let request_shape = (List.hd_exn first_three).V.body in
   H.check
-    (String.equal (Yojson.Safe.Util.to_string (Yojson.Safe.Util.member "user" request_shape)) V.user
-     && Yojson.Safe.equal (Yojson.Safe.Util.member "aggregateByTime" request_shape) (`Bool false))
+    (String.equal
+       (Yojson.Safe.Util.to_string (Yojson.Safe.Util.member "user" request_shape))
+       V.user
+     && Yojson.Safe.equal
+          (Yojson.Safe.Util.member "aggregateByTime" request_shape)
+          (`Bool false))
     "the request must name the user and aggregateByTime false";
   let before_last_page = List.take (List.rev !watermarks_seen) 3 in
   H.check
@@ -63,7 +69,9 @@ let paging () =
   let hourly = List.hd_exn (V.pulls events ~kind:"fills") in
   H.check (V.field_int hourly "pages" = 3) "the hourly fills pull must be three pages";
   H.check (V.field_int hourly "new" = 4500) "the hourly pull must count 4500 new fills";
-  H.check (V.new_total events ~kind:"fills" = 4500) "every fill must be counted new exactly once in the run";
+  H.check
+    (V.new_total events ~kind:"fills" = 4500)
+    "every fill must be counted new exactly once in the run";
   V.stop fake
 ;;
 
@@ -73,7 +81,9 @@ let overlap () =
   V.add_fill fake ~tid:1 ~time:(V.nov 5 9 30) ~visible:false;
   let%bind first = V.run ~root ~fake ~now_ms:(V.nov 5 10 0) in
   V.check_exit first ~expected:0 "first run";
-  H.check (List.is_empty (V.stored_tids ~root)) "the fill was not indexed at the first run";
+  H.check
+    (List.is_empty (V.stored_tids ~root))
+    "the fill was not indexed at the first run";
   V.reveal fake;
   V.forget_requests fake;
   let%bind second = V.run ~root ~fake ~now_ms:(V.nov 5 10 5) in
@@ -82,7 +92,9 @@ let overlap () =
   H.check
     (Option.equal Int.equal first_request.V.start_ms (Some (V.nov 5 9 0)))
     "the hourly pull must start one hour before the watermark";
-  H.check (List.equal Int.equal (V.stored_tids ~root) [ 1 ]) "the fill 30 minutes before the watermark must be stored";
+  H.check
+    (List.equal Int.equal (V.stored_tids ~root) [ 1 ])
+    "the fill 30 minutes before the watermark must be stored";
   H.check (V.new_total (V.last_run_events ~root) ~kind:"fills" = 1) "and counted new";
   V.stop fake
 ;;
@@ -103,19 +115,32 @@ let late_fill ~days_late ~before_reveal ~reveal_run ~expect_stored =
   let%bind c = V.run ~root ~fake ~now_ms:reveal_run in
   V.check_exit c ~expected:0 (sprintf "run %d days after the fill" days_late);
   let stored = List.mem (V.stored_tids ~root) 7 ~equal:Int.equal in
-  H.check (Bool.equal stored expect_stored) (sprintf "a fill %d days late: stored must be %b" days_late expect_stored);
+  H.check
+    (Bool.equal stored expect_stored)
+    (sprintf "a fill %d days late: stored must be %b" days_late expect_stored);
   H.check
     (V.new_total (V.last_run_events ~root) ~kind:"fills" = if expect_stored then 1 else 0)
-    (sprintf "a fill %d days late: its pull events must count %d new" days_late (if expect_stored then 1 else 0));
+    (sprintf
+       "a fill %d days late: its pull events must count %d new"
+       days_late
+       (if expect_stored then 1 else 0));
   V.stop fake
 ;;
 
 let late_29 () =
-  late_fill ~days_late:29 ~before_reveal:(V.nov 30 12 0) ~reveal_run:(V.nov 31 0 30) ~expect_stored:true
+  late_fill
+    ~days_late:29
+    ~before_reveal:(V.nov 30 12 0)
+    ~reveal_run:(V.nov 31 0 30)
+    ~expect_stored:true
 ;;
 
 let late_31 () =
-  late_fill ~days_late:31 ~before_reveal:(V.nov 32 12 0) ~reveal_run:(V.nov 33 0 30) ~expect_stored:false
+  late_fill
+    ~days_late:31
+    ~before_reveal:(V.nov 32 12 0)
+    ~reveal_run:(V.nov 33 0 30)
+    ~expect_stored:false
 ;;
 
 let stuck () =
@@ -146,10 +171,16 @@ let funding () =
   let%bind first = V.run ~root ~fake ~now_ms:(V.nov 10 12 0) in
   V.check_exit first ~expected:0 "first run";
   let first_start = (List.hd_exn (funding_requests fake)).V.start_ms in
-  H.check (Option.equal Int.equal first_start (Some (V.nov 1 0 0))) "the first funding pull must start at 2026-11-01";
-  H.check (List.length (funding_requests fake) >= 3) "1200 rows must take at least three pages of 500";
+  H.check
+    (Option.equal Int.equal first_start (Some (V.nov 1 0 0)))
+    "the first funding pull must start at 2026-11-01";
+  H.check
+    (List.length (funding_requests fake) >= 3)
+    "1200 rows must take at least three pages of 500";
   H.check (List.length (V.stored_funding ~root) = 1200) "every funding row must be stored";
-  H.check (V.new_total (V.last_run_events ~root) ~kind:"funding" = 1200) "each (coin, time) counted new once";
+  H.check
+    (V.new_total (V.last_run_events ~root) ~kind:"funding" = 1200)
+    "each (coin, time) counted new once";
   V.add_funding fake ~coin:"SOL" ~time:(V.nov 10 3 0) ~visible:true;
   let%bind second = V.run ~root ~fake ~now_ms:(V.nov 11 12 0) in
   V.check_exit second ~expected:0 "second run";
