@@ -28,7 +28,7 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
        - The subject is the agent as served (H8, approved by the human).
        - Wall 5 is 14 of 200.
      - **Calibration done** (`cal-3`, strength 0.0021875, all walls pass); **manifest** committed (`c5d95db`, seed by rule); **G100's arm** done, 15 of 100 earn (`51e0e4c`). Arms run from `../mm-s1-arms` with the frozen kernel via `CARGO_TARGET_DIR=~/.cache/mm-study1/k`.
-     - **CS1.1 met** (2026-11-22, market 43: wins 15, losses 4; the agent earned on 18 of 43 markets, G100 on 7; `study1-build` `17b7184`, `audit/control-1/report.md`). Before it is marked done: the evidence reviewed by a fresh Opus and GPT, and a fresh bug hunt; then the paper and the merge.
+     - **Done: CS1.1 met as written** (2026-11-22, market 43; reviews and hunt in `audit/reviews/2026-11-22-*study1*`). Next: the report's G100 columns, the paper, `audit/control-1/` to `main`, and a deletion list for the human.
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
      - Fidelity first, then a frozen forward test (its operating power is not yet derived: GPT-6.2, `audit/reviews/2026-11-21-gpt62-study2-whole.md`, finding 2). Criteria committed (`criteria: study 2`, `a324059`; CS2.1 revised `a903317`).
      - **Kernel version 2** (`audit/program/kernel-v2.md`, brief 3; branch `kernel2-build`, worktree `../mm-k2`): steps 0 to 3 built and proved (Lean laws with only the three standard axioms); layer 1 clean on all 5,806 vault fills under the venue's printed arithmetic. Step 4: below.
@@ -45,7 +45,7 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
    - **Round 15** (fresh Opus): the kernel's done (`rearchitecture` `78a35a3`; a fresh Opus reviews it, Neon's bundle in `~/Downloads`); study 2's under way. GPT's one remaining budgeted review is kept for the recorder fix, which waits for study 2's libcurl client.
    - **TAMU** (the human, 2026-11-21) runs the queued Opus work in every window (`audit/decisions.md`).
    - **Recorder:** the lint gate and the six catch-alls.
-2. **Study 1:** judged (CS1.1 met); its exit review and bug hunt, then the paper's section and the merge of `study1-build`.
+2. **Study 1:** done; its report's G100 columns, the paper's section, and the erasure it unblocks (a deletion list for the human).
 3. **The paper** ("The Confirmation Wall in Agentic Trading Research"): rewritten as a free-standing academic work and merged 2026-11-22 after three accuracy checks by GPT-6.2 (`audit/reviews/2026-11-2*-gpt62-paper-accuracy*.md`). Study results are added as each study reports.
 4. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. Stage 7 parked; stages 8 and 9 superseded.
 
@@ -66,6 +66,8 @@ None.
 ## Qualifications
 
 Failed criteria, labeled amendments and known limitations, each beside its criterion in `audit/criteria.md`; reports cite this list.
+
+- **Study 1 (CS1.1 met):** every counted response from `claude-opus-5-5`, no fallback, so not the pilot's share; size 0.0431 (note under CS1.1) and the brief's Lean statements of the test owed; the strategy guide's first example is a funding fade like the plant (search apart from prior is excluded); market 1's sandbox never started (a miss); bubblewrap 0.12.0 from market 2 on; fixed-sample intervals (`audit/decisions.md`, 2026-11-22).
 
 - **The agent's model (stages 3 and 4):** many sessions fell back from Opus 5.5 to Opus 4.8 after a "cyber" safeguard flag: 9 of 20 stage 3 null sessions, the real campaign's search session, and 31 of 40 in stage 4's swarm (`audit/decisions.md`, 2026-11-12). No judged number changes. Reports name the model that answered.
 
