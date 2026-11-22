@@ -7,7 +7,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli -
 ### Running, and how to inspect it
 
 - **Cluster, live** (prodesk7, namespace `moneymachine-live`; `KUBECONFIG=~/.kube/moneymachine-live.yaml kubectl -n moneymachine-live get pods,jobs,cronjobs`; `CLUSTER.md`):
-  - Recorders (`sha256:97b2817f…`): StatefulSets `hl` (480/min), `sources`, `datalayer` (`CLUSTER.md`).
+  - Recorders (`sha256:97b2817f…`): StatefulSets `sources`, `datalayer` (`CLUSTER.md`); `hl` retired 2026-11-22, its StatefulSet at 0 replicas until the next push removes it.
   - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`).
   - prodesk7 builds test checks as a remote builder, inside `mmtest.slice` (`CLUSTER.md` §6).
 - **Oracle VM** `mm-recorder` (150.230.168.87; `ops/oci/`): Hyperliquid at 600/min, data layer, stage 5 sources, `mm-clock.timer`. `mm-oci-pull.timer` pulls it into `data/live-oci/` each 10 min, but not Hyperliquid day files in [2026-11-01, 2027-01-31) (`forward-window.exclude`): the VM keeps the only copy (30 GB free, 0.14 GB/day).

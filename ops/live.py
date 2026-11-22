@@ -60,24 +60,6 @@ Workload = tuple[str, list[str], dict[str, bool], str | Literal[False], Size, in
 
 # name: (kind, command, {volume: read-only}, runner, (cpu, memory request, memory limit), grace seconds, extra)
 WORKLOADS: dict[str, Workload] = {
-    "hl": (
-        "StatefulSet",
-        [
-            "python",
-            "-m",
-            "cli",
-            "record",
-            "data/live/universe.json",
-            "venue/hyperliquid/rules.json",
-            "data/live",
-            "480",
-        ],
-        {"hl": False},
-        False,
-        ("100m", "256Mi", "512Mi"),
-        300,
-        {},
-    ),
     "sources": (
         "StatefulSet",
         ["python", "-m", "cli", "sources-record", "data/sources_live"],
