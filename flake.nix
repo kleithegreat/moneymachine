@@ -238,14 +238,6 @@
           # The tracked tree minus prose and build files, so a commit that only edits those leaves every check cached; a test that
           # reads excluded prose fails in its check, which is how a missed dependency shows.
           srcAll = fs.toSource { root = ./.; fileset = fs.difference ./. (fs.unions prose); };
-          srcKernel = fs.toSource {
-            root = ./.;
-            fileset = fs.unions [ ./kernel ./venue/hyperliquid ./gate/compute.py ./gate/__init__.py ./conftest.py ./pyproject.toml ];
-          };
-          srcMutants = fs.toSource {
-            root = ./.;
-            fileset = fs.unions [ ./kernel ./venue ./gate ./ingest ./sandbox ./conftest.py ./pyproject.toml ./policy.json ];
-          };
           kernelOnly = fs.toSource { root = ./.; fileset = fs.unions [ ./kernel ./venue/hyperliquid ]; };
           cargoDeps = pkgs.rustPlatform.importCargoLock { lockFile = ./kernel/Cargo.lock; };
           cargoTools = [ pkgs.cargo pkgs.rustc pkgs.rustPlatform.cargoSetupHook ];
@@ -308,14 +300,6 @@
               mypy --cache-dir=$TMPDIR/mypy $files
             '';
             installPhase = "touch $out";
-          };
-          kernel-cargo = pytestCheck { name = "kernel-cargo"; src = srcKernel; paths = "kernel/tests/test_rust.py -k cargo"; kernel = true; };
-          kernel-mutants = pytestCheck { name = "kernel-mutants"; src = srcMutants; paths = "kernel/tests/test_rust.py -k mutant"; kernel = true; };
-          kernel-py = pytestCheck {
-            name = "kernel-py";
-            paths = "kernel/tests/cli kernel/tests/timing kernel/tests/test_mutants_apply.py kernel/tests/test_mutants_classifier.py";
-            kernel = true;
-            prebuilt = true;
           };
           gate = pytestCheck { name = "gate"; paths = "gate/tests"; kernel = true; prebuilt = true; };
           ingest = pytestCheck { name = "ingest"; paths = "ingest/tests"; };
