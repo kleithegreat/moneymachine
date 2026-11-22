@@ -52,13 +52,12 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2, 5 and 6 are what t
 - **Clocks.** `sources` logs the node kernel's own bound on its clock error (`adjtimex`: `maxerror_ms`, `esterror_ms`,
   `unsynced`) every cycle as source "clock", key "kernel". It is a bound the kernel's NTP daemon reports, never an
   offset against anything, and it does not prove freshness. C5.3's 72 h segment reports its maximum and requires
-  `unsynced` false and `maxerror_ms` under 1000. The Oracle VM keeps its own timesyncd offset log (`ops/oci/clocklog.py`).
+  `unsynced` false and `maxerror_ms` under 1000.
 - **Image** `moneymachine`, built by `nix build .#image`, pushed and pinned by digest: the repo at `/app`, the Python
   env, sqlite3, and a writable `emptyDir` for `/tmp`. Its `/bin` and `/usr` hold what the PC's do: `/bin/sh` and
   `/usr/bin/env`.
 - **Requests and limits**: recorders 100m and 256Mi (limit 512Mi); mirror jobs 200m and 256Mi (512Mi). Each emptyDir is capped at 2Gi. Capacity alarms: section 5.
-- **Availability.** One node holds every volume, so a prodesk7 outage stops everything, and its disk holds the only copy of what the mirror has not yet copied. The Oracle VM is the only
-  independent recorder, and only for Hyperliquid.
+- **Availability.** One node holds every volume, so a prodesk7 outage stops everything, and its disk holds the only copy of what the mirror has not yet copied. No second host records.
 
 ## 5. The mirror on this PC: the live data's only copy
 

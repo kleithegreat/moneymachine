@@ -7,7 +7,7 @@ commodities, indices, currencies and rates. It feeds kernel version 2 and study 
 for "recorders for anything we could possibly need" (`audit/decisions.md`, 2026-11-14). Nothing here is judged, but a
 lost recording can't be refetched, so it is held to this spec (`CLAUDE.md`, Correctness).
 
-The cluster's `hl` book-polling recorder (`ingest/record.py`) was retired on 2026-11-22; the Oracle VM still polls.
+The cluster's `hl` book-polling recorder (`ingest/record.py`) was retired on 2026-11-22.
 
 ## What it records
 
