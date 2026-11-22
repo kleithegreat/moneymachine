@@ -1,4 +1,4 @@
-"""Terms certification (paper §5) from the source-certificate registry `venue/sources.toml`: one record per place
+"""Terms certification (paper, sources) from the source-certificate registry `venue/sources.toml`: one record per place
 fetched automatically, with the URL of the terms, the retrieval date, the basis (a clause permitting our automated
 use, an official API whose terms allow it, or the operator's decision where the terms restrict the operator rather
 than the access) and the verbatim quote. A host `h/prefix` admits only that prefix."""

@@ -1,4 +1,4 @@
-"""Terms certification (paper §5): every place the code fetches from automatically has a certified record in the
+"""Terms certification (paper, sources): every place the code fetches from automatically has a certified record in the
 registry `venue/sources.toml`, and a record without its evidence is not certified."""
 
 from collections.abc import Sequence

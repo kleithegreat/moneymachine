@@ -1,4 +1,4 @@
-"""Source-blind preservation regressions: CLUSTER §5, paper O2, decision 2026-11-04."""
+"""Source-blind preservation regressions: CLUSTER §5, decision 2026-11-04."""
 
 import errno
 import json

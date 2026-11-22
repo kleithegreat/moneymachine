@@ -1,4 +1,4 @@
-# Source certificates (paper §5): one record per place fetched automatically, read by ingest/terms.py and its
+# Source certificates (paper, sources): one record per place fetched automatically, read by ingest/terms.py and its
 # tests. A record is certified when it has a URL, a retrieval date, a basis ("permitting clause" or "official
 # API") and the verbatim quote. `retrieval = true` puts its host on the stage 10 proxy's allowlist. A host
 # `h/prefix` admits only that path prefix.

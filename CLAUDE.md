@@ -74,13 +74,13 @@ Tests pass before every commit; one reporting a recorded criterion failure is `x
 
 ### Holdout
 
-Only the gate's holdout step reads `data/holdout/`, once per campaign, as paper §8 describes; a spent holdout is never reused. Nothing derived from an unreleased holdout, an embargo or the forward confirmation window [2026-11-01, 2027-01-31), live recordings included, reaches research, selection, or anyone reviewing unfrozen work. Anyone who can change a brief, strategy, universe, execution assumption or finalist inspects those recordings for integrity only (status, sizes, hashes, gaps), never prices or returns, and records any other access (`audit/criteria.md`, stage 3).
+Only the gate's holdout step reads `data/holdout/`, once per campaign, as the paper's statistical gate describes; a spent holdout is never reused. Nothing derived from an unreleased holdout, an embargo or the forward confirmation window [2026-11-01, 2027-01-31), live recordings included, reaches research, selection, or anyone reviewing unfrozen work. Anyone who can change a brief, strategy, universe, execution assumption or finalist inspects those recordings for integrity only (status, sizes, hashes, gaps), never prices or returns, and records any other access (`audit/criteria.md`, stage 3).
 
 ### Reviewers
 
 **Consulting** means the whole repo and history: reviewers are as capable as the advisor. Only two things are withheld: the holdout material above, and raw rows of kernel-only sources, of which only the frozen aggregate reports cross (`audit/decisions.md`, licensing boundary, 2026-10-26; debugging views per `audit/stage8/scope-manifest.md`). Outside models run from a clean worktree, which holds no `data/` and no token files.
 
-**An independent check** is what a frozen criterion or paper §6 or §8 names (a red team, a differential implementation, a locked suite), plus a source-blind red team after each kernel milestone, whose every success becomes a permanent test, and the review of criteria before they are committed and of the evidence before a stage is marked done. Where its result depends on what the checker did not see, copy only the files it should see into a fresh directory under `~/.cache/mm-gpt`, never the repo, and run `timeout 3600 ops/gpt.sh <dir> <model> <prompt-file> <out-dir>` on it as a background task, taking the deliverable from `<out-dir>/reply.md`: the jail lets it read that directory and nothing else of `$HOME`. The model that built a piece never gives its independent review, and GPT does not build what a frozen criterion has it check.
+**An independent check** is what a frozen criterion or the paper's sections on verified kernels and the statistical gate name (a red team, a differential implementation, a locked suite), plus a source-blind red team after each kernel milestone, whose every success becomes a permanent test, and the review of criteria before they are committed and of the evidence before a stage is marked done. Where its result depends on what the checker did not see, copy only the files it should see into a fresh directory under `~/.cache/mm-gpt`, never the repo, and run `timeout 3600 ops/gpt.sh <dir> <model> <prompt-file> <out-dir>` on it as a background task, taking the deliverable from `<out-dir>/reply.md`: the jail lets it read that directory and nothing else of `$HOME`. The model that built a piece never gives its independent review, and GPT does not build what a frozen criterion has it check.
 
 Work that could change a false-discovery or leakage outcome gets an independent review, whichever model wrote it. Research agents' models are frozen in their harnesses.
 
@@ -114,7 +114,7 @@ Builders commit each finished step and write long runs' output to disk, so a usa
 
 ### Sources
 
-Fetch automatically only under a certificate that quotes a permitting clause, shows an official API allowing it, or records the human's specific operator decision (paper §5, `ingest/terms.py`); silence is not permission. A 403 or any access restriction goes under Blockers and is never worked around. Accounts and contact fields use the name and email in `SEC_USER_AGENT` in `.keys.env`.
+Fetch automatically only under a certificate that quotes a permitting clause, shows an official API allowing it, or records the human's specific operator decision (the paper's section on sources, `ingest/terms.py`); silence is not permission. A 403 or any access restriction goes under Blockers and is never worked around. Accounts and contact fields use the name and email in `SEC_USER_AGENT` in `.keys.env`.
 
 ### Running things
 

@@ -1,4 +1,4 @@
-"""Recording capacity alarm; policy and limitations: paper appendix O2, deployment: CLUSTER.md §5."""
+"""Recording capacity alarm; policy, limitations and deployment: CLUSTER.md §5."""
 
 import json
 import os
