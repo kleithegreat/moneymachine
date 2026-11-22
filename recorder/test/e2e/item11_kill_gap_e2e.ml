@@ -29,7 +29,7 @@ let () =
     in
     let%bind () = after (Time_float.Span.of_sec 3.) in
     H.send_signal run1 Signal.kill;
-    let%bind _ = Process.wait run1 in
+    let%bind (_ : Core_unix.Exit_or_signal.t) = Process.wait run1 in
     let first_run_lines = H.all_lines ~root in
     let conns =
       List.filter_map first_run_lines ~f:(fun (_, _, conn, _) -> conn)

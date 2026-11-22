@@ -183,7 +183,7 @@ let flush_end_cut () =
   let cut_path = Filename.concat cut_root "trades/20261114/10.jsonl.zst" in
   H.cut_copy ~src:path ~dst:cut_path ~bytes:flushed_bytes;
   H.send_signal process Signal.kill;
-  let%bind _ = Process.wait process in
+  let%bind (_ : Core_unix.Exit_or_signal.t) = Process.wait process in
   let%bind _, cat = H.run_cli [ "cat"; cut_path ] in
   H.check (not (String.is_empty cat)) "nothing read from the file cut at a flush";
   H.check

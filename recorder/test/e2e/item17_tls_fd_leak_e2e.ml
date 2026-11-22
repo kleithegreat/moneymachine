@@ -109,7 +109,7 @@ let failing_run ~connections =
       if exited ()
       then return ()
       else (
-        let%map _ = H.sigterm_and_wait process in
+        let%map _status, _seconds = H.sigterm_and_wait process in
         ())
     in
     F.stop fake

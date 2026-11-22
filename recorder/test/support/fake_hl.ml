@@ -104,7 +104,7 @@ let serve_rest t config ~fault reader writer headers =
     Option.value_map (header headers "content-length") ~default:0 ~f:Int.of_string
   in
   let buffer = Bytes.create length in
-  let%bind _ = Reader.really_read reader buffer in
+  let%bind (_ : [ `Ok | `Eof of int ]) = Reader.really_read reader buffer in
   let request = Bytes.to_string buffer in
   t.rest_requests := request :: !(t.rest_requests);
   match fault with
@@ -374,7 +374,7 @@ let start config =
 
 let stop t =
   Ivar.fill_if_empty t.stopped ();
-  Deferred.List.iter ~how:`Sequential t.servers ~f:Tcp.Server.close
+  Deferred.List.iter ~how:`Sequential t.servers ~f:(fun server -> Tcp.Server.close server)
 ;;
 
 let ws_url t = sprintf "%s://127.0.0.1:%d/ws" t.ws_scheme t.ws_port

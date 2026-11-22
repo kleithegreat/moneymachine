@@ -191,7 +191,7 @@ let read_body reader =
   let%bind _request_line = Reader.read_line reader in
   let%bind length = headers 0 in
   let buffer = Bytes.create length in
-  let%map _ = Reader.really_read reader buffer in
+  let%map (_ : [ `Ok | `Eof of int ]) = Reader.really_read reader buffer in
   Bytes.to_string buffer
 ;;
 
@@ -334,7 +334,7 @@ let run_with ?(env = []) ?(timeout_s = 900.) ~root ~fake ~now_ms () =
   with
   | `Timeout ->
     Signal_unix.send_exn Signal.kill (`Pid (Process.pid process));
-    let%map _ = Process.wait process in
+    let%map (_ : Core_unix.Exit_or_signal.t) = Process.wait process in
     failwithf "mmvault run did not finish in %.0f s" timeout_s ()
   | `Result output ->
     let exit_code =
@@ -359,7 +359,7 @@ let spawn ~root ~fake ~now_ms =
 
 let kill process =
   H.send_signal process Signal.kill;
-  let%map _ = Process.wait process in
+  let%map (_ : Core_unix.Exit_or_signal.t) = Process.wait process in
   ()
 ;;
 
@@ -372,7 +372,7 @@ let lines_of_file path =
   H.zstd_lenient_decode path
   |> String.split_lines
   |> List.filter ~f:(fun l -> not (String.is_empty l))
-  |> List.map ~f:Yojson.Safe.from_string
+  |> List.map ~f:(fun line -> Yojson.Safe.from_string line)
 ;;
 
 let kind_lines ~root kind = List.concat_map (files ~root kind) ~f:lines_of_file

@@ -74,7 +74,11 @@ let () =
       (List.equal Yojson.Safe.equal stray_events clean_events)
       (sprintf
          "events with stray entries differ from clean run:\nstray: %s\nclean: %s"
-         (String.concat ~sep:"; " (List.map stray_events ~f:Yojson.Safe.to_string))
-         (String.concat ~sep:"; " (List.map clean_events ~f:Yojson.Safe.to_string)));
+         (String.concat
+            ~sep:"; "
+            (List.map stray_events ~f:(fun event -> Yojson.Safe.to_string event)))
+         (String.concat
+            ~sep:"; "
+            (List.map clean_events ~f:(fun event -> Yojson.Safe.to_string event))));
     V.stop fake)
 ;;
