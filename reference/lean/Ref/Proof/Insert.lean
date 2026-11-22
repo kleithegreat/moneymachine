@@ -21,7 +21,7 @@ theorem modify_get {β : Type} [Inhabited β] (xs : Array β) (k j : Nat) (g : �
   rcases Nat.lt_or_ge j xs.size with hj | hj
   · rw [getElem!_pos _ j (by simpa using hj), Array.getElem_modify, getElem!_pos xs j hj]
     by_cases h : k = j
-    · subst h; simp [hj, getElem!_pos xs k hj]
+    · subst h; simp [hj]
     · simp [h, Ne.symm h]
   · rw [getElem!_neg _ j (by simp; omega), getElem!_neg xs j (by omega)]
     split
@@ -103,10 +103,12 @@ theorem shifted_set {β : Type} [Inhabited β] {i k : Nat} {xs ys : Array β} (h
 namespace Ins
 variable {i : Nat} {M M' : MState α}
 
+omit [Inhabited α] in
 theorem vals_modify (h : Ins i M M') (k : Nat) (g : Array (Val α) → Array (Val α)) :
     Ins i { M with vals := M.vals.modify k g } { M' with vals := M'.vals.modify (shift i k) g } :=
   { h with vals := shifted_modify h.vals h.vsize h.ival g, vsize := by simp [h.vsize], ival := by simpa using h.ival }
 
+omit [Inhabited α] in
 theorem row_modify (h : Ins i M M') (k : Nat) (g : Array (Val α) → Array (Val α))
     (g' : Array (Option (Win α)) → Array (Option (Win α))) :
     Ins i { M with vals := M.vals.modify k g, wins := M.wins.modify k g' }
@@ -114,6 +116,7 @@ theorem row_modify (h : Ins i M M') (k : Nat) (g : Array (Val α) → Array (Val
   { h with vals := shifted_modify h.vals h.vsize h.ival g, vsize := by simp [h.vsize], ival := by simpa using h.ival,
            wins := shifted_modify h.wins h.wsize h.iwin g', wsize := by simp [h.wsize], iwin := by simpa using h.iwin }
 
+omit [Inhabited α] in
 theorem since_row_modify (h : Ins i M M') (k : Nat) (g : Array (Val α) → Array (Val α))
     (gs : Array (Option Int) → Array (Option Int)) :
     Ins i { M with vals := M.vals.modify k g, since := M.since.modify k gs }
@@ -121,19 +124,23 @@ theorem since_row_modify (h : Ins i M M') (k : Nat) (g : Array (Val α) → Arra
   { h with vals := shifted_modify h.vals h.vsize h.ival g, vsize := by simp [h.vsize], ival := by simpa using h.ival,
            since := shifted_modify h.since h.ssize h.isin gs, ssize := by simp [h.ssize], isin := by simpa using h.isin }
 
+omit [Inhabited α] in
 theorem new_row (h : Ins i M M') (g : Array (Val α) → Array (Val α))
     (g' : Array (Option (Win α)) → Array (Option (Win α))) :
     Ins i M { M' with vals := M'.vals.modify i g, wins := M'.wins.modify i g' } :=
   { h with vals := fun k => by rw [modify_ne _ _ (shift_ne i k)]; exact h.vals k, vsize := by simp [h.vsize],
            wins := fun k => by rw [modify_ne _ _ (shift_ne i k)]; exact h.wins k, wsize := by simp [h.wsize] }
 
+omit [Inhabited α] in
 theorem hour_set (h : Ins i M M') (hour : Int) : Ins i { M with hour := hour } { M' with hour := hour } :=
   { h with hour := rfl }
 
+omit [Inhabited α] in
 theorem vals_set (h : Ins i M M') (k : Nat) (v : Array (Val α)) :
     Ins i { M with vals := M.vals.set! k v } { M' with vals := M'.vals.set! (shift i k) v } :=
   { h with vals := shifted_set h.vals h.vsize h.ival v, vsize := by simp [h.vsize], ival := by simpa using h.ival }
 
+omit [Inhabited α] in
 /-- An argument's row: out-of-range argument indices read row 0, which sits before i. -/
 theorem arg (h : Ins i M M') (hi0 : 0 < i) (args : List Nat) (j : Nat) :
     M'.vals[(args.map (shift i))[j]!]! = M.vals[args[j]!]! := by
@@ -144,11 +151,13 @@ theorem arg (h : Ins i M M') (hi0 : 0 < i) (args : List Nat) (j : Nat) :
     rw [shift_lt hi0] at this
     exact this
 
+omit [Inhabited α] in
 theorem input (h : Ins i M M') (inp : Input) (c : Nat) : M'.input inp c = M.input inp c := by
   unfold MState.input; rw [h.funding, h.bar, h.events, h.hour]
 
 end Ins
 
+omit [Inhabited α] in
 theorem eval_ins (N : NumOps α) {p q : Program} {i k : Nat} (hi0 : 0 < i)
     (hn : q.nodes[shift i k]! = p.nodes[k]!.mapArgs (shift i)) (hpar : q.params = p.params)
     {M M' : MState α} (h : Ins i M M') (c : Nat) :
@@ -172,6 +181,7 @@ theorem forIn_rel_id {β σ τ : Type} (l : List β) (a : σ) (b : τ) (f : β �
     rw [List.forIn_cons, List.forIn_cons, ha, hb]
     exact ih a' b' hR fun x' hx' => hf x' (by simp [hx'])
 
+omit [Inhabited α] in
 /-- Each old node's step keeps the relation: node shift i k of the inserted program, on M', does what node k
 of p does on M. -/
 theorem tickNode_ins (N : NumOps α) {p q : Program} {i k : Nat} (hi0 : 0 < i)
@@ -224,6 +234,7 @@ theorem forIn_inv_id {β σ : Type} (l : List β) (a : σ) (f : β → σ → Id
     rw [List.forIn_cons, ha]
     exact ih a' hI fun x' hx' => hf x' (by simp [hx'])
 
+omit [Inhabited α] in
 /-- The inserted negation's step writes only its own row, which no old row maps to. -/
 theorem tickNode_new (N : NumOps α) {q : Program} {i c₀ : Nat} (hnew : q.nodes[i]! = .op .not [c₀])
     (L : Array Bool) (hour : Int) {M M' : MState α} (h : Ins i M M') :
@@ -260,10 +271,12 @@ theorem forIn_append_id {β σ : Type} (l₁ l₂ : List β) (a : σ) (f : β �
     rw [List.cons_append, List.forIn_cons, List.forIn_cons, ha]
     exact ih a'
 
+omit [Inhabited α] in
 theorem tickNode_yield (N : NumOps α) (p : Program) (L : Array Bool) (hour : Int) (k : Nat) (M : MState α) :
     ∃ M', MState.tickNode N p L hour k M = .yield M' := by
   unfold MState.tickNode; split <;> exact ⟨_, rfl⟩
 
+omit [Inhabited α] in
 /-- A tick of the inserted program keeps the relation: the old nodes as p's, then the negation at i. -/
 theorem tick_ins (N : NumOps α) {p q : Program} {i c₀ : Nat} (hi0 : 0 < i) (hi : i ≤ p.nodes.size)
     (hq : q.nodes.size = p.nodes.size + 1)

@@ -135,7 +135,7 @@ theorem opTy_ite {t₀ t₁ t₂ t : Ty} {to to' : Option Dim} (h : opTy .ite [t
 
 theorem insert_get {β : Type} [Inhabited β] (xs : Array β) {k : Nat} (hk : k ≤ xs.size) (x : β) (m : Nat) :
     (xs.insertIdx! k x)[m]! = if m < k then xs[m]! else if m = k then x else xs[m - 1]! := by
-  rw [Array.insertIdx!, dif_pos hk]
+  rw [Array.insertIdx!, dite_eq_left hk]
   simp only [getElem!_def, Array.getElem?_insertIdx hk]
   by_cases h1 : m < k
   · simp [h1]
@@ -147,12 +147,12 @@ theorem insert_shift {β : Type} [Inhabited β] (xs : Array β) {k : Nat} (hk : 
     (xs.insertIdx! k x)[if j ≥ k then j + 1 else j]! = xs[j]! := by
   rw [insert_get xs hk]
   by_cases h : j ≥ k
-  · simp only [h, ite_true]; rw [if_neg (by omega), if_neg (by omega)]; rfl
-  · simp only [h, ite_false]; rw [if_pos (by omega)]
+  · simp only [h, ite_true]; rw [ite_eq_right (by omega), ite_eq_right (by omega)]; rfl
+  · simp only [h, ite_false]; rw [ite_eq_left (by omega)]
 
 theorem insert_size {β : Type} (xs : Array β) {k : Nat} (hk : k ≤ xs.size) (x : β) :
     (xs.insertIdx! k x).size = xs.size + 1 := by
-  rw [Array.insertIdx!, dif_pos hk, Array.size_insertIdx]
+  rw [Array.insertIdx!, dite_eq_left hk, Array.size_insertIdx]
 
 /-- Inserting a boolean negation of an earlier boolean node at i, shifting later indices, keeps a program
 well-formed. -/
@@ -165,7 +165,7 @@ theorem insert_wf {p : Program} (hp : p.WF) {i c : Nat} (hi : i < p.nodes.size) 
   let f := fun j : Nat => if j ≥ i then j + 1 else j
   have hT : ∀ j, (p.types.insertIdx! i .bool)[f j]! = p.types[j]! := insert_shift _ hiT _
   have hC : ∀ j, (p.convTo.insertIdx! i none)[f j]! = p.convTo[j]! := insert_shift _ hiC _
-  have hlow : ∀ j < i, f j = j := fun j hj => by simp only [f]; rw [if_neg (by omega)]
+  have hlow : ∀ j < i, f j = j := fun j hj => by simp only [f]; rw [ite_eq_right (by omega)]
   unfold Program.insertAt
   dsimp only
   refine ⟨by rw [insert_size _ (hiN _), insert_size _ hiT]; simp [h1],
@@ -181,7 +181,7 @@ theorem insert_wf {p : Program} (hp : p.WF) {i c : Nat} (hi : i < p.nodes.size) 
       rcases Nat.lt_trichotomy k i with h | h | h
       · exact Or.inr ⟨k, by omega, hlow k h⟩
       · exact Or.inl h
-      · exact Or.inr ⟨k - 1, by omega, by simp only [f]; rw [if_pos (by omega)]; omega⟩
+      · exact Or.inr ⟨k - 1, by omega, by simp only [f]; rw [ite_eq_left (by omega)]; omega⟩
     rcases hcases with rfl | ⟨k₀, hk₀, rfl⟩
     · rw [insert_get _ (hiN _)]
       simp only [Nat.lt_irrefl, ite_false, ite_true]

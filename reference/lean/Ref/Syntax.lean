@@ -39,7 +39,7 @@ def product (s : String) : Option Dim :=
     | _ => none
 
 def parse (s : String) : Option Dim :=
-  let s := String.mk (s.toList.filter (!·.isWhitespace))
+  let s := String.ofList (s.toList.filter (!·.isWhitespace))
   match s.splitOn "/" with
   | [n] => product n
   | n :: rest => do let d ← product (String.intercalate "/" rest); let n ← product n; div n d
@@ -248,7 +248,7 @@ def typeOp (op : Op) (ts : List Ty) (kvs : Array (String × Value)) : Check (Op 
 
 def expr (v : Value) (depth : Nat) : Check Nat := do
   modify fun st => { st with parsed := st.parsed + 1 }
-  if hd : depth > maxDepth then fail .size else
+  if depth > maxDepth then fail .size else
   if (← get).parsed > maxNodes then fail .size
   let .obj kvs := v | fail .parse
   let has (k : String) := kvs.any (·.1 == k)

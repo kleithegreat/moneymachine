@@ -26,7 +26,7 @@ theorem deliverFunding_cursor (c : Ctx α) (s : SState α) (t : Int) :
       fun x => { s with machine := x.1, fi := x.2 } := by
   fun_induction Ctx.deliverFunding c s t <;> rw [cursorLoop] <;>
     simp_all (config := { zetaDelta := true }) [Ctx.fRows, Except.map] <;>
-    first | rw [dif_neg (by omega)] | grind
+    first | rw [dite_eq_right (by omega)] | grind
 
 /-- Bar rows in delivery order. -/
 def Ctx.bRows (c : Ctx α) : List (BarRow α) := c.bOrder.toList.map (c.m.bars[·]!)
@@ -36,7 +36,7 @@ theorem deliverBars_cursor (c : Ctx α) (s : SState α) (t : Int) :
       fun x => { s with machine := x.1, bi := x.2 } := by
   fun_induction Ctx.deliverBars c s t <;> rw [cursorLoop] <;>
     simp_all (config := { zetaDelta := true }) [Ctx.bRows, Except.map] <;>
-    first | rw [dif_neg (by omega)] | grind
+    first | rw [dite_eq_right (by omega)] | grind
 
 /-- Bound event rows in delivery order. -/
 def Ctx.eRows (c : Ctx α) : List (EventRow α) := c.eOrder.toList.map (c.m.events[·]!)
@@ -46,7 +46,7 @@ theorem deliverEvents_cursor (c : Ctx α) (s : SState α) (t : Int) :
       fun x => { s with machine := x.1, ei := x.2 } := by
   fun_induction Ctx.deliverEvents c s t <;> rw [cursorLoop] <;>
     simp_all (config := { zetaDelta := true }) [Ctx.eRows, Except.map] <;>
-    first | rw [dif_neg (by omega)] | grind
+    first | rw [dite_eq_right (by omega)] | grind
 
 omit [Inhabited α] in
 /-- A loop at t ≤ T started inside the prefix L never reaches rows known after T. -/
@@ -63,12 +63,12 @@ theorem cursorLoop_append {R : Type} (known : R → Int) (step : MState α → R
     split
     · rename_i hlt
       have hd : T < known (L ++ D)[L.length] := hD _ (by simp [List.getElem_append_right])
-      rw [if_pos (by omega)]
+      rw [ite_eq_left (by omega)]
     · rfl
   | succ k ih =>
     have hlt : i < L.length := by omega
     rw [cursorLoop, cursorLoop]
-    simp only [List.length_append, dif_pos (show i < L.length + D.length by omega), dif_pos hlt,
+    simp only [List.length_append, dite_eq_left (show i < L.length + D.length by omega), dite_eq_left hlt,
       List.getElem_append_left hlt]
     split
     · rfl
@@ -84,8 +84,8 @@ theorem sorted_split {R : Type} (known : R → Int) (T : Int) :
   | a :: l, h => by
     rw [List.pairwise_cons] at h
     by_cases ha : known a ≤ T
-    · simp only [List.filter_cons, ha, decide_true, if_true, not_true_eq_false, decide_false, Bool.false_eq_true,
-        if_false, List.cons_append]
+    · simp only [List.filter_cons, ha, decide_true, ite_true, not_true_eq_false, decide_false, Bool.false_eq_true,
+        ite_false, List.cons_append]
       exact congrArg _ (sorted_split known T l h.2)
     · have hlt : T < known a := by omega
       have hall : ∀ b ∈ l, T < known b := fun b hb => by have := h.1 b hb; omega
@@ -93,7 +93,7 @@ theorem sorted_split {R : Type} (known : R → Int) (T : Int) :
         List.filter_eq_nil_iff.mpr fun b hb => by simp; exact hall b hb
       have e₂ : l.filter (fun r => decide (T < known r)) = l :=
         List.filter_eq_self.mpr fun b hb => by simp; exact hall b hb
-      simp [List.filter_cons, ha, hlt, e₁, e₂]
+      simp [ha, hlt, e₁, e₂]
 
 omit [Inhabited α] in
 theorem cursorLoop_bound {R : Type} (known : R → Int) (step : MState α → R → Int → Except Causality (MState α))
@@ -101,10 +101,10 @@ theorem cursorLoop_bound {R : Type} (known : R → Int) (step : MState α → R 
     Except.Holds (cursorLoop L known step t (m, i)) (fun x => x.2 ≤ L.length) := by
   induction h : L.length - i generalizing m i with
   | zero =>
-    rw [cursorLoop, dif_neg (by omega)]
+    rw [cursorLoop, dite_eq_right (by omega)]
     exact Except.Holds.ok _ hi
   | succ k ih =>
-    rw [cursorLoop, dif_pos (by omega)]
+    rw [cursorLoop, dite_eq_left (by omega)]
     split
     · exact Except.Holds.ok _ hi
     · split
@@ -323,7 +323,7 @@ theorem start_agree (N : NumOps α) {c₁ c₂ : Ctx α} {T : Int} (A : Agree c�
   rw [← hb, ← A.pol]
   cases c₁.bound
   · exact ⟨rfl, fun _ h => by cases h⟩
-  · simp only [Bool.not_true, Bool.false_eq_true, if_false]
+  · simp only [Bool.not_true, Bool.false_eq_true, ite_false]
     refine bind_agree (deliver_agree A hT h0 hi).1 (deliver_agree A hT h0 hi).2 fun r₁ r₂ hr hri => ?_
     obtain ⟨hm, hf, hb', he⟩ := proj_eq hr
     exact ⟨by simp [Except.map, pure, Except.pure, SState.proj, hm, hf, hb', he, A.p, mask_agree A.intervals],
@@ -347,9 +347,9 @@ theorem cursorLoop_local {R : Type} (rows : List R) (known : R → Int) (step : 
     cursorLoop rows known step t (m.withLocal X W S, i) =
       (cursorLoop rows known step t (m, i)).map fun x => (x.1.withLocal X W S, x.2) := by
   induction h : rows.length - i generalizing m i with
-  | zero => rw [cursorLoop, cursorLoop, dif_neg (by omega), dif_neg (by omega)]; rfl
+  | zero => rw [cursorLoop, cursorLoop, dite_eq_right (by omega), dite_eq_right (by omega)]; rfl
   | succ k ih =>
-    rw [cursorLoop, cursorLoop, dif_pos (by omega), dif_pos (by omega)]
+    rw [cursorLoop, cursorLoop, dite_eq_left (by omega), dite_eq_left (by omega)]
     split
     · rfl
     · rw [hstep]

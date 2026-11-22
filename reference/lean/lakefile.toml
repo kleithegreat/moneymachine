@@ -1,5 +1,6 @@
 name = "ref"
 defaultTargets = ["Ref", "refmm"]
+leanOptions = { warningAsError = true }
 
 [[lean_lib]]
 name = "Ref"
