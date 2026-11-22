@@ -55,7 +55,7 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
 
 ## Blockers
 
-- **prodesk7 is down** (unreachable since about 2026-11-22 13:00 UTC, 08:00 EST): the cluster's recorders, `ws` included, record nothing until it is back; the human checks the machine. Then: confirm the pods are recreated, and record the gap.
+- **prodesk7 powered off** 2026-11-22 13:00 to 17:06 UTC (08:00 to 12:06 EST); the recorders are back, with a gap of about 4 h 07 min (`audit/decisions.md`). Its cause is unknown, for the human to read on the node.
 
 None else blocks the program. Source certificates that fail, with their clauses, are in `venue/sources.toml` and `audit/decisions.md`: Kalshi, Polymarket and Polymarket US; FRED and ALFRED; IMF; and stage 8's candidates.
 
