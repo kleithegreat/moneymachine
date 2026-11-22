@@ -15,7 +15,6 @@ from typing import Any
 
 import live
 import pytest
-from jobs import REGISTRY
 
 
 def killed_at(action: Callable[[], object], install: Callable[[Callable[[], None]], None]) -> None:
@@ -392,7 +391,7 @@ def test_manifests_keep_the_boundaries() -> None:
             "drop": ["ALL"]
         }
         assert not spec["automountServiceAccountToken"] and spec["priorityClassName"] == live.NAMESPACE
-        assert c["image"].startswith(REGISTRY + "@sha256:")
+        assert c["image"].startswith(live.REGISTRY + "@sha256:")
     json.dumps([live.manifest(n, "sha256:0") for n in live.WORKLOADS])
 
 

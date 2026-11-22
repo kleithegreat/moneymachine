@@ -12,7 +12,6 @@ from typing import Any, Never
 
 import live
 import pytest
-from jobs import sha256
 
 PLAIN = Path("swarm-null-3-N2-3/swarm/A4/home/.claude/.last-cleanup")
 
@@ -53,7 +52,7 @@ def test_plain_source_disappearing_during_mirror_is_omitted(
     if published:
         live.mirror(app, out)
     source.write_bytes(b"a longer replacement")
-    stat, rglob, copy, digest = Path.stat, Path.rglob, shutil.copy2, sha256
+    stat, rglob, copy, digest = Path.stat, Path.rglob, shutil.copy2, live.sha256
     enumerated: list[bool] = []
     copied: list[bool] = []
     vanished: list[bool] = []
@@ -233,7 +232,7 @@ def test_verify_distinguishes_source_churn_from_missing_mirror(
         source.unlink()
     if missing in {"mirror", "both"}:
         (out / "agent" / rel).unlink()
-    digest = sha256
+    digest = live.sha256
     vanished: list[bool] = []
 
     def source_hash(path: str | Path, *args: Any, **kwargs: Any) -> str:
@@ -268,7 +267,7 @@ def test_missing_plain_destination_is_not_source_churn(
     before = manifest(out).read_bytes()
     put(root, PLAIN, b"a longer replacement")
     target = out / "agent" / PLAIN
-    copy, digest = shutil.copy2, sha256
+    copy, digest = shutil.copy2, live.sha256
     copied: list[Path] = []
     missing: list[Path] = []
 
@@ -321,7 +320,7 @@ def test_io_errors_are_not_treated_as_source_churn(
     source.write_bytes(b"a longer replacement")
     fired: list[bool] = []
     copied: list[bool] = []
-    stat, copy, digest = Path.stat, shutil.copy2, sha256
+    stat, copy, digest = Path.stat, shutil.copy2, live.sha256
 
     def fail() -> Never:
         fired.append(True)

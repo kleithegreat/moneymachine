@@ -6,22 +6,26 @@ the mirror steps that run in pods.
 In pods: `mirror`, `verify`.
 """
 
+import hashlib
 import json
+import os
 import shutil
 import sqlite3
+import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import jobs  # noqa: E402
 from diskguard import VOLUMES as VOLUMES  # noqa: E402
 from diskguard import capacity  # noqa: E402
-from jobs import sha256  # noqa: E402
 
-REPO = jobs.REPO
+REPO = Path(__file__).resolve().parents[1]
+REGISTRY = "git.home.lab/admin/moneymachine"
+AUTHFILE = Path.home() / ".config/containers/auth.json"
 NAMESPACE, CONFIG, NODE, APP = "moneymachine-live", "moneymachine-live.yaml", "prodesk7", "/app/repo"
 MIRROR = Path("/srv/moneymachine/mirror")
 MIRROR_VERIFY_WAIT = 2 * 10 * 60  # next ten-minute run plus ten minutes to finish copying
@@ -89,8 +93,48 @@ WORKLOADS: dict[str, Workload] = {
 
 
 def kubectl(*args: str, stdin: str | None = None) -> str:
-    out: str = jobs.kubectl(*args, stdin=stdin, namespace=NAMESPACE, config=CONFIG)
-    return out
+    env = os.environ | {"KUBECONFIG": str(Path.home() / ".kube" / CONFIG)}
+    return subprocess.run(
+        ["kubectl", "-n", NAMESPACE, *args], input=stdin, capture_output=True, text=True, env=env, check=True
+    ).stdout
+
+
+def sha256(path: str | Path, size: int | None = None) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        left = size if size is not None else sys.maxsize
+        while left > 0 and (b := f.read(min(1 << 20, left))):
+            h.update(b)
+            left -= len(b)
+    return h.hexdigest()
+
+
+def push() -> str:
+    out = subprocess.run(
+        ["nix", "build", "--no-link", "--print-out-paths", f"{REPO}#image"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    tag = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True
+    ).stdout.strip()
+    with tempfile.TemporaryDirectory() as tmp:
+        digestfile = Path(tmp) / "digest"
+        subprocess.run(
+            [
+                "skopeo",
+                "copy",
+                "--authfile",
+                str(AUTHFILE),
+                "--digestfile",
+                str(digestfile),
+                f"docker-archive:{out}",
+                f"docker://{REGISTRY}:{tag}",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        digest = digestfile.read_text().strip()
+    print(json.dumps({"tag": tag, "digest": digest, "image": out}))
+    return digest
 
 
 def pod_spec(
@@ -132,7 +176,7 @@ def pod_spec(
         "containers": [
             {
                 "name": name,
-                "image": f"{jobs.REGISTRY}@{digest}",
+                "image": f"{REGISTRY}@{digest}",
                 "workingDir": APP,
                 "command": command,
                 "resources": {"requests": {"cpu": cpu, "memory": memory}, "limits": {"memory": limit}},
@@ -339,7 +383,7 @@ def verify(app: str | Path = APP, out: str | Path = "/mirror") -> None:
 if __name__ == "__main__":
     cmd, *args = sys.argv[1:]
     if cmd == "push":
-        jobs.push()
+        push()
     elif cmd == "apply":
         apply(*args)
     else:
