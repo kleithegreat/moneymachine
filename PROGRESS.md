@@ -42,12 +42,10 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
 
 1. **Kernel version 2:** step 5 built; B4 passes on it (3,120 of 3,120, rerun with the hardened stub); test 12's inputs are `data/x4-inputs/test12/` (root `7bab5c43…`).
    - **Test 12 is too slow** (15 days a host, exact `exp`/`log`). Round 11 (Neon, answering Opus's review) plans step 5x: X4's series carried incrementally, proved equal (law X6), about 1 hour a host; GPT reviews it. Step 5 merges after step 5x passes test 12 and B4.
-   - **Rounds 14 and 15** (fresh Opus): study 2's round 14 done (`rearchitecture-s2` `be858e5`: delisting by the venue's funding, stops by whether a later line could undo them, the recorders on libcurl and `jsont` with an enforced request allocation); GPT-6.2 reviewing it, Neon's bundle in `~/Downloads`. The kernel's round 15 under way, with Neon's and GPT's round 14 reads and study 2's routed changes. The urgent recorder fix waits for study 2's new client (its build plan's steps 1 and 2).
-   - **Overnight 2026-11-22 (the human asleep):** each finished round goes to GPT-6.2 at once and, if not converged, to the next fresh Opus round; Neon's bundles wait in `~/Downloads` for the morning; GPT's filter refusing a review is logged, never worked around except by the human's standing rephrasing rule. Study 1's runner is watched; at its verdict, its report (step 9) is run and sent to a fresh Opus and GPT. A usage stop pauses the agents; they resume at the reset.
+   - **Round 15** (fresh Opus): the kernel's done (`rearchitecture` `78a35a3`; a fresh Opus reviews it, Neon's bundle in `~/Downloads`); study 2's under way. GPT's one remaining budgeted review is kept for the recorder fix, which waits for study 2's libcurl client.
    - **TAMU** (the human, 2026-11-21) runs the queued Opus work in every window (`audit/decisions.md`).
    - **Recorder:** the lint gate and the six catch-alls.
 2. **Study 1:** judged (CS1.1 met); its exit review and bug hunt, then the paper's section and the merge of `study1-build`.
-   - **After a reboot**, restart the runner: `systemd-run --user --unit mm-study1` from `../mm-s1-arms`, running `nix develop -c python -m gate.control.runner` with bubblewrap (`nix build --inputs-from . nixpkgs#bubblewrap`) first on `PATH`, `CARGO_TARGET_DIR=~/.cache/mm-study1/k`, `TMPDIR=~/.cache/mm-study1/tmp`, `CLAUDE_CODE_OAUTH_TOKEN_CORNELL`, output appended to `~/.cache/mm-study1/runner.log`.
 3. **The paper** ("The Confirmation Wall in Agentic Trading Research"): rewritten as a free-standing academic work and merged 2026-11-22 after three accuracy checks by GPT-6.2 (`audit/reviews/2026-11-2*-gpt62-paper-accuracy*.md`). Study results are added as each study reports.
 4. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. Stage 7 parked; stages 8 and 9 superseded.
 
@@ -57,7 +55,9 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
 
 ## Blockers
 
-None blocks the program. Source certificates that fail, with their clauses, are in `venue/sources.toml` and `audit/decisions.md`: Kalshi, Polymarket and Polymarket US; FRED and ALFRED; IMF; and stage 8's candidates.
+- **prodesk7 is down** (unreachable since about 2026-11-22 13:00 UTC, 08:00 EST): the cluster's recorders, `ws` included, record nothing until it is back; the human checks the machine. Then: confirm the pods are recreated, and record the gap.
+
+None else blocks the program. Source certificates that fail, with their clauses, are in `venue/sources.toml` and `audit/decisions.md`: Kalshi, Polymarket and Polymarket US; FRED and ALFRED; IMF; and stage 8's candidates.
 
 ## Decisions awaiting the human's review
 
