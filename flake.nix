@@ -9,21 +9,7 @@
       forAll = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
       # The research environment: the dev shell's and the cluster image's, one closure.
       pythonFor = pkgs: pkgs.python313.withPackages (ps: with ps; [
-        # StepM's step-down stopped on the last step's rejection count instead of the cumulative one, and crashed
-        # once every model was superior. Upstream's fix (bashtage/arch, main), until a release carries it.
-        (arch.overridePythonAttrs (old: {
-          postPatch = (old.postPatch or "") + ''
-            substituteInPlace arch/bootstrap/multiple_comparison.py --replace-fail \
-              "while better_models and (len(better_models) < self.k):" \
-              "while better_models and (len(all_better_models) < self.k):"
-          '';
-        }))
-        numpy
-        scipy
-        pandas
         polars
-        pyarrow
-        statsmodels
         httpx
         certifi
         pytest
@@ -105,12 +91,6 @@
         {
           default = pkgs.mkShell {
             packages = with pkgs; [
-              cargo
-              rustc
-              clippy
-              rustfmt
-              rust-analyzer
-              pkg-config
               sqlite
               python
               jq
@@ -121,10 +101,8 @@
               tools.lean
               kubectl
               skopeo
-              tools.claude-code
               bubblewrap
             ];
-            RUST_SRC_PATH = "${pkgs.rustPlatform.rustLibSrc}";
             shellHook = "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks";
           };
           # The HL recorder alone (`python -m cli record`), for hosts that only record (ops/oci).
@@ -161,26 +139,6 @@
               "PATH=${pkgs.lib.makeBinPath tools}:/bin:/usr/bin"
             ];
           };
-        };
-        # Claude Code, pinned for the agent sessions' frozen harnesses (nixpkgs' packaging of the native binary).
-        claude-code = pkgs.stdenvNoCC.mkDerivation {
-          pname = "claude-code";
-          version = "2.1.304";
-          src = pkgs.fetchurl {
-            url = "https://downloads.claude.ai/claude-code-releases/2.1.304/linux-x64/claude.zst";
-            hash = "sha256-DzRo+ihfESZQ/rO+wpE0Jbe6XIPNTrQRtcdbQIZBa7Y=";
-          };
-          dontUnpack = true;
-          dontStrip = true;
-          nativeBuildInputs = [ pkgs.makeBinaryWrapper pkgs.zstd pkgs.autoPatchelfHook ];
-          installPhase = ''
-            mkdir -p $out/bin
-            unzstd -q $src -o $out/bin/claude
-            chmod 755 $out/bin/claude
-            wrapProgram $out/bin/claude --set DISABLE_AUTOUPDATER 1 --set DISABLE_INSTALLATION_CHECKS 1 \
-              --set USE_BUILTIN_RIPGREP 0 --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath [ pkgs.alsa-lib ]} \
-              --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.procps pkgs.ripgrep pkgs.bubblewrap pkgs.socat ]}
-          '';
         };
         # The adopted reference kernel's toolchain (stage 6): Lean v4.34.0.
         lean = pkgs.stdenv.mkDerivation {
@@ -231,8 +189,7 @@
           inherit (pkgs) lib;
           fs = lib.fileset;
           python = pythonFor pkgs;
-          claude = self.packages.${system}.claude-code;
-          tools = [ python claude pkgs.git pkgs.sqlite pkgs.jq pkgs.openssh pkgs.rsync pkgs.procps pkgs.util-linux ];
+          tools = [ python pkgs.git pkgs.sqlite pkgs.jq pkgs.openssh pkgs.rsync pkgs.procps pkgs.util-linux ];
           prose = [ ./docs ./audit/reviews ./audit/decisions.md ./audit/erasure ./CLAUDE.md ./PROGRESS.md
                    ./flake.nix ./flake.lock ./.githooks ./.gitignore ./ops/units.nix ];
           # The tracked tree minus prose and build files, so a commit that only edits those leaves every check cached; a test that

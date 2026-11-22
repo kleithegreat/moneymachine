@@ -23,5 +23,5 @@ module = ["pytest.*", "_pytest.*", "hypothesis.*"]
 follow_imports = "normal"
 
 [[tool.mypy.overrides]]
-module = ["scipy.*", "pandas.*", "statsmodels.*", "arch.*", "pyarrow.*", "polars.*"]
+module = ["polars.*"]
 ignore_missing_imports = true
