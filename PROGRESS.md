@@ -1,57 +1,34 @@
 # Progress
 
-Current state only; history is in git. Commands: `nix develop -c python -m cli -h`. Criteria checks are tests in `criteria/` over evidence in `audit/`.
+Current state only; history is in git. The pilot's code is at `archive/pilot` (2026-11-22); `main` holds the live recorders, the mirror and guard, the archive reader, `reference/lean`, and the specs.
 
 ## Now
 
 ### Running, and how to inspect it
 
 - **Cluster, live** (prodesk7, namespace `moneymachine-live`; `KUBECONFIG=~/.kube/moneymachine-live.yaml kubectl -n moneymachine-live get pods,jobs,cronjobs`; `CLUSTER.md`):
-  - Recorders (`sha256:97b2817f…`): StatefulSets `sources`, `datalayer` (`CLUSTER.md`); `hl` retired 2026-11-22, its StatefulSet at 0 replicas until the next push removes it.
-  - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`).
-  - prodesk7 builds test checks as a remote builder, inside `mmtest.slice` (`CLUSTER.md` §6).
-- **Oracle VM** `mm-recorder`: **terminated** 2026-11-22, every file verified here first; its forward-window days are embargoed in `~/embargo/oci-forward-window/` (integrity only until the window ends). Its pull, alarm and setup files are deleted (phase C, merged).
-- **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers run only while the human is logged in.
-- **Accounts** (the human, 2026-11-11 and 12):
-  - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
-  - **Architect:** a fresh Opus 5.5 at maximum effort (`CLAUDE.md`). **GPT** through `ops/gpt.sh` (`gpt-6.2-sol`). **Neon** reviews through the web UI (bundles in `~/Downloads`); its agy writes go through `ops/agy-write.sh`.
-- **Worktrees:** `main`; `../mm-program` (`rearchitecture`); `../mm-s1-arms` (study 1's arms, at the manifest's commit); `../mm-k2` (`kernel2-build`); `../mm-k2-step5` (`kernel2-step5`); `../mm-program-s2` (`rearchitecture-s2`); `../mm-rec-urgent` (`recorder-urgent`); one per agent.
+  - Recorders: StatefulSets `ws` (OCaml `mmrec`, `recorder/RECORDER.md`: every Hyperliquid perp, about 2.0 GB a day, one copy on PVC `ws`), `sources`, `datalayer`; CronJob `vault` (`mmvault`, hourly). `hl` retired 2026-11-22 (its PVC kept).
+  - The mirror CronJobs; prodesk7 also builds test checks as a remote builder (`CLUSTER.md` §6).
+- **Oracle VM:** terminated 2026-11-22 after every file was verified here; its forward-window days are embargoed in `~/embargo/oci-forward-window/` (integrity only until the window ends).
+- **This PC** records nothing; `data/live`, `data/sources_live`, `data/datalayer` and `data/live-oci` are closed hosts, kept as evidence. User timers run only while the human is logged in.
+- **Models:** architect a fresh Opus 5.5 at maximum effort, or Neon through agy (`ops/agy-write.sh`); GPT through `ops/gpt.sh` (`gpt-6.2-sol`), its weekly budget kept for what matters (the human); Neon reviews through the web UI (bundles in `~/Downloads`).
+- **Worktrees:** `main`; `../mm-program` (`rearchitecture`, the kernel half); `../mm-program-s2` (`rearchitecture-s2`, study 2's half); `../mm-k2` (`kernel2-build`); `../mm-k2-step5` (`kernel2-step5`); `../mm-rec-urgent` (`recorder-urgent`, held); one per agent.
 
 ### Work in progress
 
-Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 2026-11-12).
+Roles and laws: `CLAUDE.md`. The project is academic: no live trading.
 
-1. **The program** (`audit/program/` on `rearchitecture`; revision 4 approved by the human 2026-11-11; `ledger.md` lists what is agreed and disputed). The project is academic: no live trading, no stage 11.
-   - **Study 1, the positive control of search:** does the agent find a planted edge more often than G100? At most 100 markets, on Cornell and TAMU.
-     - **Converged and committed:** CS1.1 is in `audit/criteria.md` (`criteria: study 1`, `10fedc5`), with definitions at `rearchitecture` `ce7ff38`.
-       - Each market has one session, never rerun; a session with no pick, or not answered by Opus 5.5 or 4.8, is the agent's miss.
-       - The subject is the agent as served (H8, approved by the human).
-       - Wall 5 is 14 of 200.
-     - **Calibration done** (`cal-3`, strength 0.0021875, all walls pass); **manifest** committed (`c5d95db`, seed by rule); **G100's arm** done, 15 of 100 earn (`51e0e4c`). Arms run from `../mm-s1-arms` with the frozen kernel via `CARGO_TARGET_DIR=~/.cache/mm-study1/k`.
-     - **Done: CS1.1 met as written** (2026-11-22, market 43; reviews and hunt in `audit/reviews/2026-11-22-*study1*`). Next: the report's G100 columns, the paper, `audit/control-1/` to `main`, and a deletion list for the human.
-   - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
-     - Fidelity first, then a frozen forward test (its operating power is not yet derived: GPT-6.2, `audit/reviews/2026-11-21-gpt62-study2-whole.md`, finding 2). Criteria committed (`criteria: study 2`, `a324059`; CS2.1 revised `a903317`).
-     - **Kernel version 2** (`audit/program/kernel-v2.md`, brief 3; branch `kernel2-build`, worktree `../mm-k2`): steps 0 to 3 built and proved (Lean laws with only the three standard axioms); layer 1 clean on all 5,806 vault fills under the venue's printed arithmetic. Step 4: below.
-     - **Data:** the archive for its 17 coins, 2026-04-03 to 10-31 (26 GB, `ingest/archive.py`); funding history (`data/study2/funding-history/`); the vault's own fills and funding before 11-01 (`data/study2/vault/`); the trade prints (`node_fills_by_block`, V22; `data/hl-archive/fills_by_block/`), with a continuous block stream. The C6.4 reference streams are stored under a hash (`data/stage6/c64-reference/`, decisions 2026-11-16).
-     - **The vault collector** (`recorder/VAULT.md`, `mmvault`) runs hourly as CronJob `vault` (`CLUSTER.md`).
-   - **No reading-agent study:** the thesis track registered 0 theses in 6 sessions, against a threshold of 33 independent bets a week.
-   - **The websocket recorder** (`recorder/RECORDER.md`): every perp on every Hyperliquid dex, crypto and builder-deployed stocks, commodities and indices. **Running** since 2026-11-14 03:43 UTC (22:43 EST) as StatefulSet `ws` (image `851fc77`, `sha256:9a6e0b2a…` since 2026-11-20 14:57 UTC, 09:57 EST; `vault` likewise), one copy on prodesk7 (PVC `ws`, not mirrored, the human's choice): fast five-level books for all 350 perps, 20-level books for the main dex's 179, trades, asset contexts, listings. About 2.0 GB a day (sizes only); its volume fills about April 2027, and enough disk is assumed by then (the human, 2026-11-21; the sizing measurement is the advisor's).
-2. **Erasure pass** (`audit/erasure/2026-11-12-deletion-list.md`): phases A to F done. Tests: flake checks on the remote builders and `nix run .#test` (`CLUSTER.md` §6). **Constraint:** `flake.lock` does not move while study 1 runs.
-
-### Next, in order
-
-1. **Kernel version 2:** step 5 built; B4 passes on it (3,120 of 3,120, rerun with the hardened stub); test 12's inputs are `data/x4-inputs/test12/` (root `7bab5c43…`).
-   - **Test 12 is too slow** (15 days a host, exact `exp`/`log`). Round 11 (Neon, answering Opus's review) plans step 5x: X4's series carried incrementally, proved equal (law X6), about 1 hour a host; GPT reviews it. Step 5 merges after step 5x passes test 12 and B4.
-   - **Round 15** (fresh Opus): the kernel's done (`rearchitecture` `78a35a3`; a fresh Opus reviews it, Neon's bundle in `~/Downloads`); study 2's under way. GPT's one remaining budgeted review is kept for the recorder fix, which waits for study 2's libcurl client.
-   - **TAMU** (the human, 2026-11-21) runs the queued Opus work in every window (`audit/decisions.md`).
-   - **Recorder:** the lint gate and the six catch-alls.
-2. **Study 1:** done; its report's G100 columns, the paper's section, and the erasure it unblocks (a deletion list for the human).
-3. **The paper** ("The Confirmation Wall in Agentic Trading Research"): rewritten as a free-standing academic work and merged 2026-11-22 after three accuracy checks by GPT-6.2 (`audit/reviews/2026-11-2*-gpt62-paper-accuracy*.md`). Study results are added as each study reports.
-4. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. Stage 7 parked; stages 8 and 9 superseded.
+1. **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06`, frozen and tested forward (criteria committed, `criteria: study 2`, `a324059`; CS2.1 revised `a903317`; the program in `audit/program/`, `ledger.md` listing what is agreed and disputed).
+   - **Round 16:** the kernel half by Neon (`rearchitecture` `926855d`: a two-stage clean compile in place of the source guard; one effect log for the observation laws), under a fresh Opus's review. Study 2's half by a fresh Opus (`rearchitecture-s2` `7982cbe`: the venue's own `Date` times copies and pulls; off-rule events dropped and counted, settling the lot-size cost; the recorder alone pairs books with readable prints; two halts deleted); Neon's review waits on the human pasting `~/Downloads/neon-r16-study2-*`, GPT's is queued. Its kernel changes route to the kernel's next round.
+   - **Kernel version 2** (`audit/program/kernel-v2.md`, brief 3): steps 0 to 5 built; B4 passes on step 5 (3,120 of 3,120). Test 12 is too slow (15 days a host); step 5x (the incremental exact series, law X6) waits on the boundary converging. Step 5 merges after step 5x passes test 12 and B4.
+   - **The urgent recorder fix** (`recorder-urgent`) waits for study 2's libcurl and `jsont` client to converge; GPT's review is kept for it.
+2. **The paper** ("The Confirmation Wall in Agentic Trading Research"): free-standing, with study 1's section merged; each study's result is added as it reports.
+3. **Python's extinction** (the human, 2026-11-22): about 4,600 lines remain (`ingest/{sources_record,datalayer,live,terms,archive,compute}.py`, `ops/{live,diskguard,style}.py` and their tests), each ported to OCaml or Lean in its turn.
 
 ### Finished
 
-- Stages 0–6 exited (stage 4 on 2026-11-08: `audit/stage4/exit.md`); recorder handoff done. Findings: the paper, linked to the record by `docs/findings.md`; qualifications below.
+- Stages 0–6 exited; study 1 done (CS1.1 met at market 43, 2026-11-22; `audit/control-1/`). Findings: the paper, linked to the record by `docs/findings.md`; qualifications below.
+- Deletion phases A, B and C done 2026-11-22 (`audit/erasure/2026-11-22-deletion-list.md`); style gates on `recorder/` and `reference/lean`.
 
 ## Blockers
 
@@ -77,6 +54,6 @@ Failed criteria, labeled amendments and known limitations, each beside its crite
 - **Stage 2:** C2.6 failed as written and as amended on both rounds and is waived by human decision, never a pass: the pilot cannot confirm ordinary edges at its holdout lengths (paper, "The confirmation wall"). Its searchers state no mechanisms, so C2.2's power overstates stage 3's.
 - **Stage 3:** the archive cost table lapsed, so C0.7's, qualified. Its holdout [2026-08-01, 2026-09-30) has about zero power at 360 steps: a pipeline validation run, its promotions qualified "historical holdout, costs fitted after it" and confirmed only on [2026-11-01, 2027-01-31); each campaign reports evaluations reaching −B. C3.2 met only under v3 (0 of 20): v1 failed as written (20 of 20, crashes before any model call), v2 established no procedure (`audit/stage3/write-denied-2026-10-31.md`). The real campaign had zero finalists in both arms: C3.3 and C3.4 met under the zero-finalist revisions, the release path not exercised, the holdout unreleased.
 - **Stage 4:** C4.5 v1 and v2 failed (strict xfails); v3 passes as written, N2-8 unresolved (A4's refused `Edit` fails `audit_holds`; calls equal ledger rows). A smoke test: no finalist, so the holdout and betting path never ran; the C4.5 qualifications stand. Pooled: 22 started, 21 known non-promotions (bound 0.133), v2's crashed N2-9 unknown (0.198 if counted); the series report reads only logs in `data/agent` and omits v2.
-- **Stage 5:** C5.3 failed as written for Discourse, met under the 2026-10-22 amendment and its clarification; C5.6's calibration deferred, required before any search store carries an event dataset (`criteria/test_stages3to5.py` enforces it); the 2026-10-19 migration's predecessor hash unrecorded; unlocks a blocked category (no free source).
+- **Stage 5:** C5.3 failed as written for Discourse, met under the 2026-10-22 amendment and its clarification; C5.6's calibration deferred, required before any search store carries an event dataset (enforced at `archive/pilot`; no search store remains on `main`); the 2026-10-19 migration's predecessor hash unrecorded; unlocks a blocked category (no free source).
 - **Stage 6:** C6.1 judged for Lean only (amendment of 2026-10-23; Bend's L5 not accepted); C6.3 not met; C6.5's effort a recovered proxy and its thread configuration a known limitation; C6.4 met on its third judged run; L1, L3 and L4 false as frozen, revised before their proofs.
 - **Stage 10:** C10.4's tolerance revised during its first differential run, after a one-ulp disagreement, and again on 2026-10-25 before live registration (missing funding had counted as zero); met on the run after. `as_managed_mean` omits a spread with one leg entered, though the equity carries its P&L (strict xfail, audit/decisions.md, 2026-11-03); the thesis track is parked.
