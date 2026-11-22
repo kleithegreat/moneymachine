@@ -30,4 +30,6 @@
   ../support/tls_server.key
   ../support/tls_unrelated_ca.pem
   %{bin:zstd}
-  %{bin:faketime}))
+  %{bin:faketime})
+ (lint
+  (pps ppx_js_style)))

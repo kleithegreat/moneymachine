@@ -14,4 +14,6 @@
   ../../bin/mmvault.exe
   ../support/tls_server.crt
   ../support/tls_server.key
-  %{bin:zstd}))
+  %{bin:zstd})
+ (lint
+  (pps ppx_js_style)))
