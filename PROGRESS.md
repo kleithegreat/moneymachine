@@ -10,7 +10,7 @@ Current state only; history is in git. Commands: `nix develop -c python -m cli -
   - Recorders (`sha256:97b2817f…`): StatefulSets `sources`, `datalayer` (`CLUSTER.md`); `hl` retired 2026-11-22, its StatefulSet at 0 replicas until the next push removes it.
   - The mirror CronJobs on `sha256:5e81095e…` (`cb23337`).
   - prodesk7 builds test checks as a remote builder, inside `mmtest.slice` (`CLUSTER.md` §6).
-- **Oracle VM** `mm-recorder`: **retired** 2026-11-22 (its recorders stopped); its forward-window Hyperliquid files are embargoed in `~/embargo/oci-forward-window/` (integrity only until the window ends); the VM holds nothing else, so terminating it is the human's call.
+- **Oracle VM** `mm-recorder`: **terminated** 2026-11-22, every file verified here first; its forward-window days are embargoed in `~/embargo/oci-forward-window/` (integrity only until the window ends). The guard's stale-pull alarm is expected until phase C's `diskguard` is deployed.
 - **This PC** records nothing; `data/live`, `data/sources_live` and `data/datalayer` are closed hosts, kept as stage 0's judged evidence. User timers run only while the human is logged in.
 - **Accounts** (the human, 2026-11-11 and 12):
   - **Cornell and TAMU** are free for study 1 for about two weeks, to about 2026-11-25.
