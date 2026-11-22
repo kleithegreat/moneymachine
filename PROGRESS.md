@@ -67,7 +67,7 @@ None.
 
 Failed criteria, labeled amendments and known limitations, each beside its criterion in `audit/criteria.md`; reports cite this list.
 
-- **Study 1 (CS1.1 met):** every counted response from `claude-opus-5-5`, no fallback, so not the pilot's share; size 0.0431 (note under CS1.1) and the brief's Lean statements of the test owed; the strategy guide's first example is a funding fade like the plant (search apart from prior is excluded); market 1's sandbox never started (a miss); bubblewrap 0.12.0 from market 2 on; fixed-sample intervals (`audit/decisions.md`, 2026-11-22).
+- **Study 1 (CS1.1 met):** every counted response from `claude-opus-5-5`, no fallback, so not the pilot's share; size 0.0431 (note under CS1.1; the test's statements proved in Lean, `Ref/Study1.lean`); the strategy guide's first example is a funding fade like the plant (search apart from prior is excluded); market 1's sandbox never started (a miss); bubblewrap 0.12.0 from market 2 on; fixed-sample intervals (`audit/decisions.md`, 2026-11-22).
 
 - **The agent's model (stages 3 and 4):** many sessions fell back from Opus 5.5 to Opus 4.8 after a "cyber" safeguard flag: 9 of 20 stage 3 null sessions, the real campaign's search session, and 31 of 40 in stage 4's swarm (`audit/decisions.md`, 2026-11-12). No judged number changes. Reports name the model that answered.
 
