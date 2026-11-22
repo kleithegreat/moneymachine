@@ -1,7 +1,0 @@
-{
- "version": 3,
- "key": "forum host",
- "rows": [
-  {"forum": "delvingbitcoin.org", "coin": "BTC", "valid_from": null, "valid_to": null}
- ]
-}
