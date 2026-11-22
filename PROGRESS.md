@@ -28,7 +28,7 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
        - The subject is the agent as served (H8, approved by the human).
        - Wall 5 is 14 of 200.
      - **Calibration done** (`cal-3`, strength 0.0021875, all walls pass); **manifest** committed (`c5d95db`, seed by rule); **G100's arm** done, 15 of 100 earn (`51e0e4c`). Arms run from `../mm-s1-arms` with the frozen kernel via `CARGO_TARGET_DIR=~/.cache/mm-study1/k`.
-     - **Now:** runner `mm-study1` on Cornell alone since 2026-11-21 20:15 UTC (15:15 EST; the human), from Cornell's weekly reset 2026-11-22 05:00 UTC (00:00 EST); 32 markets judged. If Cornell's 30% runs out first, TAMU rejoins after the human's reset (`audit/decisions.md`).
+     - **CS1.1 met** (2026-11-22, market 43: wins 15, losses 4; the agent earned on 18 of 43 markets, G100 on 7; `study1-build` `17b7184`, `audit/control-1/report.md`). Before it is marked done: the evidence reviewed by a fresh Opus and GPT, and a fresh bug hunt; then the paper and the merge.
    - **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06` (FuturAI Labs; its fills read only before the forward window).
      - Fidelity first, then a frozen forward test (its operating power is not yet derived: GPT-6.2, `audit/reviews/2026-11-21-gpt62-study2-whole.md`, finding 2). Criteria committed (`criteria: study 2`, `a324059`; CS2.1 revised `a903317`).
      - **Kernel version 2** (`audit/program/kernel-v2.md`, brief 3; branch `kernel2-build`, worktree `../mm-k2`): steps 0 to 3 built and proved (Lean laws with only the three standard axioms); layer 1 clean on all 5,806 vault fills under the venue's printed arithmetic. Step 4: below.
@@ -46,7 +46,7 @@ Roles and laws: `CLAUDE.md`. New code is maximal Lean plus OCaml (the human, 202
    - **Overnight 2026-11-22 (the human asleep):** each finished round goes to GPT-6.2 at once and, if not converged, to the next fresh Opus round; Neon's bundles wait in `~/Downloads` for the morning; GPT's filter refusing a review is logged, never worked around except by the human's standing rephrasing rule. Study 1's runner is watched; at its verdict, its report (step 9) is run and sent to a fresh Opus and GPT. A usage stop pauses the agents; they resume at the reset.
    - **TAMU** (the human, 2026-11-21) runs the queued Opus work in every window (`audit/decisions.md`).
    - **Recorder:** the lint gate and the six catch-alls.
-2. **Study 1:** runs to its end (about 2026-11-23), then its report.
+2. **Study 1:** judged (CS1.1 met); its exit review and bug hunt, then the paper's section and the merge of `study1-build`.
    - **After a reboot**, restart the runner: `systemd-run --user --unit mm-study1` from `../mm-s1-arms`, running `nix develop -c python -m gate.control.runner` with bubblewrap (`nix build --inputs-from . nixpkgs#bubblewrap`) first on `PATH`, `CARGO_TARGET_DIR=~/.cache/mm-study1/k`, `TMPDIR=~/.cache/mm-study1/tmp`, `CLAUDE_CODE_OAUTH_TOKEN_CORNELL`, output appended to `~/.cache/mm-study1/runner.log`.
 3. **The paper** ("The Confirmation Wall in Agentic Trading Research"): rewritten as a free-standing academic work and merged 2026-11-22 after three accuracy checks by GPT-6.2 (`audit/reviews/2026-11-2*-gpt62-paper-accuracy*.md`). Study results are added as each study reports.
 4. **Python and Rust leave `main`** as study 1 reports and kernel version 2 lands. Stage 7 parked; stages 8 and 9 superseded.
