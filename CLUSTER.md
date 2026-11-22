@@ -7,8 +7,7 @@ Section 1 is what the Homelab repo (Flux) builds; sections 2, 5 and 6 are what t
 
 ## 1. Homelab objects
 
-- **Namespace** `moneymachine-live`, Pod Security `enforce: baseline` with `warn` and `audit: restricted`. No volume of `moneymachine` is mounted in it, so
-  no licensed kernel-only data reaches it.
+- **Namespace** `moneymachine-live`, Pod Security `enforce: restricted`. No licensed kernel-only data is mounted in it.
 - **PriorityClass** `moneymachine-live`: value −50, `preemptionPolicy: Never`, so homelab services always win.
 - **PVCs**, local-path, ReadWriteOnce, bound on the first pod's node (prodesk7), and not backed up: `hl` 50Gi (retained, its recorder retired 2026-11-22), `sources` 5Gi, `datalayer` 20Gi, `ws` 300Gi (not mirrored: its only copy, the human's choice of 2026-11-14), `thesis`
   20Gi, `agent` 20Gi. Every SQLite ledger lives on one of them, never on NFS.
