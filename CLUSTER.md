@@ -2,7 +2,7 @@
 
 The recorders and the mirror run on the homelab's k3s cluster (1.36, containerd 2.3), so this PC can be off without
 stopping them. The agent series (stages 3 and 4) has finished. Batch Jobs run in namespace `moneymachine`,
-submitted from this PC, inputs and results on its NFS. The Oracle recorder is an independent second Hyperliquid host.
+submitted from this PC, inputs and results on its NFS. The Oracle VM recorded independently until its retirement on 2026-11-22; it now only holds the forward window's Hyperliquid day files until 2027-02-01.
 
 Agent sessions run in bubblewrap with private unix sockets inside runner pods that have their own user namespace. The
 CLI's credential reaches a session as `CLAUDE_CODE_OAUTH_TOKEN`, passed by `sandbox/session.py`.
