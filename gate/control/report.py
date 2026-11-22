@@ -21,6 +21,7 @@ NAMES = {
     "ended early": "Inconclusive at the markets judged",
 }
 SETS = "The sets are not arms: which ids answer a session depends on how long it runs"
+NO_SESSION = "(no session)"
 NO_DESIGNED_END = ("crashed", "killed")
 
 
@@ -43,7 +44,7 @@ def rate(earned: int, n: int) -> Summary:
 
 
 def model_set(line: Line) -> str:
-    return ", ".join(sorted(model for model, _ in line["models"]))
+    return ", ".join(sorted(model for model, _ in line["models"])) or NO_SESSION
 
 
 def g100_at(line: Line, searcher: Mapping[str, Line]) -> Summary:
@@ -52,6 +53,12 @@ def g100_at(line: Line, searcher: Mapping[str, Line]) -> Summary:
     earlier = [best for best in searcher[line["id"]]["earlier"] if best["evaluation"] <= k]
     best = earlier[-1] if earlier else {"pick": None, "earns": False}
     return {"id": line["id"], "k": k, "pick": best["pick"], "earns": best["earns"]}
+
+
+def read_medians(out: Path) -> dict[str, Line]:
+    """G100's median effects by market from `g100-medians.jsonl`, empty when the diagnostic has not been run."""
+    path = out / "g100-medians.jsonl"
+    return {line["id"]: line for line in read_lines(path)} if path.exists() else {}
 
 
 def summary(out: Path, *, verify: Callable[[], Mapping[str, Any]] = manifest.verify) -> Summary:
@@ -87,6 +94,8 @@ def summary(out: Path, *, verify: Callable[[], Mapping[str, Any]] = manifest.ver
         "agent": rate(sum(bool(line["agent_earns"]) for line in counted), n),
         "searcher": rate(sum(bool(line["searcher_earns"]) for line in counted), n),
         "by_models": by_models,
+        "g100": {line["id"]: line for line in searcher.values()},
+        "g100_medians": read_medians(out),
         "g100_at_k": [g100_at(line, searcher) for line in counted],
         "cut_off": [line["id"] for line in counted if line["ended"] in NO_DESIGNED_END],
         "unnamed": [line["id"] for line in counted if not line["is_agent"]],
@@ -142,6 +151,11 @@ def text_of(found: Summary) -> str:
         out += ["## Sessions by the set of ids that answered", "", SETS, ""]
         out += table(["Ids", "Sessions", "Share", "Earned", "Rate", "95% interval"], rows) + [""]
     by_id = {row["id"]: row for row in found["g100_at_k"]}
+    medians = found["g100_medians"]
+
+    def g100_median(market_id: str) -> Any:
+        return medians[market_id]["pick_median"] if market_id in medians else ""
+
     market_rows = [
         (
             line["id"],
@@ -155,12 +169,27 @@ def text_of(found: Summary) -> str:
             line["agent_earns"],
             line["searcher_earns"],
             f"{by_id[line['id']]['pick']} ({by_id[line['id']]['earns']})",
+            found["g100"][line["id"]]["pairs_won"],
+            g100_median(line["id"]),
+            ", ".join(found["g100"][line["id"]]["reads"] or []),
         )
         for line in found["lines"]
     ]
     header = ["Market", "Evaluations", "Ended", "Model ids", "Pairs won", "Pick median", "Reference median"]
     out += ["## Markets", ""]
-    out += table([*header, "Reads", "Agent earns", "G100 earns", "G100 at the agent's count"], market_rows) + [""]
+    out += table(
+        [
+            *header,
+            "Reads",
+            "Agent earns",
+            "G100 earns",
+            "G100 at the agent's count",
+            "G100 pairs won",
+            "G100 pick median",
+            "G100 reads",
+        ],
+        market_rows,
+    ) + [""]
     if found["cut_off"]:
         out += ["Sessions with no designed end: " + ", ".join(found["cut_off"]), ""]
     if found["unnamed"]:
