@@ -12,23 +12,25 @@ Current state only; history is in git. The pilot's code is at `archive/pilot` (2
 - **Oracle VM:** terminated 2026-11-22 after every file was verified here; its forward-window days are embargoed in `~/embargo/oci-forward-window/` (integrity only until the window ends).
 - **This PC** records nothing; `data/live`, `data/sources_live`, `data/datalayer` and `data/live-oci` are closed hosts, kept as evidence. User timers run only while the human is logged in.
 - **Models:** architect a fresh Opus 5.5 at maximum effort, or Neon through agy (`ops/agy-write.sh`); GPT through `ops/gpt.sh` (`gpt-6.2-sol`), its weekly budget kept for what matters (the human); Neon reviews through the web UI (bundles in `~/Downloads`).
-- **Worktrees:** `main`; `../mm-program` (`rearchitecture`, the kernel half); `../mm-program-s2` (`rearchitecture-s2`, study 2's half); `../mm-k2` (`kernel2-build`); `../mm-k2-step5` (`kernel2-step5`); `../mm-rec-urgent` (`recorder-urgent`, held); one per agent.
+- **Worktrees:** `main`; `../mm-program` (`rearchitecture`, the kernel half); `../mm-program-s2` (`rearchitecture-s2`, study 2's half); `../mm-k2` (`kernel2-build`); `../mm-k2-step5` (`kernel2-step5`); `../mm-rec-urgent` (`recorder-urgent`, held); `../mm-python-plan` (`python-extinction`); one per agent.
 
 ### Work in progress
 
 Roles and laws: `CLAUDE.md`. The project is academic: no live trading.
 
 1. **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06`, frozen and tested forward (criteria committed, `criteria: study 2`, `a324059`; CS2.1 revised `a903317`; the program in `audit/program/`, `ledger.md` listing what is agreed and disputed).
-   - **Round 16:** the kernel half by Neon (`rearchitecture` `926855d`: a two-stage clean compile in place of the source guard; one effect log for the observation laws), under a fresh Opus's review. Study 2's half by a fresh Opus (`rearchitecture-s2` `7982cbe`: the venue's own `Date` times copies and pulls; off-rule events dropped and counted, settling the lot-size cost; the recorder alone pairs books with readable prints; two halts deleted); Neon's review waits on the human pasting `~/Downloads/neon-r16-study2-*`, GPT's is queued. Its kernel changes route to the kernel's next round.
+   - **Round 16, kernel** (Neon, `rearchitecture` `926855d`: a two-stage clean compile in place of the source guard; one effect log for the observation laws): reviewed by a fresh Opus (`audit/reviews/2026-11-22-opus-round16-kernel.md`: two boundary holes built, Lean's `ST` primitives and the specializer's names; R1 bound only for step 5; rule-change cancels unbound), not converged. **Round 17, kernel:** a fresh Opus architect, running (report `data/builder/architect-r17-kernel-report.md`), with study 2's round 16 kernel changes folded in; a reviewer who did not build it follows.
+   - **Round 16, study 2** (a fresh Opus, `rearchitecture-s2` `7982cbe`: the venue's own `Date` times copies and pulls; off-rule events dropped and counted, settling the lot-size cost; the recorder alone pairs books with readable prints; two halts deleted): Neon reviewing in the web UI (the human pastes `~/Downloads/neon-r16-study2-*`; long replies get cut off), GPT's review queued. The fresh Opus's kernel finding 6 (the ending's `known`) is owed to its next round.
    - **Kernel version 2** (`audit/program/kernel-v2.md`, brief 3): steps 0 to 5 built; B4 passes on step 5 (3,120 of 3,120). Test 12 is too slow (15 days a host); step 5x (the incremental exact series, law X6) waits on the boundary converging. Step 5 merges after step 5x passes test 12 and B4.
    - **The urgent recorder fix** (`recorder-urgent`) waits for study 2's libcurl and `jsont` client to converge; GPT's review is kept for it.
 2. **The paper** ("The Confirmation Wall in Agentic Trading Research"): free-standing, with study 1's section merged; each study's result is added as it reports.
-3. **Python's extinction** (the human, 2026-11-22): about 4,600 lines remain (`ingest/{sources_record,datalayer,live,terms,archive,compute}.py`, `ops/{live,diskguard,style}.py` and their tests), each ported to OCaml or Lean in its turn.
+3. **Python's extinction** (the human, 2026-11-22): about 4,600 lines remain (`ingest/{sources_record,datalayer,live,terms,archive,compute}.py`, `ops/{live,diskguard,style}.py` and their tests). A fresh Opus architect is planning it (keep, retire or port each; `../mm-python-plan`, branch `python-extinction`).
+4. **Owed:** the deployed recorder's six catch-all handlers (`recording.ml`, `route.ml`, `sub.ml`, `vault.ml`), fixed with the urgent recorder rebuild; `arithmetic.py.txt`'s ledger model to K1's fold (`~/.cache/mm-r15k/k1_fold.py`) once both design branches merge; B4's checksum check once per host; kernel version 2's efficiency fixes after step 5 merges; before study 2's build, that the venue still sends `Date`, and the GitHub credential the capture host pushes each month's capture with.
 
 ### Finished
 
 - Stages 0–6 exited; study 1 done (CS1.1 met at market 43, 2026-11-22; `audit/control-1/`). Findings: the paper, linked to the record by `docs/findings.md`; qualifications below.
-- Deletion phases A, B and C done 2026-11-22 (`audit/erasure/2026-11-22-deletion-list.md`); style gates on `recorder/` and `reference/lean`.
+- Deletion phases A, B and C done 2026-11-22 (`audit/erasure/2026-11-22-deletion-list.md`), with the cluster's cleanup (Homelab `780be55`: `moneymachine-live` enforces `restricted`, the agent sandbox and batch namespace gone) and the desktop's (dotfiles: no longer a k3s agent, only the `mirror` export stays; active after the human's next `nixos-rebuild switch`); style gates on `recorder/` and `reference/lean`.
 
 ## Blockers
 
