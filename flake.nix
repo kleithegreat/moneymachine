@@ -95,7 +95,10 @@
         in
         {
           default = pkgs.mkShell {
+            # The recorder's OCaml toolchain and libraries, with the editor's language server (.vscode/settings.json).
+            inputsFrom = [ (mmrecFor pkgs).style ];
             packages = with pkgs; [
+              ocamlPackages.ocaml-lsp
               sqlite
               python
               jq
