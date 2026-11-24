@@ -314,6 +314,7 @@
               ops/test-gpt.sh
               ops/check-times.sh
               ops/test-hooks.sh
+              ops/test-workloads.sh
             '';
           });
         };
