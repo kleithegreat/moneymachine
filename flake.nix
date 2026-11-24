@@ -215,6 +215,57 @@
             test "$(stat -c %s ${./PROGRESS.md})" -le 12288 || { echo "PROGRESS.md is over 12 KiB"; exit 1; }
             touch $out
           '';
+          # The ratchet: no Python outside audit/ beyond this list, and every file on it exists. A step that deletes Python
+          # deletes its lines here in the same commit; the list ends empty and the check stays, so no Python comes back.
+          python-left =
+            let
+              listed = [
+            "cli.py"
+            "conftest.py"
+            "ingest/__init__.py"
+            "ingest/archive.py"
+            "ingest/compute.py"
+            "ingest/datalayer.py"
+            "ingest/live.py"
+            "ingest/sources_record.py"
+            "ingest/terms.py"
+            "ingest/tests/__init__.py"
+            "ingest/tests/crash_helpers.py"
+            "ingest/tests/test_archive.py"
+            "ingest/tests/test_archive_has_no_bars.py"
+            "ingest/tests/test_compute.py"
+            "ingest/tests/test_crash_recovery.py"
+            "ingest/tests/test_datalayer.py"
+            "ingest/tests/test_live.py"
+            "ingest/tests/test_recorder_spec.py"
+            "ingest/tests/test_terms.py"
+            "ops/commitcheck.py"
+            "ops/diskguard.py"
+            "ops/live.py"
+            "ops/style.py"
+            "ops/test_commitcheck.py"
+            "ops/test_diskguard.py"
+            "ops/test_gpt.py"
+            "ops/test_live.py"
+            "ops/test_live_churn.py"
+            "ops/test_session.py"
+              ];
+              src = fs.toSource { root = ./.; fileset = fs.difference ./. ./audit; };
+            in
+            pkgs.runCommand "python-left" { nativeBuildInputs = [ pkgs.findutils pkgs.diffutils ]; preferLocalBuild = true; } ''
+              cd ${src}
+              find . -type f ! -name '*.py' -print0 | while IFS= read -r -d "" f; do
+                if head -n 1 "$f" | grep -aq '^#!.*python'; then echo "''${f#./}"; fi
+              done > $TMPDIR/shebang
+              find . -type f -name '*.py' | sed 's|^\./||' | cat - $TMPDIR/shebang | LC_ALL=C sort > $TMPDIR/found
+              printf '%s\n' ${lib.escapeShellArgs listed} | LC_ALL=C sort > $TMPDIR/listed
+              if ! diff $TMPDIR/listed $TMPDIR/found > $TMPDIR/diff; then
+                sed -n 's/^> /Python file not on the list: /p' $TMPDIR/diff
+                sed -n 's/^< /listed Python file is gone: /p' $TMPDIR/diff
+                exit 1
+              fi
+              touch $out
+            '';
           style = pkgs.stdenv.mkDerivation {
             name = "style";
             src = srcAll;
@@ -248,10 +299,11 @@
         // {
           test = app (pkgs.writeShellApplication {
             name = "test";
-            runtimeInputs = [ pkgs.nix ];
+            runtimeInputs = [ pkgs.nix pkgs.git pkgs.coreutils pkgs.findutils pkgs.gnugrep ];
             text = ''
               nix flake check -L "$@"
               nix develop -c pytest -m local
+              ops/test-python-left.sh
             '';
           });
         };
