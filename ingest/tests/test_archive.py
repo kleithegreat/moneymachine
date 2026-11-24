@@ -13,9 +13,6 @@ Conventions the implementation must follow, where the spec leaves a choice:
 - `fetch` returns normally when the estimate exceeds `max_dollars`; only the forward window raises `Refused`.
 - `spend.tsv` is tab-separated: UTC time, files, bytes, estimate, then the word `refused` on a refused run.
   `missing.tsv` is tab-separated: key, error code.
-- `bars` returns the interval start in the column `t` (ms), then `open`, `high`, `low`, `close`, `bid`, `ask`
-  (best prices of the bar's last snapshot), `snapshots` and `known_at`. A range in the forward window raises
-  `Refused`, and an interval under one second raises `ValueError`.
 """
 
 import datetime as dt
@@ -101,24 +98,6 @@ def rows(path: Path) -> list[list[str]]:
     return [x.split("\t") for x in path.read_text().splitlines() if x]
 
 
-def write_snapshots(root: Path, coin: str, snaps: Sequence[tuple[int, float, float]]) -> None:
-    """Snapshots of one day, as the spec's table: `snaps` are (time, best bid, best ask)."""
-    day = dt.datetime.fromtimestamp(snaps[0][0] / 1000, dt.UTC)
-    frame = pl.DataFrame(
-        {
-            "time": [t for t, _, _ in snaps],
-            "bid_px": [[b - 0.5 * i for i in range(20)] for _, b, _ in snaps],
-            "bid_sz": [[1.0] * 20 for _ in snaps],
-            "ask_px": [[a + 0.5 * i for i in range(20)] for _, _, a in snaps],
-            "ask_sz": [[1.0] * 20 for _ in snaps],
-            "mid": [(b + a) / 2 for _, b, a in snaps],
-        }
-    )
-    path = archive_dir(root) / "snapshots" / coin / f"{day:%Y%m%d}.parquet"
-    path.parent.mkdir(parents=True)
-    frame.write_parquet(path)
-
-
 @pytest.mark.parametrize(
     ("start", "end"),
     [
@@ -143,12 +122,6 @@ def test_ranges_beside_the_window_are_allowed(tmp_path: Path, start: dt.date, en
     client = FakeS3({})
     archive.fetch(start, end, ["BTC"], tmp_path, client, hours=[0])
     assert client.list_calls
-
-
-def test_bars_in_the_forward_window_are_refused(tmp_path: Path) -> None:
-    start = int(dt.datetime(2026, 11, 5, tzinfo=dt.UTC).timestamp() * 1000)
-    with pytest.raises(archive.Refused):
-        archive.bars("BTC", start, start + 10_000, 1000, tmp_path)
 
 
 def test_estimate_above_the_limit_downloads_nothing_and_logs_refused(
@@ -237,72 +210,6 @@ def test_a_key_absent_from_the_listing_is_recorded_as_missing(tmp_path: Path) ->
     archive.fetch(DAY, DAY + dt.timedelta(days=1), ["BTC"], tmp_path, client, hours=[0, 1])
     assert [r[0] for r in rows(archive_dir(tmp_path) / "missing.tsv")] == [key(DAY, 0, "BTC")]
     assert (archive_dir(tmp_path) / "raw" / f"{DAY:%Y%m%d}" / "1" / "BTC.lz4").exists()
-
-
-def test_bars_give_hand_computed_ohlc_and_empty_intervals_give_nulls(tmp_path: Path) -> None:
-    write_snapshots(
-        tmp_path,
-        "BTC",
-        [(BASE, 99.0, 101.0), (BASE + 400, 109.0, 111.0), (BASE + 900, 94.0, 96.0), (BASE + 2100, 119.0, 121.0)],
-    )
-    frame = archive.bars("BTC", BASE, BASE + 3000, 1000, tmp_path)
-    assert frame["t"].to_list() == [BASE, BASE + 1000, BASE + 2000]
-    first, empty, last = frame.to_dicts()
-    assert (first["open"], first["high"], first["low"], first["close"]) == (100.0, 110.0, 95.0, 95.0)
-    assert (first["bid"], first["ask"], first["snapshots"]) == (94.0, 96.0, 3)
-    assert empty["snapshots"] == 0
-    assert all(empty[c] is None for c in ("open", "high", "low", "close", "bid", "ask"))
-    assert (last["open"], last["high"], last["low"], last["close"]) == (120.0, 120.0, 120.0, 120.0)
-    assert (last["bid"], last["ask"], last["snapshots"]) == (119.0, 121.0, 1)
-
-
-def test_known_at_is_the_end_of_the_interval(tmp_path: Path) -> None:
-    write_snapshots(tmp_path, "BTC", [(BASE + 10, 99.0, 101.0)])
-    for interval in (1000, 5000, 60_000):
-        frame = archive.bars("BTC", BASE, BASE + 120_000, interval, tmp_path)
-        assert frame["known_at"].to_list() == [t + interval for t in frame["t"].to_list()]
-        assert len(frame) == 120_000 // interval
-
-
-def test_intervals_are_half_open_and_the_range_end_is_exclusive(tmp_path: Path) -> None:
-    write_snapshots(tmp_path, "BTC", [(BASE + 999, 99.0, 101.0), (BASE + 1000, 109.0, 111.0), (BASE + 2000, 1.0, 3.0)])
-    frame = archive.bars("BTC", BASE, BASE + 2000, 1000, tmp_path)
-    assert frame["snapshots"].to_list() == [1, 1]
-    assert frame["close"].to_list() == [100.0, 110.0]
-
-
-def test_bars_never_carry_a_price_across_a_gap(tmp_path: Path) -> None:
-    write_snapshots(tmp_path, "BTC", [(BASE + 100, 99.0, 101.0)])
-    frame = archive.bars("BTC", BASE, BASE + 5000, 1000, tmp_path)
-    assert frame["snapshots"].to_list() == [1, 0, 0, 0, 0]
-    assert frame["close"].to_list() == [100.0, None, None, None, None]
-
-
-def test_an_interval_under_one_second_is_rejected(tmp_path: Path) -> None:
-    write_snapshots(tmp_path, "BTC", [(BASE + 100, 99.0, 101.0)])
-    with pytest.raises(ValueError):
-        archive.bars("BTC", BASE, BASE + 5000, 999, tmp_path)
-
-
-def test_coarse_bars_agree_with_aggregated_fine_bars(tmp_path: Path) -> None:
-    offsets = [50, 700, 1200, 1300, 2900, 3000, 3100, 7400, 9999, 12_000, 12_001, 17_500]
-    mids = [(100.0 + (i * 7) % 11, 0.0) for i in range(len(offsets))]
-    snaps = [(BASE + o, b, b + 2.0) for o, (b, _) in zip(offsets, mids, strict=True)]
-    write_snapshots(tmp_path, "BTC", snaps)
-    fine = archive.bars("BTC", BASE, BASE + 20_000, 1000, tmp_path).to_dicts()
-    coarse = archive.bars("BTC", BASE, BASE + 20_000, 5000, tmp_path).to_dicts()
-    assert len(coarse) == 4
-    for i, bar in enumerate(coarse):
-        parts = [f for f in fine[5 * i : 5 * i + 5] if f["snapshots"] > 0]
-        assert bar["snapshots"] == sum(f["snapshots"] for f in fine[5 * i : 5 * i + 5])
-        if not parts:
-            assert bar["open"] is None
-            continue
-        assert bar["open"] == parts[0]["open"]
-        assert bar["high"] == max(f["high"] for f in parts)
-        assert bar["low"] == min(f["low"] for f in parts)
-        assert bar["close"] == parts[-1]["close"]
-        assert (bar["bid"], bar["ask"]) == (parts[-1]["bid"], parts[-1]["ask"])
 
 
 def test_a_table_is_rebuilt_from_every_raw_hour_on_disk_whatever_the_run_fetched(tmp_path: Path) -> None:

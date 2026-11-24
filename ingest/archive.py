@@ -1,4 +1,4 @@
-"""Hyperliquid's requester-pays book archive: raw files, snapshots and bars (ingest/ARCHIVE.md)."""
+"""Hyperliquid's requester-pays book archive: raw files and snapshots (ingest/ARCHIVE.md)."""
 
 import datetime as dt
 import json
@@ -20,7 +20,6 @@ DOLLARS_PER_GET = 0.0004 / 1000
 DOLLARS_PER_LIST = 0.005 / 1000
 WORKERS = 16
 SNAPSHOT_BYTES = 1_250_000_000
-DAY_MS = 86_400_000
 HOURS_KEY = "source_hours"
 LEVELS = ("bid_px", "bid_sz", "ask_px", "ask_sz")
 
@@ -33,10 +32,6 @@ class S3Client(Protocol):
     def list_objects_v2(self, **kwargs: Any) -> dict[str, Any]: ...
 
     def get_object(self, **kwargs: Any) -> dict[str, Any]: ...
-
-
-def _utc(ms: int) -> dt.datetime:
-    return dt.datetime.fromtimestamp(ms / 1000, dt.UTC)
 
 
 def _refuse_window(first: dt.date, last: dt.date) -> None:
@@ -188,49 +183,6 @@ def fetch(
     if stale:
         with Pool(workers(SNAPSHOT_BYTES)) as snapshot_pool:
             snapshot_pool.starmap(_write_snapshot, stale)
-
-
-def bars(coin: str, start_ms: int, end_ms: int, interval_ms: int, root: Path) -> pl.DataFrame:
-    """One row per whole interval [t, t + interval) in [start_ms, end_ms); empty intervals hold nulls."""
-    if interval_ms < 1000:
-        raise ValueError(f"interval {interval_ms} ms is under one second")
-    first_day = _utc(start_ms).date()
-    last_day = _utc(end_ms - 1).date()
-    _refuse_window(first_day, last_day + dt.timedelta(days=1))
-    paths = [
-        _snapshot_path(root, coin, first_day + dt.timedelta(days=i)) for i in range((last_day - first_day).days + 1)
-    ]
-    frames = [pl.read_parquet(p, columns=["time", "mid", "bid_px", "ask_px"]) for p in paths if p.exists()]
-    count = (end_ms - start_ms) // interval_ms
-    grid = pl.DataFrame({"index": range(count)}, schema={"index": pl.Int64}).with_columns(
-        t=start_ms + pl.col("index") * interval_ms
-    )
-    if not frames:
-        snapshots = pl.DataFrame(
-            schema={"time": pl.Int64, "mid": pl.Float64, "bid_px": pl.List(pl.Float64), "ask_px": pl.List(pl.Float64)}
-        )
-    else:
-        snapshots = pl.concat(frames)
-    aggregated = (
-        snapshots.filter(pl.col("time").is_between(start_ms, start_ms + count * interval_ms, closed="left"))
-        .sort("time")
-        .group_by(((pl.col("time") - start_ms) // interval_ms).alias("index"))
-        .agg(
-            open=pl.col("mid").first(),
-            high=pl.col("mid").max(),
-            low=pl.col("mid").min(),
-            close=pl.col("mid").last(),
-            bid=pl.col("bid_px").last().list.first(),
-            ask=pl.col("ask_px").last().list.first(),
-            snapshots=pl.len(),
-        )
-    )
-    return (
-        grid.join(aggregated, on="index", how="left")
-        .with_columns(pl.col("snapshots").fill_null(0), known_at=pl.col("t") + interval_ms)
-        .select("t", "open", "high", "low", "close", "bid", "ask", "snapshots", "known_at")
-        .sort("t")
-    )
 
 
 def main(

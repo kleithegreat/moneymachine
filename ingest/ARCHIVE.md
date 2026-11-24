@@ -1,4 +1,4 @@
-# The Hyperliquid book archive: reader and bars
+# The Hyperliquid book archive: reader
 
 A spec for an independent implementer. The source is `venue/sources.toml` `[hyperliquid-archive]`: requester-pays S3, read with the human's AWS profile, its spending approved up to $20 in total (2026-10-26). It feeds kernel version 2 and study 2, the replication (`audit/program/architecture.md` on `rearchitecture`, revision 4, section 6). Nothing here is judged.
 
@@ -12,13 +12,6 @@ A spec for an independent implementer. The source is `venue/sources.toml` `[hype
    - `time`, ms, the book's `data.time`;
    - `bid_px` and `bid_sz`, `ask_px` and `ask_sz`, as lists of the 20 levels, best first;
    - `mid`.
-3. **Bars** of any interval of at least one second, from the snapshots of one coin over a range, built on demand and not stored. One row per interval `[t, t + interval)`:
-   - `open`, `high`, `low` and `close` of the mid;
-   - `bid` and `ask` at the bar's last snapshot;
-   - `snapshots`, the count;
-   - `known_at = t + interval`.
-
-   An interval with no snapshot gives a row with null prices and `snapshots = 0`, never a carried-forward price.
 
 ## Rules
 
@@ -33,7 +26,6 @@ A spec for an independent implementer. The source is `venue/sources.toml` `[hype
 ## Interface
 
 - **`python -m cli archive-fetch <start YYYY-MM-DD> <end YYYY-MM-DD, exclusive> <COIN>... [--hours 0-23] [--max-dollars X]`:** fetch, then parse.
-- **`ingest.archive.bars(coin: str, start_ms: int, end_ms: int, interval_ms: int, root: Path) -> polars.DataFrame`.**
 - **Where it runs:** `boto3` and `lz4` join the dev shell in `flake.nix`.
 - **Tests run offline:** they inject a fake S3 client and synthetic `.lz4` files.
 
@@ -43,10 +35,5 @@ A spec for an independent implementer. The source is `venue/sources.toml` `[hype
 2. An estimate above `--max-dollars` downloads nothing, and still writes its spend line marked `refused`.
 3. A second fetch of the same range makes no GET for a file present on disk.
 4. Parsing a synthetic file gives the right best levels and mid, sorted and deduplicated by time.
-5. Bars:
-   - known snapshots give the hand-computed OHLC;
-   - an empty interval gives nulls and `snapshots = 0`;
-   - `known_at` is the interval's end;
-   - bars at one interval agree with bars aggregated from a finer one, wherever both have data.
-6. A missing key is recorded in `missing.tsv` and the run continues.
-7. The code passes `mypy --strict` and `ruff`.
+5. A missing key is recorded in `missing.tsv` and the run continues.
+6. The code passes `mypy --strict` and `ruff`.
