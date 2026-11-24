@@ -232,7 +232,6 @@
             "ingest/tests/__init__.py"
             "ingest/tests/crash_helpers.py"
             "ingest/tests/test_archive.py"
-            "ingest/tests/test_archive_has_no_bars.py"
             "ingest/tests/test_compute.py"
             "ingest/tests/test_crash_recovery.py"
             "ingest/tests/test_datalayer.py"
