@@ -3,7 +3,7 @@
 Current state only; history is in git. The pilot's code is at `archive/pilot` (2026-11-22); `main` holds the live recorders, the mirror and guard, the archive reader, `reference/lean`, and the specs.
 
 ## Now
-- **Overnight 2026-11-24 (the human asleep; up to two GPT reviews, everything else on Claude, no Neon):** study 2 round 19 → GPT reviews it (1 of 2) and a fresh Opus architects kernel round 18 (study 2's routed points and `audit/reviews/2026-11-24-opus-round17-kernel.md`); round 19's GPT review → study 2 round 20 → GPT's second review if one remains worth it, else a fresh Opus. A usage cutoff: resume the agent after the reset. Clean up worktrees, jails and Downloads after each.
+- **Overnight 2026-11-24 (the human asleep; up to two GPT reviews, everything else on Claude, no Neon; one Opus agent at a time after a usage cutoff at 00:20 to 05:20 EST, the Python review resuming after round 19):** study 2 round 19 → GPT reviews it (1 of 2) and a fresh Opus architects kernel round 18 (study 2's routed points and `audit/reviews/2026-11-24-opus-round17-kernel.md`); round 19's GPT review → study 2 round 20 → GPT's second review if one remains worth it, else a fresh Opus. A usage cutoff: resume the agent after the reset. Clean up worktrees, jails and Downloads after each.
 
 ### Running, and how to inspect it
 
