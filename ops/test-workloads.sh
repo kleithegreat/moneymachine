@@ -165,8 +165,11 @@ fi
 P='def P: if .kind=="CronJob" then .spec.jobTemplate.spec.template.spec else .spec.template.spec end;'
 C='P.containers[0]'
 mutations=0
+rejects=0
+accepts=0
 mutated() {
   mutations=$((mutations + 1))
+  [ "$2" = reject ] && rejects=$((rejects + 1)) || accepts=$((accepts + 1))
   local name=$1 want=$2 workload=$3 filter=$4 out
   if [ "$base_ok" != 1 ]; then fail "3. $name (no passing baseline)"; return; fi
   rm -rf "$scratch/m"; cp -r "$scratch/base" "$scratch/m"
@@ -253,7 +256,19 @@ mutated "another image digest" accept ws "$C.image=\"$registry@sha256:abcdef\""
 mutated "another command" accept ws "$C.command=[\"mmrec\",\"run\",\"data/other\"]"
 mutated "other resources" accept ws "$C.resources={requests:{cpu:\"1\",memory:\"1Gi\"},limits:{memory:\"2Gi\"}}"
 mutated "another schedule" accept mirror '.spec.schedule="1 * * * *"'
-echo "mutation cases: $mutations"
+# the controller and metadata
+mutated "a recorder StatefulSet with two replicas" reject ws '.spec.replicas=2'
+mutated "a recorder StatefulSet with no replicas" reject ws 'del(.spec.replicas)'
+mutated "a CronJob with concurrencyPolicy Allow" reject mirror '.spec.concurrencyPolicy="Allow"'
+mutated "a CronJob with no concurrencyPolicy" reject mirror 'del(.spec.concurrencyPolicy)'
+mutated "a CronJob pod restartPolicy Always" reject vault 'P.restartPolicy="Always"'
+mutated "serviceAccountName admin" reject ws 'P.serviceAccountName="admin"'
+mutated "metadata.name other than the file's" reject ws '.metadata.name="other"'
+mutated "metadata.namespace set" reject ws '.metadata.namespace="default"'
+mutated "an annotation on metadata" reject ws '.metadata.annotations={"a":"b"}'
+mutated "an annotation on the pod template" reject ws 'if .kind=="CronJob" then .spec.jobTemplate.spec.template.metadata.annotations={"a":"b"} else .spec.template.metadata.annotations={"a":"b"} end'
+mutated "a recording mount with subPath" reject mirror "($C.volumeMounts[] | select(.name==\"hl\")).subPath=\"x\""
+echo "mutation cases: $mutations ($rejects must-refuse, $accepts must-accept)"
 
 # 4. apply applies what it is named
 if [ "$apply_ok" = 1 ]; then
