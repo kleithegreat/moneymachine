@@ -39,13 +39,13 @@ stubs=$scratch/stubs
 mkdir -p "$stubs"
 cat >"$stubs/kubectl" <<'STUB'
 #!/usr/bin/env bash
-echo "$@" >>"$STUBLOG/kubectl.args"
+{ printf '<%s>' "$@"; printf '\n'; } >>"$STUBLOG/kubectl.args"
 echo "$KUBECONFIG" >>"$STUBLOG/kubectl.config"
 cat >"$STUBLOG/kubectl.stdin"
 STUB
 cat >"$stubs/skopeo" <<'STUB'
 #!/usr/bin/env bash
-echo "$@" >>"$STUBLOG/skopeo.args"
+{ printf '<%s>' "$@"; printf '\n'; } >>"$STUBLOG/skopeo.args"
 while [ $# -gt 0 ]; do
   if [ "$1" = --digestfile ]; then echo "sha256:feedfeedfeed" >"$2"; fi
   shift
@@ -53,12 +53,12 @@ done
 STUB
 cat >"$stubs/nix" <<'STUB'
 #!/usr/bin/env bash
-echo "$@" >>"$STUBLOG/nix.args"
+{ printf '<%s>' "$@"; printf '\n'; } >>"$STUBLOG/nix.args"
 echo /nix/store/fake-image
 STUB
 cat >"$stubs/git" <<'STUB'
 #!/usr/bin/env bash
-echo "$@" >>"$STUBLOG/git.args"
+{ printf '<%s>' "$@"; printf '\n'; } >>"$STUBLOG/git.args"
 case "$1" in
   rev-parse) echo deadbee ;;
 esac
@@ -66,6 +66,19 @@ STUB
 chmod +x "$stubs"/*
 
 newlog() { rm -rf "$scratch/log" "$scratch/home"; mkdir -p "$scratch/log" "$scratch/home"; }
+
+# the program of a flake app, built (nix eval alone does not build it); empty on any failure
+app_program() {
+  local dir=$1 attr=$2 path
+  path=$(cd "$dir" && nix eval --raw ".#apps.x86_64-linux.$attr.program" 2>"$scratch/eval.err") || return 1
+  [ -n "$path" ] || return 1
+  nix build --no-link --impure --expr "
+    let f = builtins.getFlake \"git+file://$dir\";
+    in f.inputs.nixpkgs.legacyPackages.x86_64-linux.runCommand \"app-built\" { p = f.apps.x86_64-linux.$attr.program; } \"echo \$p > \$out\"
+  " >/dev/null 2>>"$scratch/eval.err" || return 1
+  [ -x "$path" ] || return 1
+  printf '%s' "$path"
+}
 
 # Python's apply, through the devshell's interpreter, with kubectl stubbed
 pybin=$(cd "$repo" && nix develop -c which python) || { fail "0. the devshell's python is found"; exit 1; }
@@ -82,7 +95,7 @@ else
 fi
 
 newlog
-app_apply=$(cd "$repo" && nix eval --raw ".#apps.x86_64-linux.apply.program" 2>"$scratch/eval.err")
+app_apply=$(app_program "$repo" apply)
 if [ -z "$app_apply" ] || [ ! -x "$app_apply" ]; then
   fail "1. the flake's apply app exists" "$(tail -2 "$scratch/eval.err")"
   apply_ok=0
@@ -107,7 +120,7 @@ if [ "$pyok" = 1 ] && [ "$apply_ok" = 1 ]; then
       || fail "1c. item $i equals the Python's"
   done
   args=$(cat "$scratch/log/kubectl.args")
-  [ "$args" = "-n moneymachine-live apply -f -" ] && [ "$(cat "$scratch/log/kubectl.config")" = "$scratch/home/.kube/moneymachine-live.yaml" ] \
+  [ "$args" = "<-n><moneymachine-live><apply><-f><->" ] && [ "$(cat "$scratch/log/kubectl.config")" = "$scratch/home/.kube/moneymachine-live.yaml" ] \
     && pass "1d. kubectl is called as the Python calls it, under ~/.kube/moneymachine-live.yaml" \
     || fail "1d. kubectl is called as the Python calls it" "$args" "$(cat "$scratch/log/kubectl.config")"
 else
@@ -151,7 +164,9 @@ fi
 
 P='def P: if .kind=="CronJob" then .spec.jobTemplate.spec.template.spec else .spec.template.spec end;'
 C='P.containers[0]'
+mutations=0
 mutated() {
+  mutations=$((mutations + 1))
   local name=$1 want=$2 workload=$3 filter=$4 out
   if [ "$base_ok" != 1 ]; then fail "3. $name (no passing baseline)"; return; fi
   rm -rf "$scratch/m"; cp -r "$scratch/base" "$scratch/m"
@@ -213,6 +228,33 @@ mutated "grace 601 in mirror-verify" accept mirror-verify 'P.terminationGracePer
 mutated "pod deadline 1200 in mirror-verify" accept mirror-verify 'P.activeDeadlineSeconds=1200'
 mutated "job deadline 1200 in mirror-verify" accept mirror-verify '.spec.jobTemplate.spec.activeDeadlineSeconds=1200'
 
+# escapes of an enumeration
+mutated "container runAsUser 0" reject ws "$C.securityContext.runAsUser=0"
+mutated "container runAsNonRoot false" reject ws "$C.securityContext.runAsNonRoot=false"
+mutated "container privileged" reject ws "$C.securityContext.privileged=true"
+mutated "container seccomp Unconfined" reject ws "$C.securityContext.seccompProfile={type:\"Unconfined\"}"
+mutated "container AppArmor Unconfined" reject ws "$C.securityContext.appArmorProfile={type:\"Unconfined\"}"
+mutated "container capability SYS_ADMIN added" reject ws "$C.securityContext.capabilities.add=[\"SYS_ADMIN\"]"
+mutated "hostNetwork" reject ws 'P.hostNetwork=true'
+mutated "hostPID" reject ws 'P.hostPID=true'
+mutated "hostIPC" reject ws 'P.hostIPC=true'
+mutated "an unknown pod-level key" reject ws 'P.shareProcessNamespace=true'
+mutated "an extra container without hardening" reject ws "P.containers += [{name:\"x\",image:\"$registry@sha256:0\"}]"
+mutated "an init container without hardening" reject ws "P.initContainers=[{name:\"i\",image:\"$registry@sha256:0\"}]"
+mutated "a container envFrom" reject datalayer "$C.envFrom=[{secretRef:{name:\"datalayer-keys\"}}]"
+mutated "a pod supplemental group" reject ws 'P.securityContext.supplementalGroups=[0]'
+mutated "a pod sysctl" reject ws 'P.securityContext.sysctls=[{name:"net.ipv4.ip_forward",value:"1"}]'
+mutated "claim hl writable under a volume named x" reject mirror "P.volumes |= map(if .name==\"hl\" then .name=\"x\" else . end) | ($C.volumeMounts[] | select(.name==\"hl\")) |= (.name=\"x\" | .readOnly=false)"
+mutated "claim hl read-only under an alias, writable through a second mount" reject mirror "P.volumes += [{name:\"x\",persistentVolumeClaim:{claimName:\"hl\"}},{name:\"y\",persistentVolumeClaim:{claimName:\"hl\"}}] | $C.volumeMounts += [{name:\"x\",mountPath:\"/x\",readOnly:true},{name:\"y\",mountPath:\"/y\",readOnly:false}]"
+mutated "claim hl mounted a second time, writable" reject mirror "$C.volumeMounts += [{name:\"hl\",mountPath:\"/other\",readOnly:false}]"
+mutated "a readOnly claim source with a writable mount beside it" reject mirror "(P.volumes[] | select(.name==\"hl\")).persistentVolumeClaim.readOnly=true | ($C.volumeMounts[] | select(.name==\"hl\")).readOnly=false"
+# what the boundaries do not constrain
+mutated "another image digest" accept ws "$C.image=\"$registry@sha256:abcdef\""
+mutated "another command" accept ws "$C.command=[\"mmrec\",\"run\",\"data/other\"]"
+mutated "other resources" accept ws "$C.resources={requests:{cpu:\"1\",memory:\"1Gi\"},limits:{memory:\"2Gi\"}}"
+mutated "another schedule" accept mirror '.spec.schedule="1 * * * *"'
+echo "mutation cases: $mutations"
+
 # 4. apply applies what it is named
 if [ "$apply_ok" = 1 ]; then
   newlog
@@ -235,8 +277,7 @@ fi
 
 # 5. push
 fresh
-(cd "$scratch/t" && nix eval --raw .#apps.x86_64-linux.push.program >"$scratch/push.path" 2>"$scratch/eval.err")
-push=$(cat "$scratch/push.path")
+push=$(app_program "$scratch/t" push)
 rev=$(cd "$scratch/t" && git rev-parse HEAD | cut -c1-7)
 if [ -z "$push" ] || [ ! -x "$push" ]; then
   fail "5. the flake's push app exists" "$(tail -2 "$scratch/eval.err")"
@@ -248,15 +289,15 @@ else
   ok=1
   [ $code -eq 0 ] && [ "$lines" = 1 ] || ok=0
   jq -e --arg rev "$rev" --arg reg "$registry" '.tag == $rev and .digest == "sha256:feedfeedfeed" and .image == "/nix/store/fake-image"' "$scratch/push.out" >/dev/null 2>&1 || ok=0
-  grep -q -- "docker://$registry:$rev\$\|docker://$registry:$rev " "$scratch/log/skopeo.args" 2>/dev/null || ok=0
-  grep -q "docker-archive:/nix/store/fake-image" "$scratch/log/skopeo.args" 2>/dev/null || ok=0
+  grep -qF -- "<docker://$registry:$rev>" "$scratch/log/skopeo.args" 2>/dev/null || ok=0
+  grep -qF "<docker-archive:/nix/store/fake-image>" "$scratch/log/skopeo.args" 2>/dev/null || ok=0
   grep -q -- "deadbee" "$scratch/log/skopeo.args" 2>/dev/null && ok=0
   [ "$ok" = 1 ] && pass "5a. a clean tree prints {tag, digest, image} and tags with the flake's revision, not HEAD's" \
     || fail "5a. a clean tree prints {tag, digest, image} and tags with the flake's revision" "exit $code, lines $lines, want tag $rev" "$(cat "$scratch/push.out")" "$(cat "$scratch/log/skopeo.args" 2>/dev/null)"
-  grep -q build "$scratch/log/nix.args" 2>/dev/null && pass "5b. a clean tree builds the image with nix" || fail "5b. a clean tree builds the image with nix"
+  grep -qF "<build>" "$scratch/log/nix.args" 2>/dev/null && pass "5b. a clean tree builds the image with nix" || fail "5b. a clean tree builds the image with nix"
 
   echo "# dirty" >>"$scratch/t/CLAUDE.md"
-  dirty=$(cd "$scratch/t" && nix eval --raw .#apps.x86_64-linux.push.program 2>"$scratch/eval.err")
+  dirty=$(app_program "$scratch/t" push)
   if [ -z "$dirty" ] || [ ! -x "$dirty" ]; then
     fail "5c. the push app of a dirty tree evaluates" "$(tail -2 "$scratch/eval.err")"
   else
