@@ -97,4 +97,29 @@ refuses "3b. the scan outside a git repository fails" bash -c 'cd "$1" && GIT_CE
 refuses "3c. check-times.sh FILE with a missing path fails" bash -c 'cd "$1" && ops/check-times.sh "$1/no-such-file"' _ "$c"
 refuses "3d. commit-msg with a missing path fails" bash -c 'cd "$1" && .githooks/commit-msg "$1/no-such-file"' _ "$c"
 
+clean_clone() { (cd "$c" && git reset -q --hard && git clean -qfd); }
+
+if [ "$(id -u)" = 0 ]; then
+  fail "3e. cannot be tested as root: mode 000 still reads"
+else
+  echo "line $bare" >"$c/audit/unreadable-test.md"
+  chmod 000 "$c/audit/unreadable-test.md"
+  refuses "3e. the scan with an unreadable untracked audit/ file fails" bash -c 'cd "$1" && ops/check-times.sh' _ "$c"
+  chmod 600 "$c/audit/unreadable-test.md"
+  clean_clone
+fi
+
+mkdir "$scratch/stub"
+real_git=$(command -v git)
+printf '#!/bin/sh\ncase "$1" in ls-files) exit 128;; esac\nexec %s "$@"\n' "$real_git" >"$scratch/stub/git"
+chmod +x "$scratch/stub/git"
+refuses "3f. the scan with git ls-files failing fails" bash -c 'cd "$1" && PATH="$2:$PATH" ops/check-times.sh' _ "$c" "$scratch/stub"
+
+echo "$bare" >"$c/audit/with space-test.md"
+refuses "3g. an untracked audit/ file with a space in its name is caught" bash -c 'cd "$1" && ops/check-times.sh' _ "$c"
+clean_clone
+echo "$bare" >"$c/audit/with"$'\n'"newline-test.md"
+refuses "3h. an untracked audit/ file with a newline in its name is caught" bash -c 'cd "$1" && ops/check-times.sh' _ "$c"
+clean_clone
+
 exit $((fails > 0))
