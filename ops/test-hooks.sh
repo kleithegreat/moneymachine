@@ -78,4 +78,23 @@ hook_case "2d. a staged unpaired line of audit/decisions.md is refused" refuse "
 hook_case "2e. the same line in audit/reviews/ is accepted" accept "mkdir -p audit/reviews; echo '$bare' > audit/reviews/x-test.md; git add audit/reviews/x-test.md"
 hook_case "2f. an untracked unpaired line under audit/ is refused" refuse "echo '$bare' > audit/untracked-test.md"
 
+# refuses <name> <command...>: the command must exit nonzero (the scan fails closed, as the Python did).
+refuses() {
+  local name=$1
+  shift
+  if "$@" >"$scratch/refuses.log" 2>&1; then
+    fail "$name (exit 0: $(head -c 200 "$scratch/refuses.log"))"
+  else
+    pass "$name"
+  fi
+}
+
+git clone -q --no-hardlinks --depth 1 "file://$repo" "$scratch/shallow"
+cp "$c/ops/check-times.sh" "$scratch/shallow/ops/check-times.sh"
+refuses "3a. the scan in a clone without the marked commit fails" bash -c 'cd "$1" && ops/check-times.sh' _ "$scratch/shallow"
+mkdir "$scratch/nogit"
+refuses "3b. the scan outside a git repository fails" bash -c 'cd "$1" && GIT_CEILING_DIRECTORIES="$1/.." "$2"' _ "$scratch/nogit" "$c/ops/check-times.sh"
+refuses "3c. check-times.sh FILE with a missing path fails" bash -c 'cd "$1" && ops/check-times.sh "$1/no-such-file"' _ "$c"
+refuses "3d. commit-msg with a missing path fails" bash -c 'cd "$1" && .githooks/commit-msg "$1/no-such-file"' _ "$c"
+
 exit $((fails > 0))
