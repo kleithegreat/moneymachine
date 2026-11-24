@@ -12,7 +12,7 @@ Current state only; history is in git. The pilot's code is at `archive/pilot` (2
 - **Oracle VM:** terminated 2026-11-22 after every file was verified here; its forward-window days are embargoed in `~/embargo/oci-forward-window/` (integrity only until the window ends).
 - **This PC** records nothing; `data/live`, `data/sources_live`, `data/datalayer` and `data/live-oci` are closed hosts, kept as evidence. User timers run only while the human is logged in.
 - **Models:** architect a fresh Opus 5.5 at maximum effort, or Neon through agy (`ops/agy-write.sh`); GPT through `ops/gpt.sh` (`gpt-6.2-sol`), its weekly budget kept for what matters (the human); Neon reviews through the web UI (bundles in `~/Downloads`).
-- **Worktrees:** `main`; `../mm-program` (`rearchitecture`, the kernel half); `../mm-program-s2` (`rearchitecture-s2`, study 2's half); `../mm-k2` (`kernel2-build`); `../mm-k2-step5` (`kernel2-step5`); `../mm-rec-urgent` (`recorder-urgent`, held); `../mm-python-plan` (`python-extinction`); one per agent.
+- **Worktrees:** `main`; `../mm-program` (`rearchitecture`, the kernel half); `../mm-program-s2` (`rearchitecture-s2`, study 2's half); `../mm-k2-step5` (`kernel2-step5`); `../mm-rec-urgent` (`recorder-urgent`, held); `../mm-python-plan` (`python-extinction`); one per agent.
 
 ### Work in progress
 
