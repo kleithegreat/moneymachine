@@ -2,4 +2,4 @@
 # The record rules a commit can break (paired times, PROGRESS's cap), checked before it lands rather than after.
 T=$(mktemp -d /tmp/mm-pre.XXXXXX); trap 'rm -rf "$T"' EXIT
 nix build --no-link .#checks.x86_64-linux.progress-cap >"$T/log" 2>&1 || { tail -20 "$T/log"; exit 1; }
-TMPDIR=$T nix develop -c python -m pytest -p no:cacheprovider -q -n0 ops/test_commitcheck.py >"$T/log" 2>&1 || { tail -20 "$T/log"; exit 1; }
+ops/check-times.sh || exit 1

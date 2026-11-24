@@ -1,2 +1,4 @@
-#!/bin/sh
-exec python3 "$(git rev-parse --show-toplevel)/ops/commitcheck.py" "$1"
+#!/usr/bin/env bash
+# Every UTC time in the message has its Eastern time beside it; lines beginning # are git's comments.
+root=$(git rev-parse --show-toplevel)
+"$root/ops/check-times.sh" <(grep -v '^#' "$1" || true)

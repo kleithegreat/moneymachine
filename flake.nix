@@ -239,16 +239,12 @@
             "ingest/tests/test_live.py"
             "ingest/tests/test_recorder_spec.py"
             "ingest/tests/test_terms.py"
-            "ops/commitcheck.py"
             "ops/diskguard.py"
             "ops/live.py"
             "ops/style.py"
-            "ops/test_commitcheck.py"
             "ops/test_diskguard.py"
-            "ops/test_gpt.py"
             "ops/test_live.py"
             "ops/test_live_churn.py"
-            "ops/test_session.py"
               ];
               src = fs.toSource { root = ./.; fileset = fs.difference ./. ./audit; };
             in
@@ -264,6 +260,18 @@
                 sed -n 's/^< /listed Python file is gone: /p' $TMPDIR/diff
                 exit 1
               fi
+              touch $out
+            '';
+          # ops/test-session.sh drives ops/session.sh from outside with its tools stubbed (no network, no namespaces).
+          test-session = pkgs.runCommand "test-session"
+            {
+              src = fs.toSource { root = ./ops; fileset = fs.unions [ ./ops/session.sh ./ops/test-session.sh ]; };
+              nativeBuildInputs = [ pkgs.bash pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.util-linux pkgs.procps pkgs.findutils ];
+            }
+            ''
+              cp -r $src ops && chmod -R u+w ops
+              patchShebangs ops
+              ops/test-session.sh
               touch $out
             '';
           style = pkgs.stdenv.mkDerivation {
@@ -299,11 +307,14 @@
         // {
           test = app (pkgs.writeShellApplication {
             name = "test";
-            runtimeInputs = [ pkgs.nix pkgs.git pkgs.coreutils pkgs.findutils pkgs.gnugrep ];
+            runtimeInputs = [ pkgs.nix pkgs.git pkgs.coreutils pkgs.findutils pkgs.gnugrep pkgs.bubblewrap ];
             text = ''
               nix flake check -L "$@"
               nix develop -c pytest -m local
               ops/test-python-left.sh
+              ops/test-gpt.sh
+              ops/check-times.sh
+              ops/test-hooks.sh
             '';
           });
         };
