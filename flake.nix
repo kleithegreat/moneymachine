@@ -21,7 +21,26 @@
         boto3
       ]);
       linux = nixpkgs.legacyPackages.x86_64-linux;
+      workloads = import ./ops/workloads.nix { lib = nixpkgs.lib; };
       apps64 = {
+        # The deployer (CLUSTER.md): the caller's kubectl, skopeo and nix; the manifests and the image come from this flake.
+        apply = linux.writeShellApplication {
+          name = "apply";
+          runtimeInputs = [ linux.jq ];
+          text = ''
+            manifests=${self.packages.x86_64-linux.manifests}
+            registry=${workloads.registry}
+          '' + builtins.readFile ./ops/apply.sh;
+        };
+        push = linux.writeShellApplication {
+          name = "push";
+          runtimeInputs = [ linux.jq linux.coreutils ];
+          text = ''
+            rev=${if self ? rev then builtins.substring 0 7 self.rev else ""}
+            imageDrv=${builtins.unsafeDiscardOutputDependency self.packages.x86_64-linux.image.drvPath}
+            registry=${workloads.registry}
+          '' + builtins.readFile ./ops/push.sh;
+        };
         session = linux.writeShellApplication {
           name = "session";
           runtimeInputs = [ linux.coreutils linux.util-linux linux.procps ];
@@ -116,6 +135,12 @@
         });
 
       packages = forAll (pkgs: let system = pkgs.stdenv.hostPlatform.system; in {
+        # The live workloads' manifests, one `<name>.json` each, at a placeholder digest (ops/workloads.nix); `apply` sets the image.
+        manifests = pkgs.runCommand "manifests" { } ''
+          mkdir $out
+          ${pkgs.lib.concatStrings (pkgs.lib.mapAttrsToList
+            (name: m: "cp ${pkgs.writeText "${name}.json" (builtins.toJSON m)} $out/${name}.json\n") workloads.manifests)}
+        '';
         # The cluster's one image (CLAUDE.md, heavy jobs): the research environment and this commit's tree. The
         # workloads find every tool on PATH; /bin and /usr hold only /bin/sh and /usr/bin/env, as on the dev hosts.
         image = let
@@ -191,7 +216,7 @@
           python = pythonFor pkgs;
           tools = [ python pkgs.git pkgs.sqlite pkgs.jq pkgs.openssh pkgs.rsync pkgs.procps pkgs.util-linux ];
           prose = [ ./docs ./audit/reviews ./audit/decisions.md ./audit/erasure ./CLAUDE.md ./PROGRESS.md
-                   ./flake.nix ./flake.lock ./.githooks ./.gitignore ./ops/units.nix ];
+                   ./flake.nix ./flake.lock ./.githooks ./.gitignore ./ops/units.nix ./ops/workloads.nix ];
           # The tracked tree minus prose and build files, so a commit that only edits those leaves every check cached; a test that
           # reads excluded prose fails in its check, which is how a missed dependency shows.
           srcAll = fs.toSource { root = ./.; fileset = fs.difference ./. (fs.unions prose); };
@@ -261,6 +286,18 @@
               fi
               touch $out
             '';
+          # The mirror copies diskguard.VOLUMES, and the workloads' table must say the same until the mirror leaves Python.
+          volume-table = pkgs.runCommand "volume-table" { } ''
+            sed -n '/^VOLUMES = {/,/^}/p' ${./ops/diskguard.py} | sed -n 's/^ *"\([a-z]*\)": "\([^"]*\)",$/\1 \2/p' | LC_ALL=C sort > guard
+            printf '%s\n' ${lib.escapeShellArgs (map (v: "${v.name} ${v.path}") workloads.mirrored)} | LC_ALL=C sort > table
+            test -s guard
+            diff table guard
+            touch $out
+          '';
+          workload-boundaries = pkgs.runCommand "workload-boundaries" { nativeBuildInputs = [ pkgs.jq ]; } ''
+            bash ${./ops/check-workloads.sh} ${self.packages.${system}.manifests}
+            touch $out
+          '';
           # ops/test-session.sh drives ops/session.sh from outside with its tools stubbed (no network, no namespaces).
           test-session = pkgs.runCommand "test-session"
             {
