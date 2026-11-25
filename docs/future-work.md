@@ -4,14 +4,14 @@ Ideas outside the program (`docs/whitepaper.tex`, "Two positive controls"), none
 
 ## Directions (the human, 2026-10-23 to 2026-11-07)
 
-- **A research arm with an earlier knowledge cutoff** (2026-10-23): parked with a condition. It moves the confirmable Sharpe from about 5 to about 2 and reads only one way (paper, "How the wall moves").
+- **A research arm with an earlier knowledge cutoff** (2026-10-23; active design [`audit/program/briefs/5-earlier-cutoff.md`](../audit/program/briefs/5-earlier-cutoff.md)): using models with a verified cutoff <= 2024-06 plus >= 3-month margin unlocks >= 2 years of untouched post-cutoff data, moving the exact confirmer's 80%-power Sharpe benchmark from ~5–27.6 down to ~2 with zero calendar wait; reads only one way (paper, "How the wall moves").
 - **An automated quant shop**: the kernel one tool among many; later "any data, any market". The source declarations already generalize to any data; any market needs an execution model per venue, where backtests usually fail.
-- **Harnesses for non-Anthropic models** (pi): also what an earlier-cutoff arm on another provider's model would need.
+- **Harnesses for non-Anthropic models**: needed for the earlier-cutoff arm (`audit/program/briefs/5-earlier-cutoff.md`), sketched in OCaml using pinned `libcurl` + `bubblewrap` without new Python.
 - **Observability**: a price-free operations dashboard is cheap; one showing unread post-cutoff prices spends a holdout.
 - **Agent memory across campaigns**: does it raise discovery without raising false discoveries? Measurable as a second arm of the positive control; study 1 has reported. Its reuse is counted in N (`audit/decisions.md`, 2026-11-02).
 - **Data purchases** (Norgate, Massive, Databento's Core Indices): none, indefinitely (the human, 2026-11-02).
 - **An event-contract venue**: none is certified. Kalshi's and Polymarket US's terms permit trading use only without written consent (`audit/decisions.md`, 2026-11-11). A reading-agent study reopens on a certificate and a measured count of at least 33 near-independent bets a week (paper, "How the wall moves").
-- **Study 1's second cell**: a plant with no economic story; study 1 reached its upper boundary, the condition for its sessions (`audit/program/architecture.md`, 5.4).
+- **Study 1's second cell (unhinted plant) and a DSL designed for agents** (reopened 2026-11-24; [`audit/program/briefs/6-unhinted-search-dsl.md`](../audit/program/briefs/6-unhinted-search-dsl.md)): Study 1 crossed its upper boundary with a brief naming funding dislocations and a strategy guide opening with a line-10 `fade-extreme-funding` example, yet still failed on 24 of 42 completed markets while stopping early at median 9.5 of 100 evaluations (`audit/control-1/`), and `DSL.md` advertised inputs missing from N2 (`forum_posts`, `gov_proposals`, 11 of 208 evaluations in C4.5 v3). Reopened via (a) a zero-cost offline diagnostic of Study 1's 42 kept sessions and (b) Study 1 Cell 2 on a plant not named in the brief or `DSL.md`, paired with an agent-facing DSL surface A/B keeping identical kernel semantics (`audit/reviews/2026-11-08-sonnet-research-dsl.md`).
 - **The paired reading design** (an agent with filings against the same agent without): fair, and it needs 859 to 3,437 discordant forecasts (paper, "What stays closed, and what would reopen it").
 
 ## Crypto-native and on-chain ideas (the advisor and GPT, 2026-11-06)
@@ -30,7 +30,6 @@ Each needs a new feed with its certificate, and most need engine extensions (a s
 
 ## Rejected, and why
 
-- **A DSL designed for agents** (2026-11-07): worth running only if study 1 ended at its futility stop or undecided, and it ended at its upper boundary. The pilot DSL's job is safety; how well agents search with it is unmeasured, and the metric would have been the positive control's discovery rate at a fixed budget, with null promotions unchanged. Change the surface agents see, never the kernel's semantics (`audit/reviews/2026-11-08-sonnet-research-dsl.md`). Known: `kernel/DSL.md` advertises inputs N2 lacks, and 11 of 208 evaluations in C4.5 v3 named one.
 - **Forecasting already-resolved events with date-restricted reading**: retrieval leaks, and leakage only flatters the forecaster. At most a futility screen (paper, "The knowledge cutoff bounds the judged span").
 - **Sportsbook arbitrage**: books limit winners and their terms generally forbid automation. Event exchanges with official APIs are a separate case.
 - **Airdrop farming at scale**: many wallets posing as distinct users is Sybil deception against the protocol's terms.
