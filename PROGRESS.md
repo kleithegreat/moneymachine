@@ -1,31 +1,34 @@
 # Progress
 
-Current state only; history is in git. The pilot's code is at `archive/pilot` (2026-11-22); `main` holds the live recorders, the mirror and guard, the archive reader, `reference/lean`, and the specs.
+Current state only; history is in git. The pilot's code is at `archive/pilot` (2026-11-22); `main` holds the live hardened recorders and datalayer retry fix, the mirror and guard, `reference/lean`, the decoupled `kernel2/` sub-flake (Steps 0–5 with pinned MPFR), and the frozen Study 2 / reopened follow-on specs.
 
 ## Now
 
 ### Running, and how to inspect it
 
-- **Cluster, live** (prodesk7, namespace `moneymachine-live`; `KUBECONFIG=~/.kube/moneymachine-live.yaml kubectl -n moneymachine-live get pods,jobs,cronjobs`; `CLUSTER.md`):
-  - Recorders: StatefulSets `ws` (OCaml `mmrec`, `recorder/RECORDER.md`: every Hyperliquid perp, about 2.0 GB a day, one copy on PVC `ws`), `sources`, `datalayer`; CronJob `vault` (`mmvault`, hourly). `hl` retired 2026-11-22 (its PVC kept).
-  - The mirror CronJobs; prodesk7 also builds test checks as a remote builder (`CLUSTER.md` §6).
-- **Oracle VM:** terminated 2026-11-22 after every file was verified here; its forward-window days are embargoed in `~/embargo/oci-forward-window/` (integrity only until the window ends).
-- **This PC** records nothing; `data/live`, `data/sources_live`, `data/datalayer` and `data/live-oci` are closed hosts, kept as evidence. User timers run only while the human is logged in.
-- **Models:** architect a fresh Opus 5.5 at maximum effort, or Neon through agy (`ops/agy-write.sh`); GPT through `ops/gpt.sh` (`gpt-6.2-sol`), its weekly budget kept for what matters (the human); Neon reviews through the web UI (bundles in `~/Downloads`).
-- **Worktrees:** `main`; `../mm-program` (`rearchitecture`, the kernel half); `../mm-program-s2` (`rearchitecture-s2`, study 2's half); `../mm-k2-step5` (`kernel2-step5`); `../mm-rec-urgent` (`recorder-urgent`, held); `../mm-python-plan` (`python-extinction`); one per agent.
+- **Cluster, live** (`prodesk7`, namespace `moneymachine-live`; `KUBECONFIG=~/.kube/moneymachine-live.yaml kubectl -n moneymachine-live get pods,jobs,cronjobs`; `CLUSTER.md`):
+  - Recorders: StatefulSets `ws` (OCaml `mmrec`, `recorder/RECORDER.md`), `sources`, `datalayer`; CronJob `vault` (`mmvault`, hourly). `hl` retired 2026-11-22 (PVC kept). **No live deploy ran in the 2026-11-25 18:18 UTC (13:18 EST) Project Reset** — local `main` holds hardened `mmrec`/`mmvault` and `datalayer.py` ready to push and apply.
+  - The mirror CronJobs; `prodesk7` also acts as a remote Nix builder (`CLUSTER.md` §6; use `--max-jobs 1` for heavy `kernel2/` Lean+OCaml checks to avoid overloading builders).
+- **Oracle VM:** terminated 2026-11-22 after verification; forward-window days embargoed in `~/embargo/oci-forward-window/` (integrity only until window ends).
+- **This PC** records nothing; `data/live`, `data/sources_live`, `data/datalayer`, `data/live-oci` are closed hosts kept as evidence.
+- **Process (`CLAUDE.md`):** Stateless coordinator sessions (never long-lived multi-compaction advisor threads), **honest-but-buggy** threat model, **Bounded Review Protocol** (< 50 KB bundles, Blocker vs Non-Blocker grading, max 2 rounds, Prototype-Before-Spec), and functional-first stack (Lean 4, OCaml, Nix, pinned MPFR; zero new Python).
+- **Legacy worktrees:** `../mm-program`, `../mm-program-s2` (had stalled R21 merge of `e9f2e8c`, superseded by freeze), `../mm-k2-step5`, `../mm-rec-urgent`, `../mm-python-plan` remain outside `main` for optional human cleanup.
 
 ### Work in progress
 
-Roles and laws: `CLAUDE.md`. The project is academic: no live trading.
+Roles and laws: [`CLAUDE.md`](CLAUDE.md). Academic research system: no live trading. Project Reset recorded at `2026-11-25 18:18 UTC (13:18 EST)` (`audit/decisions.md`).
 
-1. **Study 2, the positive control of the confirmer:** the replication of vault `0x53375ca9…2a06`, frozen and tested forward (criteria committed, `criteria: study 2`, `a324059`; CS2.1 revised `a903317`; the program in `audit/program/`, `ledger.md` listing what is agreed and disputed).
-   - **Kernel half:** round 19 made the machine the specification (Neon accepted that; `audit/reviews/2026-11-24-neon-round19-kernel.md`). Round 20 done (a fresh Opus, `rearchitecture` `e9f2e8c`, answering both Neon reviews by re-deriving the listing region; report `data/builder/architect-r20-kernel-report.md`): **rounds 14 to 20 of study 2 rested on a false premise**, that a delisted coin's funding rows stop (they go on at rate zero: stage 0's revision of 2026-10-19; TON checked, `audit/decisions.md`); now a coin's rules are fixed at the registration, no listings copy enters a run, and a coin ends at the first midnight after a whole day with no book or print of it, another coin's, and 24 hours that paid nothing; U1's machine half restored. Not reviewed. Merging with `rearchitecture-s2` conflicts only in the ledger (keep both sides whole).
-   - **Study 2 half:** round 20 done (a fresh Opus, `rearchitecture-s2` `86aa583`, D361 to D370, answering GPT's round 19 and kernel round 18 reviews): a REST reply dated by its two clocks (a copy effective from the later, a pull dated by the earlier; the one-hour check deleted); silence counts only where a stored venue reply covers it (the funding end at E deleted; our failures still hold); a listing ends only on the flag, no unflagged copy within the hour, two hours' silence closed at both ends and the venue's replies covering it; four stream states; brief 4 85 to 86 KB. Neon's review (`audit/reviews/2026-11-24-neon-round20-study2.md`): not converged, eight findings, most on the kernel's reader (listing ends, funding coverage, the venue's engine clock rebuilding the 8.52% construction). **Round 21** running (a fresh Opus; `data/builder/architect-r21-s2-report.md`); then one outside review of both halves. Owed before the freeze: `recorder/src/writer.ml`'s run id from the wall clock, `recording.ml`'s `exception _` treating corrupt streams as cut.
-   - **Kernel version 2** (`audit/program/kernel-v2.md`, brief 3): steps 0 to 5 built; B4 passes on step 5 (3,120 of 3,120). Test 12 is too slow (15 days a host); step 5x (the incremental exact series, law X6) waits on the boundary converging. Step 5 merges after step 5x passes test 12 and B4.
-   - **The urgent recorder fix** (`recorder-urgent`) waits for study 2's libcurl and `jsont` client to converge; GPT's review is kept for it.
-2. **The paper** ("The Confirmation Wall in Agentic Trading Research"): free-standing, with study 1's section merged; each study's result is added as it reports.
-3. **Python's extinction** (the human, 2026-11-22): about 4,600 lines remain (`ingest/{sources_record,datalayer,live,terms,archive,compute}.py`, `ops/{live,diskguard,style}.py` and their tests). Planned (`audit/program/python-extinction.md` on `python-extinction`, `59b6543`): retire `sources`, seal `hl`/`thesis`/`agent` off the mirror, port the datalayer (`mmdata`) and the mirror and guard (`mmops`) to OCaml in `recorder/`, the deployer into the flake; the archive reader goes with kernel version 2's K1. Revised after Neon's eight findings (`audit/reviews/2026-11-23-neon-python-extinction.md`; revision 2 `a524c1c`, four rows still disputed): a fresh Opus's review (`audit/reviews/2026-11-24-opus-python-extinction.md`): steps 0 to 2 can start (a flake check holding the two volume lists equal); revise before 3 and 5 (the guard's alarm would go silent at 3f, since `main` does not deploy it; the way back from a cluster switch; `mmdata`'s acceptance). Revision 3 (`2941cad`) answers it, two remedy forms disputed, none touching steps 0 to 2; needs another reviewer on another model. Steps 0 and 2 merged (`0c04ffa`). Step 1a merged (`7852b08`) and 1b done (no live difference); **1c** (deleting `ops/live.py`'s deployer half) waits for a real deploy through the new apps. Nothing irreversible (retiring `sources`, the R1 review) before it converges. `mmdata` must retry GDELT's named files (about 40% recorded 404; they are still on GDELT's server, to backfill). `audit/program/arithmetic.py.txt` is frozen as a record at study 2's criteria commit; its ledger model leaves in round 17 (decisions, 2026-11-23).
-4. **Owed:** the deployed recorder's six catch-all handlers (`recording.ml`, `route.ml`, `sub.ml`, `vault.ml`), fixed with the urgent recorder rebuild; B4's checksum check once per host; kernel version 2's efficiency fixes after step 5 merges; before study 2's build, that the venue still sends `Date`, and the GitHub credential the capture host pushes each month's capture with.
+1. **Kernel v2 & Study 2 (`audit/program/kernel-v2.md`, `kernel2/`, `briefs/3-kernel-v2.md`, `briefs/4-study-2.md`):**
+   - **Specs FROZEN:** 20-round specification loop closed cleanly (`audit/program/ledger.md` Project Reset entry); compiler-replay sandbox dropped in favor of `kernel2/lean/check-proofs.sh` under the honest-but-buggy threat model; Round 20 midnight-end / registration-fixed `meta` (`TON` excluded) and single-host deterministic monthly replay folded into `4-study-2.md` and `kernel2/KERNEL.md` (committed `CS2.1`–`CS2.3` untouched).
+   - **Kernel v2 Steps 0–5 landed on `main` (`kernel2/`):** decoupled sub-flake (`kernel2/flake.nix` + `kernel2/flake.lock`, sha256 `415c302c...`), pinned `pkgs.mpfr` `exp`/`log` (`c/mpfr_ops.c`; `test12` in 1m 16.3s vs 15 CPU-days), `check-proofs.sh` + negative fixtures. **Next:** execute Kernel v2 Steps 5a → 6 → 7 → 8 → 9 → 10, then Study 2 Steps 1–6 and freeze.
+2. **Urgent live capture hardening (on `main`, pending human deploy):**
+   - `recorder/` hardened (`libcurl` + `jsont`, RFC 6455 `Sec-WebSocket-Accept`, 3-state TLS probe cache, zero-alloc `route.ml`, D369 4-state streams, monotonic run IDs, `zstd` GC tracking, zero wildcard `with _`/`exception _` catch-alls).
+   - `ingest/datalayer.py` fixed in-place for GDELT ~40% 404 misses (up to 10 fixed-tick retries without shifting `every_h`, plus `last_polls` `/index` restart fix).
+3. **Parallel reopened research tracks (active, not blocked behind Study 2):**
+   - **Earlier-Cutoff LLM Arm (`audit/program/briefs/5-earlier-cutoff.md`):** cutoff `<= 2024-06-30` unlocking 760-day pre-embargo holdout (`[2024-10-01, 2026-10-31)`), 80%-power Sharpe ~2.07; Prototype 0 (archive coverage, 0/20 canary probe, `libcurl` + `bwrap` OCaml harness) next.
+   - **Study 1 Diagnostic, Unhinted Cell 2 & Agent DSL (`audit/program/briefs/6-unhinted-search-dsl.md`):** zero-cost OCaml offline diagnostic of Study 1's 24/42 failures (`median 9.5` evals), followed by microbenchmark + Cell 2 A/B.
+4. **The paper (`docs/whitepaper.tex`, `docs/whitepaper.pdf`):** updated for write-denied reading-agent defect, honest-but-buggy MPFR Kernel v2, and active earlier cutoffs; PDF rebuilt cleanly.
+5. **Python's extinction (`audit/program/python-extinction.md`):** Revision 3 on `main` + Reset Sequencing (**Phase 2**: `mmdata`, `mmops`, and deployer retirement `1c` follow live deploy and Study 2 freeze; `python-left` ratchet active).
 
 ### Finished
 
@@ -34,13 +37,15 @@ Roles and laws: `CLAUDE.md`. The project is academic: no live trading.
 
 ## Blockers
 
-- **prodesk7 powered off** 2026-11-22 13:00 to 17:06 UTC (08:00 to 12:06 EST); the recorders are back, with a gap of about 4 h 07 min (`audit/decisions.md`). Its cause is unknown, for the human to read on the node.
+- **prodesk7 powered off** 2026-11-22 13:00 to 17:06 UTC (08:00 to 12:06 EST); the recorders are back, with a gap of about 4 h 07 min (`audit/decisions.md`). Cause unknown — requires human physical/hardware check on the node.
 
-None else blocks the program. Source certificates that fail, with their clauses, are in `venue/sources.toml` and `audit/decisions.md`: Kalshi, Polymarket and Polymarket US; FRED and ALFRED; IMF; and stage 8's candidates.
+None else blocks the program. Failed source certificates stay in `venue/sources.toml` and `audit/decisions.md` (Kalshi, Polymarket, FRED/ALFRED, IMF, stage 8).
 
 ## Decisions awaiting the human's review
 
-None.
+- **Ready to deploy live fixes (no cluster mutations ran):** verify image + rollout on `prodesk7` when ready via `nix run .#push` then `nix run .#apply`, then retire `ops/live.py`'s deployer half (`python-extinction` step 1c).
+- **Hardware checklist (`prodesk7`):** inspect power-loss root cause, enable BIOS AC-power-recovery auto-boot, verify PSU/UPS, and provision 2 TB NVMe storage before the 300 GiB recorder volume fills (~April 2027).
+- **Optional cleanup:** remove legacy sibling worktrees (`../mm-program`, `../mm-program-s2`, `../mm-k2-step5`, `../mm-rec-urgent`, `../mm-python-plan`) once satisfied with `main`.
 
 ## Qualifications
 

@@ -100,7 +100,7 @@ Work that could change a false-discovery or leakage outcome gets an independent 
 
 Plan usage is the binding cost, so roles follow each model's record here and the independence rules above (the human, 2026-11-09):
 - **The architect** is a fresh Claude Opus 5.5 session at maximum reasoning effort, never the advisor's own (the human, 2026-11-16, when access to Claude Fable ended), or Gemini 4 Neon when Claude usage is short (the human, 2026-11-19), which then cannot review that round: it designs studies, redesigns, derivations and criteria, and gives project-level reviews. It never builds. For each build it writes a plan of ordered steps, each stating the behaviour its tests must show.
-- **Claude Opus** orchestrates as the advisor: it turns designs into builder briefs, routes work, reviews Sonnet's builds, and gives the last review before anything that can't be undone or changes a judged result (a freeze, a stage exit, a criteria commit), of work it did not build.
+- **Claude Opus** orchestrates as the stateless coordinator (advisor role): it turns designs into builder briefs, routes work, reviews Sonnet's builds, and gives the last review before anything that can't be undone or changes a judged result (a freeze, a stage exit, a criteria commit), of work it did not build.
 - **Sonnet** builds the architect's plan exactly, as subagents. For each step:
   - a session that does not build the step writes its tests from the plan, without reading the code;
   - the builder makes them pass without editing them, in one commit;

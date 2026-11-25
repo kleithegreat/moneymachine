@@ -408,6 +408,6 @@ It also asked two conditions of steps 0 to 2: the volume table equal to `diskgua
 
 Following the Project Reset and Spec Freeze (`audit/program/ledger.md`):
 
-- **Phase 1 (immediate live integrity and Study 2 freeze):** `ingest/datalayer.py` receives an immediate in-place GDELT retry and backoff fix to stop the ~40% live GDELT data loss right away (without waiting for an OCaml rewrite), while live recorders are hardened in place and `kernel2` / Study 2 proceed through freeze on the simplified MPFR + `check-proofs.sh` design.
+- **Phase 1 (immediate live integrity and Study 2 freeze):** `ingest/datalayer.py` receives an immediate in-place GDELT fixed-tick retry fix to stop the ~40% live GDELT data loss right away (without waiting for an OCaml rewrite), while live recorders are hardened in place and `kernel2` / Study 2 proceed through freeze on the simplified MPFR + `check-proofs.sh` design.
 - **Phase 2 (re-sequenced Python → OCaml ports):** the remaining Python-to-OCaml ports (`mmdata`, `mmops`, and the retirement of remaining Python tooling under this plan) are sequenced into **Phase 2**, starting only after Study 2 freezes and Phase 1's urgent live fixes are deployed and verified.
 - **Zero multi-round architect churn:** Phase 2 builds go directly from concise, targeted specifications and executable tests (prototype-before-spec, <=2-round materiality-capped review) rather than reopening multi-round specification loops.

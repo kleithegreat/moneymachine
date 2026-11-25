@@ -527,3 +527,31 @@ def test_main_retries_pending_on_ticks_without_delaying_index_schedule_or_other_
     assert rows[5]["sent"] - rows[1]["sent"] < 960_000
     assert datalayer.body(tmp_path, rows[4]["sha256"]) == b"z1"
     assert datalayer.body(tmp_path, rows[6]["sha256"]) == b"z2"
+
+
+def test_last_polls_ignores_retry_timestamps_after_index_poll(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    feed = _gdelt_feed()
+    index_url = feed["discover"]["url"]
+    release_url = "https://data.gdeltproject.org/gdeltv2/20261023210000.export.CSV.zip"
+    ticks = iter([100_000, 100_010, 100_050, 100_060, 700_000, 700_050])
+    attempts = 0
+
+    def respond(req: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        if req.url.path == "/gdeltv2/lastupdate.txt":
+            return httpx.Response(
+                200, content=b"1 ab http://data.gdeltproject.org/gdeltv2/20261023210000.export.CSV.zip\n"
+            )
+        attempts += 1
+        return httpx.Response(404, content=b"missing") if attempts == 1 else httpx.Response(200, content=b"zip")
+
+    http = httpx.Client(transport=httpx.MockTransport(respond))
+    monkeypatch.setattr(datalayer, "now_ms", lambda: next(ticks))
+    pending: dict[str, tuple[str, int]] = {}
+    datalayer.poll_with_retries(http, feed, tmp_path, {}, pending)
+    datalayer.retry_pending(http, [feed], tmp_path, {}, pending)
+
+    assert datalayer.last_polls(tmp_path) == {"gdelt-events": 100_000}
+    assert datalayer.last_polls(tmp_path)["gdelt-events"] < 700_000
+    assert index_url == feed["discover"]["url"]
+    assert release_url in [r["url"] for r in live.read(tmp_path, "datalayer")]

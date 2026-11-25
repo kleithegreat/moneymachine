@@ -12,6 +12,10 @@
           system = pkgs.stdenv.hostPlatform.system;
           lean = self.packages.${system}.lean;
           o = pkgs.ocamlPackages;
+          leanSrc = pkgs.lib.fileset.toSource {
+            root = ./.;
+            fileset = pkgs.lib.fileset.unions [ ./lean ./protected-windows.json ];
+          };
           src = pkgs.lib.fileset.toSource {
             root = ./.;
             fileset = pkgs.lib.fileset.unions [ ./lean ./ocaml ./tests ./protected-windows.json ./flake.lock ];
@@ -21,9 +25,42 @@
             cp -r "$src"/. kernel2/
             chmod -R u+w kernel2
           '';
+          engineStatic = pkgs.stdenv.mkDerivation {
+            pname = "mm2-engine-static";
+            version = "0";
+            src = leanSrc;
+            unpackPhase = ''
+              mkdir -p kernel2
+              cp -r "$src"/. kernel2/
+              chmod -R u+w kernel2
+            '';
+            nativeBuildInputs = [ lean pkgs.autoPatchelfHook ];
+            buildInputs = [
+              pkgs.stdenv.cc.cc.lib
+              pkgs.zlib
+              pkgs.gmp.dev
+              pkgs.gmp
+              pkgs.mpfr.dev
+              pkgs.mpfr
+            ];
+            dontConfigure = true;
+            buildPhase = ''
+              export HOME=$TMPDIR
+              (cd kernel2/lean && lake build Engine:static)
+            '';
+            installPhase = ''
+              install -D kernel2/lean/.lake/build/lib/libengine_Engine.a $out/lib/libengine_Engine.a
+            '';
+          };
           build = ''
             export HOME=$TMPDIR DUNE_CACHE=disabled
             (cd kernel2/lean && lake build Engine:static)
+            export MM2_ENGINE_LIB=$PWD/kernel2/lean/.lake/build/lib/libengine_Engine.a
+          '';
+          buildFromStatic = ''
+            export HOME=$TMPDIR DUNE_CACHE=disabled
+            mkdir -p kernel2/lean/.lake/build/lib
+            ln -s ${engineStatic}/lib/libengine_Engine.a kernel2/lean/.lake/build/lib/libengine_Engine.a
             export MM2_ENGINE_LIB=$PWD/kernel2/lean/.lake/build/lib/libengine_Engine.a
           '';
           common = {
@@ -48,7 +85,7 @@
           package = pkgs.stdenv.mkDerivation (common // {
             pname = "mm2";
             dontStrip = true;
-            buildPhase = build + "(cd kernel2/ocaml && dune build --root . bin/mm2.exe)";
+            buildPhase = buildFromStatic + "(cd kernel2/ocaml && dune build --root . bin/mm2.exe)";
             installPhase = "install -D kernel2/ocaml/_build/default/bin/mm2.exe $out/bin/mm2";
           });
           tests = pkgs.stdenv.mkDerivation (common // {
@@ -63,7 +100,7 @@
             pname = "mm2-style";
             nativeBuildInputs = common.nativeBuildInputs ++ [ o.ocamlformat o.ppx_js_style ];
             buildInputs = common.buildInputs ++ [ o.ppx_js_style ];
-            buildPhase = build + ''
+            buildPhase = buildFromStatic + ''
               (cd kernel2/ocaml && dune build --root . @fmt @check @lint)
             '';
             installPhase = "touch $out";

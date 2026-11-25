@@ -218,7 +218,8 @@
           python = pythonFor pkgs;
           tools = [ python pkgs.git pkgs.sqlite pkgs.jq pkgs.openssh pkgs.rsync pkgs.procps pkgs.util-linux ];
           prose = [ ./docs ./audit/reviews ./audit/decisions.md ./audit/erasure ./CLAUDE.md ./PROGRESS.md
-                   ./flake.nix ./flake.lock ./.githooks ./.gitignore ./ops/units.nix ./ops/workloads.nix ];
+                   ./flake.nix ./flake.lock ./.githooks ./.gitignore ./ops/units.nix ./ops/workloads.nix
+                   ./kernel2 ];
           # The tracked tree minus prose and build files, so a commit that only edits those leaves every check cached; a test that
           # reads excluded prose fails in its check, which is how a missed dependency shows.
           srcAll = fs.toSource { root = ./.; fileset = fs.difference ./. (fs.unions prose); };

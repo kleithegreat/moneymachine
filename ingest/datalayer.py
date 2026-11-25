@@ -108,8 +108,18 @@ def quarantine(raw: Path, out_dir: str | Path, name: str, url: str) -> None:
 
 
 def last_polls(out_dir: str | Path) -> dict[str, int]:
-    """Each feed's last poll time (an index fetch counts for its feed)."""
-    return {p["feed"].removesuffix("/index"): p["sent"] for p in read(out_dir, "datalayer")}
+    """Each feed's last scheduled poll time, ignoring later retry attempts on indexed feeds."""
+    last: dict[str, int] = {}
+    indexed: set[str] = set()
+    for p in read(out_dir, "datalayer"):
+        feed_name: str = p["feed"]
+        if feed_name.endswith("/index"):
+            base = feed_name.removesuffix("/index")
+            indexed.add(base)
+            last[base] = p["sent"]
+        elif feed_name not in indexed:
+            last[feed_name] = p["sent"]
+    return last
 
 
 def poll(
@@ -214,7 +224,7 @@ def retry_pending(
             continue
         certify(f, url)
         rec = get(http, name, url, f.get("accept"), out_dir, credentials(f, resolved_keys))
-        if rec["status"] == 200 or rec["status"] not in RETRY_STATUSES or left <= 1:
+        if rec["status"] not in RETRY_STATUSES or left <= 1:
             pending.pop(name, None)
         else:
             pending[name] = (url, left - 1)

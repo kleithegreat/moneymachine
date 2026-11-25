@@ -399,7 +399,7 @@ The human was unsure whether to run a test expected to end "not confirmed". Both
 
 **Forward data.**
 - **From when.** The websocket recorder (`recorder/RECORDER.md`) has run since 2026-11-14 03:43 UTC (2026-11-13 22:43 EST): `trades` and five-level books about every 0.55 s for every perp, 20-level books about every 10 s on the main dex, asset contexts and hourly listings. Judged days start at the freeze, which is later: a registration judges nothing that came before it. That is no leave to read the days between: 6.5 says what the freeze reads.
-- **What it lacks** is in the build plan's table: settled funding, pulled daily by a collector (fetch-once per `(coin, hour)` + gap backfill); hourly copies of coin rules; and the vault's fills, funding rows, fees and orders, pulled whole daily (`recorder/VAULT.md`).
+- **What it lacks** is in the build plan's table: settled funding, pulled daily by a collector (fetch-once per `(coin, hour)` + gap backfill); and the vault's fills, funding rows, fees and orders, pulled whole daily (`recorder/VAULT.md`).
 - **Reading it.** The first replay runs after 2027-01-31, and the kernel itself refuses the dates before their release (kernel A13).
 
 ### 6.7 The human's four answers of 2026-11-14 14:59 UTC (09:59 EST), in the design
