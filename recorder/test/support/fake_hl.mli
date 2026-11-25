@@ -21,6 +21,10 @@ type config =
     (** the server accepts this REST request, starts its answer and never finishes it *)
   ; rest_fault : unit -> rest_stall_mode option
     (** called on each REST accept; if [Some mode], stalls at that stage instead of answering *)
+  ; rest_serve : request:string -> (Writer.t -> unit Deferred.t) option
+    (** if [Some serve], the server answers by running [serve] on the connection's writer in place of [rest]'s
+            answer, and closes the connection when it returns or the fake stops (a TLS connection closes without a
+            [close_notify]: Async_ssl sends none) *)
   }
 
 (** A connection's failure: the server closes the socket on reading the upgrade request, answering nothing; closes it
@@ -34,6 +38,8 @@ and fault =
   | Partial_response
   | Reset_in_handshake
   | Answer_with of int
+  | Missing_accept
+  | Bad_accept
   | Reset_mid_frame
   | Tls_fatal_alert
 
@@ -47,7 +53,7 @@ and tls =
   ; key_file : string
   }
 
-(** Acks, never closes, never misbehaves, streams nothing, REST answers [{}] and never stalls. *)
+(** Acks, never closes, never misbehaves, streams nothing, REST answers [{}] framed by [rest] and never stalls. *)
 val default_config : config
 
 type t
@@ -88,6 +94,33 @@ val perp_dexs_json : string list -> string
 
 (** A REST handler serving [perpDexs], [meta] and [spotMeta] with the given universe on dex [""]. *)
 val rest_of_universe : (unit -> string list) -> request:string -> string
+
+(** HTTP/1.1 responses as wire bytes, for [rest_serve] and the vault's fake. *)
+
+(** A status line ([200 OK] by default), [Content-Type], these fields, [Connection: close] and the empty line. *)
+val head : ?status:int -> string list -> string
+
+(** A [200] whose body follows a [Content-Length] of [announced], by default the body's own length. *)
+val with_length : ?announced:int -> string -> string
+
+(** The body in one chunk per element, then the zero-size last chunk, these trailer fields, and the CRLF that ends
+    the message; [`No_last_chunk] stops after the body's chunks, [`No_final_crlf] after the zero-size chunk's line. *)
+val chunked
+  :  ?trailers:string list
+  -> ?ending:[ `Whole | `No_last_chunk | `No_final_crlf ]
+  -> string list
+  -> string
+
+(** The body with neither [Content-Length] nor [Transfer-Encoding]: it ends at the connection's close. *)
+val to_close : string -> string
+
+(** Ways to deliver wire bytes, for [rest_serve]. [send] writes them all; [send_in_pieces] writes them [bytes] at a
+    time, flushing each; [send_and_keep_open] writes them all and then holds the connection open until the fake
+    stops. *)
+val send : string -> Writer.t -> unit Deferred.t
+
+val send_in_pieces : bytes:int -> string -> Writer.t -> unit Deferred.t
+val send_and_keep_open : string -> Writer.t -> unit Deferred.t
 
 (** A [trades] frame for a coin. *)
 val trades_frame : coin:string -> seq:int -> string

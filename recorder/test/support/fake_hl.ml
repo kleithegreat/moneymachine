@@ -12,6 +12,7 @@ type config =
   ; fault : conn:int -> fault option
   ; rest_stall : request:string -> bool
   ; rest_fault : unit -> rest_stall_mode option
+  ; rest_serve : request:string -> (Writer.t -> unit Deferred.t) option
   }
 
 and fault =
@@ -19,6 +20,8 @@ and fault =
   | Partial_response
   | Reset_in_handshake
   | Answer_with of int
+  | Missing_accept
+  | Bad_accept
   | Reset_mid_frame
   | Tls_fatal_alert
 
@@ -43,6 +46,7 @@ let default_config =
   ; fault = (fun ~conn:_ -> None)
   ; rest_stall = (fun ~request:_ -> false)
   ; rest_fault = (fun () -> None)
+  ; rest_serve = (fun ~request:_ -> None)
   }
 ;;
 
@@ -77,8 +81,9 @@ let header headers name =
 ;;
 
 let json_of_text text =
-  try Some (Yojson.Safe.from_string text) with
-  | _ -> None
+  match Yojson.Safe.from_string text with
+  | json -> Some json
+  | exception Yojson.Json_error _ -> None
 ;;
 
 let ack_frame subscription =
@@ -97,6 +102,59 @@ let wait_eof_or_stop t reader =
     | `Ok _ -> drain ()
   in
   Deferred.any [ drain (); Ivar.read t.stopped ]
+;;
+
+let head ?(status = 200) fields =
+  let reason = if status = 200 then "OK" else "Status" in
+  String.concat
+    ((sprintf "HTTP/1.1 %d %s" status reason :: "Content-Type: application/json" :: fields)
+     @ [ "Connection: close"; ""; "" ])
+    ~sep:"\r\n"
+;;
+
+let with_length ?announced body =
+  let announced = Option.value announced ~default:(String.length body) in
+  head [ sprintf "Content-Length: %d" announced ] ^ body
+;;
+
+let chunked ?(trailers = []) ?(ending = `Whole) chunks =
+  let body =
+    List.map chunks ~f:(fun chunk -> sprintf "%x\r\n%s\r\n" (String.length chunk) chunk)
+  in
+  let last =
+    match ending with
+    | `Whole ->
+      "0\r\n"
+      ^ String.concat (List.map trailers ~f:(fun field -> field ^ "\r\n"))
+      ^ "\r\n"
+    | `No_last_chunk -> ""
+    | `No_final_crlf -> "0\r\n"
+  in
+  head [ "Transfer-Encoding: chunked" ] ^ String.concat body ^ last
+;;
+
+let to_close body = head [] ^ body
+
+let send wire writer =
+  Writer.write writer wire;
+  Writer.flushed writer
+;;
+
+let send_in_pieces ~bytes wire writer =
+  let rec from pos =
+    if pos >= String.length wire
+    then return ()
+    else (
+      let len = Int.min bytes (String.length wire - pos) in
+      let%bind () = send (String.sub wire ~pos ~len) writer in
+      from (pos + len))
+  in
+  from 0
+;;
+
+let send_and_keep_open wire writer =
+  let%bind () = send wire writer in
+  Deferred.never ()
 ;;
 
 let serve_rest t config ~fault reader writer headers =
@@ -133,19 +191,13 @@ let serve_rest t config ~fault reader writer headers =
          [";
       Deferred.never ())
     else (
-      let body = config.rest ~request in
-      Writer.write
-        writer
-        (sprintf
-           "HTTP/1.1 200 OK\r\n\
-            Content-Type: application/json\r\n\
-            Content-Length: %d\r\n\
-            Connection: close\r\n\
-            \r\n\
-            %s"
-           (String.length body)
-           body);
-      Writer.close writer)
+      let serve =
+        match config.rest_serve ~request with
+        | Some serve -> serve
+        | None -> send (with_length (config.rest ~request))
+      in
+      let%bind () = Deferred.any [ serve writer; Ivar.read t.stopped ] in
+      Writer.close ~force_close:(Clock.after (Time_float.Span.of_sec 5.)) writer)
 ;;
 
 let reset writer =
@@ -276,6 +328,25 @@ let start config =
           (sprintf
              "HTTP/1.1 %d Refused\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
              code);
+        Writer.close writer
+      | Some Missing_accept ->
+        Writer.write
+          writer
+          "HTTP/1.1 101 Switching Protocols\r\n\
+           Upgrade: websocket\r\n\
+           Connection: Upgrade\r\n\
+           \r\n";
+        let%bind () = Writer.flushed writer in
+        Writer.close writer
+      | Some Bad_accept ->
+        Writer.write
+          writer
+          "HTTP/1.1 101 Switching Protocols\r\n\
+           Upgrade: websocket\r\n\
+           Connection: Upgrade\r\n\
+           Sec-WebSocket-Accept: invalid-accept-value\r\n\
+           \r\n";
+        let%bind () = Writer.flushed writer in
         Writer.close writer
       | Some (Reset_mid_frame | Tls_fatal_alert) | None ->
         serve_ws t config ~outer_wr reader writer headers conn)

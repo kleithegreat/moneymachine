@@ -23,9 +23,36 @@ type t =
   ; buffers : (Route.t, buffer) Hashtbl.Poly.t
   }
 
-let create ~root ~now_ms =
-  { root; run = now_ms (); now_ms; buffers = Hashtbl.Poly.create () }
+let max_existing_run ~root =
+  let rec scan dir acc =
+    match Sys_unix.is_directory ~follow_symlinks:false dir with
+    | `No | `Unknown -> acc
+    | `Yes ->
+      let entries =
+        match Sys_unix.ls_dir dir with
+        | entries -> entries
+        | exception Core_unix.Unix_error _ -> []
+      in
+      List.fold entries ~init:acc ~f:(fun acc name ->
+        match Hour_path.hour_and_run_of_name name with
+        | Some (_, run) when run >= 0 ->
+          Some (Option.value_map acc ~default:run ~f:(Int.max run))
+        | Some _ | None -> scan (Filename.concat dir name) acc)
+  in
+  scan root None
 ;;
+
+let create ~root ~now_ms =
+  let run =
+    let now = now_ms () in
+    match max_existing_run ~root with
+    | None -> now
+    | Some prev -> Int.max now (prev + 1)
+  in
+  { root; run; now_ms; buffers = Hashtbl.Poly.create () }
+;;
+
+let run t = t.run
 
 let write_all fd data =
   let rec write pos =
@@ -44,7 +71,7 @@ let open_file t route buffer =
     Hour_path.of_recv ~root:t.root route ~run:t.run ~recv_ms:(buffer.hour * ms_per_hour)
   in
   Core_unix.mkdir_p (Filename.dirname path);
-  let fd = Core_unix.openfile path ~mode:[ O_WRONLY; O_APPEND; O_CREAT ] ~perm:0o644 in
+  let fd = Core_unix.openfile path ~mode:[ O_WRONLY; O_CREAT; O_EXCL ] ~perm:0o644 in
   { fd; compressor = Zstd.compressor () }
 ;;
 

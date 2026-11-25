@@ -95,43 +95,24 @@ type t =
 
 let record t name json = File_writer.add t.writer name ~recv_ms:t.config.now_ms json
 
-let event t name fields =
-  let line = Event.to_line ~recv_ms:t.config.now_ms ~conn:None (Event.make name fields) in
+let event_of t made =
+  let line = Event.to_line ~recv_ms:t.config.now_ms ~conn:None made in
   record t (route t.config "events") line
 ;;
 
-(** The whole lines of a recording up to its first unreadable point, and why it stops there unless it is merely cut: a
-    kill truncates a stream and its last line, which is skipped silently (VAULT.md, Duplicates). *)
-let decoded_lines path =
-  let out = Buffer.create 65536 in
-  let reading = Zstd.reader () in
-  let failure =
-    match Zstd.feed reading (In_channel.read_all path) ~f:(Buffer.add_string out) with
-    | () -> None
-    | exception Failure reason -> Some reason
-  in
-  let text = Buffer.contents out in
-  let lines = String.split_lines text in
-  let whole =
-    if String.is_suffix text ~suffix:"\n"
-    then lines
-    else Option.value (List.drop_last lines) ~default:[]
-  in
-  whole, failure
-;;
+let event t name fields = event_of t (Event.make name fields)
 
-let add_identities kind seen lines =
-  List.find_map lines ~f:(fun line ->
-    match
-      List.map
-        (U.to_list (U.member "msg" (Yojson.Safe.from_string line)))
-        ~f:(identity kind)
-    with
-    | identities ->
-      List.iter identities ~f:(Hash_set.add seen);
-      None
-    | exception Yojson.Json_error _ -> Some "unparseable line"
-    | exception U.Type_error _ -> Some "unexpected shape")
+let add_line_identities kind seen line =
+  match
+    List.map
+      (U.to_list (U.member "msg" (Yojson.Safe.from_string line)))
+      ~f:(identity kind)
+  with
+  | identities ->
+    List.iter identities ~f:(Hash_set.add seen);
+    None
+  | exception Yojson.Json_error _ -> Some "unparseable line"
+  | exception U.Type_error _ -> Some "unexpected shape"
 ;;
 
 let stored_identities t kind =
@@ -144,20 +125,35 @@ let stored_identities t kind =
         if Option.is_some (Integrity.hour_and_run_of_name name)
         then (
           let path = String.concat ~sep:"/" [ dir; date; name ] in
-          let lines, decode_failure = decoded_lines path in
+          let parse_failure, stream_state =
+            Recording.fold_lines path ~init:None ~f:(fun err line ->
+              match err with
+              | Some _ -> err
+              | None -> add_line_identities kind seen line)
+          in
           let failure =
-            match add_identities kind seen lines with
-            | Some _ as parse_failure -> parse_failure
-            | None -> decode_failure
+            match stream_state, parse_failure with
+            | Corrupt, _ -> Some "corrupt stream"
+            | Malformed, None -> Some "malformed stream"
+            | (Complete | Cut | Malformed), (Some _ as err) -> err
+            | (Complete | Cut), None -> None
           in
           Option.iter failure ~f:(fun reason ->
             event t "error" [ "file", `String path; "reason", `String reason ]))));
   seen
 ;;
 
-let fail t ~body reason =
-  event t "error" [ "request", Yojson.Safe.from_string body; "reason", `String reason ];
+let fail t ~body failure =
+  event_of t (Rest.error_event ~request:body failure);
   return (Error ())
+;;
+
+let shape_failure (response : Rest.response) =
+  { Rest.stage = "shape"
+  ; bytes = response.bytes
+  ; reason = "unexpected shape"
+  ; status = None
+  }
 ;;
 
 let pace t =
@@ -168,35 +164,29 @@ let pace t =
   t.last_request_s <- Core_unix.gettimeofday ()
 ;;
 
-(** The parsed response of a request; HTTP 429 waits and retries up to [max_retries] times. Failures are events and
-    never echo a response body. *)
 let post t ~body =
   let rec attempt retries =
     let%bind () = pace t in
-    let%bind outcome = try_with (fun () -> Net.post_status t.config.rest_url ~body) in
-    match outcome with
-    | Error exn -> fail t ~body (Exn.to_string exn)
-    | Ok `Timeout -> fail t ~body "timeout"
-    | Ok (`Result (429, _)) when retries < max_retries ->
+    match%bind Rest.post t.config.rest_url ~body with
+    | Error { Rest.status = Some 429; _ } when retries < max_retries ->
       let delay = Backoff.failed t.backoff ~now:(Core_unix.gettimeofday ()) in
       let%bind () = after (Time_float.Span.of_sec delay) in
       attempt (retries + 1)
-    | Ok (`Result (429, _)) -> fail t ~body "HTTP status 429 after retries"
-    | Ok (`Result (status, _)) when status <> 200 ->
-      fail t ~body (sprintf "HTTP status %d" status)
-    | Ok (`Result (_, response)) ->
-      (match Yojson.Safe.from_string response with
-       | json -> return (Ok (json, response))
-       | exception _ -> fail t ~body "unreadable body")
+    | Error failure -> fail t ~body failure
+    | Ok response -> return (Ok response)
   in
   attempt 0
 ;;
 
-let store t name ~body response =
+let store t name ~body (response : Rest.response) =
   record
     t
     (route t.config name)
-    (Line.of_response ~recv_ms:t.config.now_ms ~request:body response)
+    (Line.of_response
+       ~recv_ms:t.config.now_ms
+       ~request:body
+       ?date:response.date
+       response.body)
 ;;
 
 type pulled =
@@ -204,7 +194,6 @@ type pulled =
   ; distinct : int
   }
 
-(** Pages [kind] over [from_, to_]: each page from the last item's [time], inclusive, until one is under the cap. *)
 let pull t kind ~seen ~from_ ~to_ =
   let name = kind_name kind in
   let distinct = String.Hash_set.create () in
@@ -214,14 +203,17 @@ let pull t kind ~seen ~from_ ~to_ =
     let body = request_body kind ~user:t.config.user ~start ~end_:to_ in
     match%bind post t ~body with
     | Error () -> return false
-    | Ok (json, response) ->
+    | Ok response ->
       (match
-         let items = U.to_list json in
+         let items = U.to_list (Yojson.Safe.from_string response.body) in
          List.map items ~f:(fun item ->
            identity kind item, U.to_int (U.member "time" item))
        with
-       | exception _ ->
-         let%map (_ : (unit, unit) Result.t) = fail t ~body "unexpected shape" in
+       | exception U.Type_error _ ->
+         let%map (_ : (unit, unit) Result.t) = fail t ~body (shape_failure response) in
+         false
+       | exception Yojson.Json_error _ ->
+         let%map (_ : (unit, unit) Result.t) = fail t ~body (shape_failure response) in
          false
        | items ->
          store t name ~body response;
@@ -265,7 +257,7 @@ let single t name ~type_ =
   let%map complete =
     match%map post t ~body with
     | Error () -> false
-    | Ok (_, response) ->
+    | Ok response ->
       store t name ~body response;
       true
   in
@@ -354,9 +346,9 @@ let run config =
     if not (hourly.complete && daily)
     then return false
     else (
-      let%bind fees = single t "fees" ~type_:"userFees" in
-      let%map orders = single t "orders" ~type_:"historicalOrders" in
-      fees && orders)
+      match%bind single t "fees" ~type_:"userFees" with
+      | true -> single t "orders" ~type_:"historicalOrders"
+      | false -> return false)
   in
   event t "stop" [ "ok", `Bool ok ];
   File_writer.close t.writer;

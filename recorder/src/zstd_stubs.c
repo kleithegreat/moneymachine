@@ -2,12 +2,22 @@
 #include <zstd.h>
 #include <caml/mlvalues.h>
 #include <caml/alloc.h>
+#include <caml/callback.h>
 #include <caml/custom.h>
 #include <caml/memory.h>
 #include <caml/fail.h>
 
 #define Cctx_val(v) (*(ZSTD_CCtx **)Data_custom_val(v))
 #define Dctx_val(v) (*(ZSTD_DCtx **)Data_custom_val(v))
+
+static void raise_zstd(const char *msg)
+{
+  const value *exn = caml_named_value("mmrec.zstd.error");
+  if (exn != NULL) {
+    caml_raise_with_string(*exn, msg);
+  }
+  caml_failwith(msg);
+}
 
 static void cctx_finalize(value v) { ZSTD_freeCCtx(Cctx_val(v)); }
 static void dctx_finalize(value v) { ZSTD_freeDCtx(Dctx_val(v)); }
@@ -29,10 +39,19 @@ CAMLprim value mmrec_zstd_cctx_create(value unit)
   CAMLparam1(unit);
   CAMLlocal1(v);
   ZSTD_CCtx *ctx = ZSTD_createCCtx();
-  if (ctx == NULL) caml_failwith("zstd: out of memory");
-  ZSTD_CCtx_setParameter(ctx, ZSTD_c_compressionLevel, 9);
-  ZSTD_CCtx_setParameter(ctx, ZSTD_c_checksumFlag, 1);
-  v = caml_alloc_custom(&cctx_ops, sizeof(ZSTD_CCtx *), 0, 1);
+  if (ctx == NULL) raise_zstd("zstd: out of memory");
+  size_t r1 = ZSTD_CCtx_setParameter(ctx, ZSTD_c_compressionLevel, 9);
+  if (ZSTD_isError(r1)) {
+    ZSTD_freeCCtx(ctx);
+    raise_zstd(ZSTD_getErrorName(r1));
+  }
+  size_t r2 = ZSTD_CCtx_setParameter(ctx, ZSTD_c_checksumFlag, 1);
+  if (ZSTD_isError(r2)) {
+    ZSTD_freeCCtx(ctx);
+    raise_zstd(ZSTD_getErrorName(r2));
+  }
+  size_t mem = ZSTD_sizeof_CCtx(ctx);
+  v = caml_alloc_custom_mem(&cctx_ops, sizeof(ZSTD_CCtx *), mem);
   Cctx_val(v) = ctx;
   CAMLreturn(v);
 }
@@ -41,17 +60,17 @@ CAMLprim value mmrec_zstd_cctx_create(value unit)
 CAMLprim value mmrec_zstd_compress_step(value cctx, value src, value pos, value ending)
 {
   CAMLparam4(cctx, src, pos, ending);
-  CAMLlocal3(out, result, unused);
+  CAMLlocal2(out, result);
   size_t cap = ZSTD_CStreamOutSize();
   char *buf = malloc(cap);
-  if (buf == NULL) caml_failwith("zstd: out of memory");
+  if (buf == NULL) raise_zstd("zstd: out of memory");
   ZSTD_inBuffer in = { String_val(src), caml_string_length(src), Long_val(pos) };
   ZSTD_outBuffer o = { buf, cap, 0 };
   ZSTD_EndDirective mode = Bool_val(ending) ? ZSTD_e_end : ZSTD_e_flush;
   size_t remaining = ZSTD_compressStream2(Cctx_val(cctx), &o, &in, mode);
   if (ZSTD_isError(remaining)) {
     free(buf);
-    caml_failwith(ZSTD_getErrorName(remaining));
+    raise_zstd(ZSTD_getErrorName(remaining));
   }
   out = caml_alloc_initialized_string(o.pos, buf);
   free(buf);
@@ -67,10 +86,17 @@ CAMLprim value mmrec_zstd_dctx_create(value unit)
   CAMLparam1(unit);
   CAMLlocal1(v);
   ZSTD_DCtx *ctx = ZSTD_createDCtx();
-  if (ctx == NULL) caml_failwith("zstd: out of memory");
-  v = caml_alloc_custom(&dctx_ops, sizeof(ZSTD_DCtx *), 0, 1);
+  if (ctx == NULL) raise_zstd("zstd: out of memory");
+  size_t mem = ZSTD_sizeof_DCtx(ctx);
+  v = caml_alloc_custom_mem(&dctx_ops, sizeof(ZSTD_DCtx *), mem);
   Dctx_val(v) = ctx;
   CAMLreturn(v);
+}
+
+CAMLprim value mmrec_zstd_dstream_out_size(value unit)
+{
+  CAMLparam1(unit);
+  CAMLreturn(Val_long(ZSTD_DStreamOutSize()));
 }
 
 /* One step of ZSTD_decompressStream: returns (new input position, output, its hint; 0 at the end of a frame). */
@@ -80,13 +106,13 @@ CAMLprim value mmrec_zstd_decompress_step(value dctx, value src, value pos)
   CAMLlocal2(out, result);
   size_t cap = ZSTD_DStreamOutSize();
   char *buf = malloc(cap);
-  if (buf == NULL) caml_failwith("zstd: out of memory");
+  if (buf == NULL) raise_zstd("zstd: out of memory");
   ZSTD_inBuffer in = { String_val(src), caml_string_length(src), Long_val(pos) };
   ZSTD_outBuffer o = { buf, cap, 0 };
   size_t hint = ZSTD_decompressStream(Dctx_val(dctx), &o, &in);
   if (ZSTD_isError(hint)) {
     free(buf);
-    caml_failwith(ZSTD_getErrorName(hint));
+    raise_zstd(ZSTD_getErrorName(hint));
   }
   out = caml_alloc_initialized_string(o.pos, buf);
   free(buf);

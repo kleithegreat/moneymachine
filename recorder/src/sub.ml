@@ -23,24 +23,27 @@ let request meth t =
 let subscribe_message = request "subscribe"
 let unsubscribe_message = request "unsubscribe"
 
+let field name = function
+  | `Assoc fields -> List.Assoc.find fields ~equal:String.equal name
+  | _ -> None
+;;
+
 let of_ack frame =
-  let open Yojson.Safe.Util in
   match Yojson.Safe.from_string frame with
-  | exception _ -> None
+  | exception Yojson.Json_error _ -> None
   | json ->
-    (match member "channel" json, member "data" json with
-     | `String "subscriptionResponse", data ->
-       let subscription = member "subscription" data in
-       (match
-          member "method" data, member "type" subscription, member "coin" subscription
-        with
-        | `String "subscribe", `String "allDexsAssetCtxs", _ -> Some All_dexs_asset_ctxs
-        | `String "subscribe", `String "trades", `String coin -> Some (Trades coin)
-        | `String "subscribe", `String "l2Book", `String coin ->
-          (match member "fast" subscription with
-           | `Bool true -> Some (L2_book_fast coin)
-           | _ -> Some (L2_book coin))
+    (match field "channel" json, field "data" json with
+     | Some (`String "subscriptionResponse"), Some data ->
+       (match field "method" data, field "subscription" data with
+        | Some (`String "subscribe"), Some subscription ->
+          (match field "type" subscription, field "coin" subscription with
+           | Some (`String "allDexsAssetCtxs"), _ -> Some All_dexs_asset_ctxs
+           | Some (`String "trades"), Some (`String coin) -> Some (Trades coin)
+           | Some (`String "l2Book"), Some (`String coin) ->
+             (match field "fast" subscription with
+              | Some (`Bool true) -> Some (L2_book_fast coin)
+              | _ -> Some (L2_book coin))
+           | _ -> None)
         | _ -> None)
-     | _ -> None
-     | exception _ -> None)
+     | _ -> None)
 ;;

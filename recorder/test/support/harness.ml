@@ -44,6 +44,14 @@ let run_cli args =
 
 let send_signal process signal = Signal_unix.send_exn signal (`Pid (Process.pid process))
 
+let kill_if_running process =
+  if Deferred.is_determined (Process.wait process)
+  then return ()
+  else (
+    send_signal process Signal.kill;
+    Deferred.ignore_m (Process.wait process))
+;;
+
 let wait_until ~timeout_s ~what condition =
   let deadline = Time_ns.add (Time_ns.now ()) (Time_ns.Span.of_sec timeout_s) in
   let rec loop () =

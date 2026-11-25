@@ -1,6 +1,7 @@
-(* Item 6 against the running recorder: a coin added between two listing reads is subscribed, one delisted is
-   unsubscribed, both are events, and each REST response is stored verbatim in listings. Uses the assumed flag
-   --listings-interval-s to make the "hourly" read fast. *)
+(* Item 6 against the running recorder: a coin added between two listing reads is subscribed, one flagged
+   [isDelisted] is unsubscribed, both are events, and each REST response is stored verbatim in listings, its line
+   holding its request and a null [conn]. Uses the assumed flag --listings-interval-s to make the "hourly" read
+   fast. *)
 
 open Core
 open Async
@@ -31,10 +32,14 @@ let requests_of fake ~meth ~coin =
 
 let () =
   H.main "item 6: listings change, end to end" (fun () ->
-    let universe = ref [ "A"; "B"; "C" ] in
-    let config =
-      { F.default_config with rest = F.rest_of_universe (fun () -> !universe) }
+    let live = ref [ "A"; "B"; "C" ] in
+    let delisted = ref [] in
+    let rest ~request =
+      match Yojson.Safe.Util.member "type" (Yojson.Safe.from_string request) with
+      | `String "meta" -> F.meta_json ~live:!live ~delisted:!delisted
+      | _ -> F.rest_of_universe (fun () -> !live) ~request
     in
+    let config = { F.default_config with rest } in
     let%bind fake = F.start config in
     let root = H.tmp_dir () in
     let%bind process =
@@ -44,7 +49,8 @@ let () =
       H.wait_until ~timeout_s:20. ~what:"initial subscriptions" (fun () ->
         List.length (requests_of fake ~meth:"subscribe" ~coin:"B") = 3)
     in
-    universe := [ "A"; "C"; "D" ];
+    live := [ "A"; "C"; "D" ];
+    delisted := [ "B" ];
     let%bind () =
       H.wait_until ~timeout_s:30. ~what:"D subscribed and B unsubscribed" (fun () ->
         List.length (requests_of fake ~meth:"subscribe" ~coin:"D") = 3
@@ -121,8 +127,23 @@ let () =
       (has (F.meta_json ~live:[ "A"; "B"; "C" ] ~delisted:[]))
       "first meta not stored verbatim";
     H.check
-      (has (F.meta_json ~live:[ "A"; "C"; "D" ] ~delisted:[]))
+      (has (F.meta_json ~live:[ "A"; "C"; "D" ] ~delisted:[ "B" ]))
       "second meta not stored verbatim";
     H.check (has (F.perp_dexs_json [])) "perpDexs not stored";
+    let requests_held =
+      H.recordings (Filename.concat root "listings")
+      |> List.concat_map ~f:(fun path -> String.split_lines (H.zstd_lenient_decode path))
+      |> List.filter ~f:(fun line -> not (String.is_empty line))
+      |> List.map ~f:(fun line ->
+        let json = Yojson.Safe.from_string line in
+        Yojson.Safe.Util.member "request" json, Yojson.Safe.Util.member "conn" json)
+    in
+    let sent =
+      List.map (F.rest_requests fake) ~f:(fun request -> Yojson.Safe.from_string request)
+    in
+    H.check
+      (List.for_all requests_held ~f:(fun (request, conn) ->
+         Poly.equal conn `Null && List.mem sent request ~equal:Yojson.Safe.equal))
+      "a listings line does not hold its request with a null conn";
     F.stop fake)
 ;;

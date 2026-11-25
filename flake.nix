@@ -67,11 +67,13 @@
       mmrecFor = pkgs:
         let
           o = pkgs.ocamlPackages;
-          libs = [ o.core o.core_unix o.async o.async_ssl o.async_websocket o.ppx_jane o.yojson ];
+          libs = [ o.core o.core_unix o.async o.async_ssl o.async_websocket o.ppx_jane o.yojson o.curl o.jsont ];
           testLibs = libs ++ [ o.ppx_expect o.base_quickcheck ];
           src = pkgs.lib.fileset.toSource {
             root = ./recorder;
-            fileset = pkgs.lib.fileset.difference ./recorder ./recorder/RECORDER.md;
+            fileset = pkgs.lib.fileset.difference ./recorder (
+              pkgs.lib.fileset.unions [ ./recorder/RECORDER.md ./recorder/VAULT.md ]
+            );
           };
         in {
           package = o.buildDunePackage {
@@ -79,14 +81,14 @@
             version = "0";
             inherit src;
             duneVersion = "3";
-            buildInputs = libs ++ [ pkgs.zstd.dev pkgs.zstd ];
+            buildInputs = libs ++ [ pkgs.zstd.dev pkgs.zstd pkgs.curl.dev pkgs.curl ];
             doCheck = false;
           };
           tests = pkgs.stdenv.mkDerivation {
             name = "mmrec-tests";
             inherit src;
             nativeBuildInputs = [ o.ocaml o.dune_3 o.findlib pkgs.zstd pkgs.libfaketime ];
-            buildInputs = testLibs ++ [ pkgs.zstd.dev ];
+            buildInputs = testLibs ++ [ pkgs.zstd.dev pkgs.curl.dev pkgs.curl ];
             buildPhase = ''
               export HOME=$TMPDIR DUNE_CACHE=disabled
               dune build --root . --display short @runtest
@@ -97,7 +99,7 @@
             name = "recorder-style";
             inherit src;
             nativeBuildInputs = [ o.ocaml o.dune_3 o.findlib o.ocamlformat o.ppx_js_style pkgs.zstd ];
-            buildInputs = testLibs ++ [ o.ppx_js_style pkgs.zstd.dev ];
+            buildInputs = testLibs ++ [ o.ppx_js_style pkgs.zstd.dev pkgs.curl.dev pkgs.curl ];
             buildPhase = ''
               export HOME=$TMPDIR DUNE_CACHE=disabled
               dune build --root . @fmt @check @lint

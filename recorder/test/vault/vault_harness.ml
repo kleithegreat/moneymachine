@@ -60,6 +60,8 @@ type funding_row =
 type behaviour =
   | Normal
   | Reply of int * string
+  | Serve of (Writer.t -> unit Deferred.t)
+  (** answers on the connection's writer, as [Fake_hl]'s [rest_serve]; the connection closes when it returns *)
 
 type request =
   { kind : string
@@ -161,17 +163,30 @@ let answer t body =
   let end_ms = U.to_int_option (U.member "endTime" json) in
   t.on_request ~request_start:start_ms ~kind;
   let nth = List.count t.log ~f:(fun r -> String.equal r.kind kind) in
-  let status, returned, text =
+  let framed status text =
+    sprintf
+      "HTTP/1.1 %d X\r\n\
+       Content-Type: application/json\r\n\
+       Content-Length: %d\r\n\
+       Connection: close\r\n\
+       \r\n\
+       %s"
+      status
+      (String.length text)
+      text
+  in
+  let status, returned, serve =
     match t.behave ~kind ~nth json with
-    | Reply (status, text) -> status, 0, text
+    | Reply (status, text) -> status, 0, Rec_support.Fake_hl.send (framed status text)
+    | Serve serve -> 200, 0, serve
     | Normal ->
       let start = Option.value start_ms ~default:0 in
       let end_ = Option.value end_ms ~default:Int.max_value in
       let returned, text = serve_normal t ~kind ~start ~end_ in
-      200, returned, text
+      200, returned, Rec_support.Fake_hl.send (framed 200 text)
   in
   t.log <- t.log @ [ { kind; body = json; start_ms; end_ms; returned; status } ];
-  status, text
+  serve
 ;;
 
 let read_body reader =
@@ -227,20 +242,8 @@ let start
   let http_handler reader writer =
     let%bind body = read_body reader in
     let t = Option.value_exn !t_ref in
-    let status, text = answer t body in
-    Writer.write
-      writer
-      (sprintf
-         "HTTP/1.1 %d X\r\n\
-          Content-Type: application/json\r\n\
-          Content-Length: %d\r\n\
-          Connection: close\r\n\
-          \r\n\
-          %s"
-         status
-         (String.length text)
-         text);
-    Writer.close writer
+    let%bind () = Deferred.any [ answer t body writer; Ivar.read stopped ] in
+    Writer.close ~force_close:(Clock.after (Time_float.Span.of_sec 5.)) writer
   in
   let handler outer_rd outer_wr =
     let t = Option.value_exn !t_ref in

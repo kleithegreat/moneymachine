@@ -55,13 +55,21 @@ let cat =
     ~summary:"decompress a recording to stdout"
     (let%map_open.Command file = anon ("FILE" %: string) in
      fun () ->
-       let (), truncated =
+       let (), state =
          Mmrec.Recording.fold_lines file ~init:() ~f:(fun () line ->
            Out_channel.output_string stdout line;
            Out_channel.output_char stdout '\n')
        in
        Out_channel.flush stdout;
-       if truncated then eprintf "mmrec cat: %s ends in a cut stream\n" file)
+       match state with
+       | Complete -> ()
+       | Cut -> eprintf "mmrec cat: %s ends in a cut stream\n" file
+       | Malformed ->
+         eprintf "mmrec cat: %s is malformed\n" file;
+         Stdlib.exit 2
+       | Corrupt ->
+         eprintf "mmrec cat: %s is corrupt\n" file;
+         Stdlib.exit 2)
 ;;
 
 let () =

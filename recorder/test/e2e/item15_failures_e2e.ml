@@ -91,6 +91,9 @@ let () =
     let handshake_close reason =
       lower_contains reason [ "handshake"; "eof"; "closed"; "close" ]
     in
+    let accept_error reason =
+      lower_contains reason [ "sec-websocket-accept"; "accept"; "handshake" ]
+    in
     let status code reason = lower_contains reason [ Int.to_string code ] in
     let mid_frame reason =
       lower_contains reason [ "reset"; "eof"; "closed"; "frame"; "connection" ]
@@ -125,6 +128,18 @@ let () =
             ~name:"200 to the upgrade"
             ~fault:(F.Answer_with 200)
             ~names_it:(status 200)
+            ~tls:false )
+      ; ( "missing Sec-WebSocket-Accept"
+        , scenario
+            ~name:"missing Sec-WebSocket-Accept"
+            ~fault:F.Missing_accept
+            ~names_it:accept_error
+            ~tls:false )
+      ; ( "mismatched Sec-WebSocket-Accept"
+        , scenario
+            ~name:"mismatched Sec-WebSocket-Accept"
+            ~fault:F.Bad_accept
+            ~names_it:accept_error
             ~tls:false )
       ; ( "reset mid-frame"
         , scenario

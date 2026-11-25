@@ -82,6 +82,48 @@ let faults () =
   F.stop fake
 ;;
 
+let post_info fake body =
+  let where =
+    Tcp.Where_to_connect.of_host_and_port
+      { host = "127.0.0.1"; port = port_of (F.rest_url fake) }
+  in
+  let%bind _socket, reader, writer = Tcp.connect where in
+  Writer.write
+    writer
+    (sprintf
+       "POST /info HTTP/1.1\r\nHost: x\r\nContent-Length: %d\r\n\r\n%s"
+       (String.length body)
+       body);
+  Reader.contents reader
+;;
+
+let wires () =
+  let expected =
+    [ F.with_length ~announced:99 "[1]"
+    ; F.chunked ~ending:`No_last_chunk [ "[1"; "]" ]
+    ; F.chunked ~ending:`No_final_crlf [ "[1"; "]" ]
+    ; F.chunked ~trailers:[ "X-T: 1" ] [ "[1"; "]" ]
+    ; F.to_close "[1]"
+    ]
+  in
+  H.check
+    (String.is_suffix (List.nth_exn expected 2) ~suffix:"]\r\n0\r\n")
+    "a chunked body without its final CRLF ends otherwise";
+  H.check
+    (String.is_suffix (List.nth_exn expected 3) ~suffix:"]\r\n0\r\nX-T: 1\r\n\r\n")
+    "a chunked body with trailers ends otherwise";
+  Deferred.List.iter ~how:`Sequential expected ~f:(fun wire ->
+    let%bind fake =
+      F.start
+        { F.default_config with rest_serve = (fun ~request:_ -> Some (F.send wire)) }
+    in
+    let%bind received = post_info fake {|{"type":"meta"}|} in
+    H.check
+      (String.equal received wire)
+      (sprintf "rest_serve: %S arrived as %S" wire received);
+    F.stop fake)
+;;
+
 let () =
   H.main "fake_hl selftest" (fun () ->
     let config =
@@ -150,5 +192,6 @@ let () =
     H.check (String.is_substring response ~substring:{|"universe"|}) "rest response";
     H.check (List.length (F.rest_requests fake) = 1) "rest_requests";
     let%bind () = F.stop fake in
-    faults ())
+    let%bind () = faults () in
+    wires ())
 ;;
