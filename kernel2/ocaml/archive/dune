@@ -1,0 +1,10 @@
+(library
+ (name mm2_archive)
+ (libraries mm2_lean yojson unix)
+ (foreign_stubs
+  (language c)
+  (names duckdb_stubs)
+  (flags :standard -O2 -fPIC))
+ (c_library_flags (-lduckdb))
+ (lint
+  (pps ppx_js_style)))

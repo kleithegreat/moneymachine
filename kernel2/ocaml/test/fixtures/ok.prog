@@ -1,0 +1,1 @@
+{"version":2,"tick":60,"decide_every":1,"leverage":1,"sources":[{"name":"vol","unit":"1"}],"params":[{"name":"step","value":"0.9775","unit":"1"}],"let":[{"name":"calm","is":{"op":"lt","args":[{"input":"vol"},{"const":0.02,"unit":"1"}]}}],"slots":[],"probes":[{"name":"calm","is":{"ref":"calm"}},{"name":"avg","is":{"op":"mean","args":[{"input":"vol"}],"ticks":10}}]}

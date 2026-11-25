@@ -1,0 +1,33 @@
+(library
+ (name mm2_lean)
+ (libraries yojson)
+ (foreign_stubs
+  (language c)
+  (names stubs)
+  (flags
+   :standard
+   (:include c-flags.sexp)))
+ (library_flags
+  (:include libs.sexp))
+ (lint
+  (pps ppx_js_style)))
+
+(rule
+ (targets c-flags.sexp)
+ (deps
+  link-flags.sh
+  (env_var MM2_ENGINE_LIB))
+ (action
+  (with-stdout-to
+   c-flags.sexp
+   (run sh link-flags.sh cflags))))
+
+(rule
+ (targets libs.sexp)
+ (deps
+  link-flags.sh
+  (env_var MM2_ENGINE_LIB))
+ (action
+  (with-stdout-to
+   libs.sexp
+   (run sh link-flags.sh libs))))

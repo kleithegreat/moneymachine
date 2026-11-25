@@ -1,0 +1,215 @@
+(test
+ (name state_test)
+ (modules state_test)
+ (libraries mm2_lean)
+ (lint
+  (pps ppx_js_style)))
+
+(test
+ (name exact_test)
+ (modules exact_test)
+ (libraries mm2_lean)
+ (lint
+  (pps ppx_js_style)))
+
+(library
+ (name ledger_test_support)
+ (wrapped false)
+ (modules ledger_oracle venue_oracle wrong_ledgers)
+ (libraries mm2_lean)
+ (lint
+  (pps ppx_js_style)))
+
+(test
+ (name ledger_test)
+ (modules ledger_test)
+ (libraries mm2_lean ledger_test_support)
+ (lint
+  (pps ppx_js_style)))
+
+(test
+ (name venue_test)
+ (modules venue_test)
+ (libraries mm2_lean ledger_test_support)
+ (lint
+  (pps ppx_js_style)))
+
+(executable
+ (name layer1)
+ (modules layer1)
+ (libraries mm2_lean ledger_test_support yojson unix)
+ (lint
+  (pps ppx_js_style)))
+
+(rule
+ (alias runtest)
+ (deps
+  %{exe:../bin/mm2.exe}
+  check.sh
+  (glob_files fixtures/*.prog))
+ (action
+  (run sh check.sh %{exe:../bin/mm2.exe} fixtures)))
+
+(library
+ (name events_support)
+ (modules events_support)
+ (libraries mm2_lean yojson unix)
+ (lint
+  (pps ppx_js_style)))
+
+(test
+ (name events_test)
+ (modules events_test)
+ (libraries events_support)
+ (lint
+  (pps ppx_js_style)))
+
+(test
+ (name archive_reader_test)
+ (modules archive_reader_test)
+ (libraries events_support mm2_archive)
+ (lint
+  (pps ppx_js_style)))
+
+(test
+ (name archive_manifest_test)
+ (modules archive_manifest_test)
+ (libraries events_support mm2_archive)
+ (lint
+  (pps ppx_js_style)))
+
+(test
+ (name protected_test)
+ (modules protected_test)
+ (libraries events_support mm2_identity)
+ (deps scripts/protected-build.sh)
+ (action
+  (run %{test} %{exe:../bin/mm2.exe} scripts/protected-build.sh))
+ (lint
+  (pps ppx_js_style)))
+
+(executable
+ (name archive_local)
+ (modules archive_local)
+ (libraries events_support mm2_archive)
+ (lint
+  (pps ppx_js_style)))
+
+(executable
+ (name scale_local)
+ (modules scale_local)
+ (libraries events_support scale_test_support mm2_archive)
+ (lint
+  (pps ppx_js_style)))
+
+(library
+ (name scale_test_support)
+ (wrapped false)
+ (modules scale_support)
+ (foreign_stubs
+  (language c)
+  (names scale_affinity_stubs))
+ (libraries events_support)
+ (lint
+  (pps ppx_js_style)))
+
+(test
+ (name eval_test)
+ (modules eval_test)
+ (libraries events_support mm2_lean yojson)
+ (lint
+  (pps ppx_js_style)))
+
+(executable
+ (name b4_local)
+ (modules b4_local)
+ (libraries events_support mm2_lean x4_test_oracle yojson unix)
+ (lint
+  (pps ppx_js_style)))
+
+(test
+ (name readings_test)
+ (modules readings_test)
+ (libraries events_support mm2_lean yojson)
+ (lint
+  (pps ppx_js_style)))
+
+(executable
+ (name scale_test)
+ (modules scale_test)
+ (libraries events_support scale_test_support)
+ (lint
+  (pps ppx_js_style)))
+
+(executable
+ (name strings_scale_test)
+ (modules strings_scale_test)
+ (libraries events_support scale_test_support)
+ (lint
+  (pps ppx_js_style)))
+
+(rule
+ (alias runtest)
+ (deps
+  scripts/grid-at.sh
+  fixtures/grid-at.lean
+  %{env:MM2_ENGINE_LIB=missing-engine-archive})
+ (action
+  (run sh scripts/grid-at.sh fixtures/grid-at.lean)))
+
+; Step 3 test 7: the original step-1, step-3 and step-4 sandbox tests run
+; unedited against the same engine, alongside the new reading regressions.
+; tests/fast-readings.sh adds archive_local, the whole B4 corpus and the wall-clock
+; speed tests (tests/speed-local.sh: their limits hold on this desktop only) locally;
+; tests/engine-proofs.sh holds the X3/X2/C1/C2 axiom listing.
+
+(alias
+ (name step3-fast-readings)
+ (deps
+  (alias runtest)))
+
+(rule
+ (alias runtest)
+ (deps
+  scripts/orders-crossings.sh
+  fixtures/orders-crossings.lean
+  fixtures/orders.lean
+  fixtures/x4-specials.lean
+  %{env:MM2_ENGINE_LIB=missing-engine-archive})
+ (action
+  (progn
+   (run sh scripts/orders-crossings.sh fixtures/orders-crossings.lean)
+   (run sh scripts/orders-crossings.sh fixtures/orders.lean)
+   (run sh scripts/orders-crossings.sh fixtures/x4-specials.lean))))
+
+(alias
+ (name step5-orders)
+ (deps
+  (alias runtest)))
+
+; Test-side MPFR oracle bindings (x4_mpfr_stubs.c) from the same pinned nixpkgs MPFR/GMP.
+
+(library
+ (name x4_test_oracle)
+ (wrapped false)
+ (modules x4_oracle)
+ (foreign_stubs
+  (language c)
+  (names x4_mpfr_stubs))
+ (c_library_flags -lmpfr -lgmp)
+ (lint
+  (pps ppx_js_style)))
+
+(executable
+ (name x4_local)
+ (modules x4_local)
+ (libraries events_support mm2_lean x4_test_oracle unix yojson)
+ (lint
+  (pps ppx_js_style)))
+
+(executable
+ (name x4_reference_local)
+ (modules x4_reference_local)
+ (libraries events_support unix yojson)
+ (lint
+  (pps ppx_js_style)))
