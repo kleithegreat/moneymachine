@@ -1593,3 +1593,2537 @@ The advisor's ledger. No counterexample to L1a under its premises; no finding ch
 - **Added to the test writer's work:**
   - Step 4 (GPT's A): a quote known at `τ` whose coin's `szDecimals` changes by a listing timed after the quote and before `τ`, but known after `τ`. Both markets are admitted, and the view's size is the one read at admission in both. This kills a carrier that converts with the scale in force at release.
   - Step 3 (GPT's B): an event with several faults at once, such as a trade with price zero and an unreadable size, gives the built machine's first fault (`R_MARKET`), compared in full.
+
+## The last pass
+
+Appended 2026-11-16 21:14 UTC (16:14 EST) by Claude Fable 5.2, sessions "architect: the last pass" and its continuation after a cut. Fable's last session: the architect after it is a fresh Opus 5.5 session at maximum reasoning (the human, 2026-11-16). It read brief 3's steps 5 to 10 against the machine step 4 built (`kernel2-step4-wip`: `Machine.lean`, `Laws.lean`, `Ledger.lean`, `Lang/`), named each wall a builder would meet, and answered it in the brief under its step. No market data. No reviewer has seen this.
+
+### In plain words
+
+- **The steps after 4 were written before the machine existed, and several could not be built as written.** Step 5's tests spoke of fills, and nothing fills until step 6. A law's text became false once a tick carries exact inputs. A test asked for a speed with no tick named.
+- **Each answer removes a choice and adds no mechanism.** One move by which an order fills, used by every rule. One function that applies an effect, called by the world and, `δ` later, by the view. One mark a coin in a check. An identity of inputs alone.
+- **Nothing needs a second clock, a deferred count or a stake that moves without a fill.**
+
+### Settled by a derivation the reviewers have not seen (brief 3)
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D131 | Where A7's cut lives, when step 5 has no fills | The cut (the least of what is offered, the remainder and, for `reduce_only`, the position) is the same at arrival and under both rules. It is one move of the world, `offer`, built at step 5; step 6 builds what is offered and when, and writes no cut. An order whose own fill took its remainder to zero is not live | **Yes** (step 5, wall 1; step 6, wall 1; A6, A7) |
+| D132 | What S1, R1 and X1 are stated of | Every sequence of events and offers from a `start`; S1's witness is a cycle an offer ends. Later steps add moves and cases, and no statement changes. Offers are given by Lean fixtures; `mm2` has no command and no export for one (B2) | **Yes** (step 5, walls 2 and 3) |
+| D133 | The exact sort in the evaluator the laws stand on | One pass in index order, exact values in a second array; the tick gives the view's exact inputs; `NumOps` gains the two crossings. N1's frozen text becomes false (two runs may differ in `bid`): its writer restates it with the ticks' exact inputs equal, and N1 and L3 claim both arrays; L2's units gain the exact half. No other frozen statement changes | **Yes** (step 5, wall 4) |
+| D134 | The view's account | The world's function, called at the effect's `known`, which is its time plus `δ` whatever its event's `known`. The view works out no remainder. Its `equity` and `free_margin` are no price inputs, so staleness leaves them defined | **Yes** (step 5, wall 5; test 10) |
+| D135 | A6's and A10's margin | A check has one mark a coin, its adverse price, for equity and every notional, maintenance's too. An order's requirement is what it opens, at its limit price, times one over the leverage plus the taker rate. What it opens is its own and not summed over its side (V11). The world keeps the latest quote's best bid and ask from step 5 | **Yes** (step 5, wall 6; step 7, wall 1; A6, A10) |
+| D136 | A listing's events and orders | A change cancels the coin's orders when lots, grid or tiers differ, and a restatement cancels nothing. A wish for an ended coin places nothing | **Yes** (step 5, wall 7; A6) |
+| D137 | What a wish is | Two rationals, or a price and `close`; a notional is divided at the tick by the slot's exact price, and a price of zero leaves the slot inactive. Arrival rounds. `first_price` is the opening order's cost over its size; the opening order is the one whose fill took the position from zero | **Yes** (step 5, wall 8) |
+| D138 | The clock's kinds of time | Ticks, arrivals at `τ + λ` and, from step 9, days' ends, in time order and in A18's order within a millisecond, before the first fed event of a later time. Step 4's fifth lemma is proved of all | **Yes** (step 5, wall 9; step 9, wall 4) |
+| D139 | What a quote's reading keeps | Every level, as integers beside the lots they were read at. The world's book is the latest quote's, and a level is made a `Rat` when an order takes from it | **Yes** (step 6, wall 2) |
+| D140 | Whether a print fills an `ioc` | Never: an `ioc` never rests. `optimistic`'s credit before arrival is of a `gtc` or an `alo` | **Yes** (step 6, wall 3; A7) |
+| D141 | V10's count | An order's taker fill at a quote that came less than `G` after an earlier quote at which an order of the account took on that coin and side. Fills at one quote are not earlier than each other; a liquidation's closes are not counted | **Yes** (step 6, wall 4; A7) |
+| D142 | Step 6's speed test's tick | One second, deciding at every tick: the replica's clock. A minute's tick would be B5's wall from the wrong run again | **Yes** (step 6, test 11) |
+| D143 | A settlement in the ledger | The ledger's own event: the whole position closed at a price at or above zero, with no fee. The fill's guard, a price above zero, stays. A1 and U1 keep their text | **Yes** (step 7, wall 2) |
+| D144 | L1a and L1 once a run can abort | `snapshots` is `none` for a run that rejects or aborts, so L1a's text stands. L1 is stated of what `feed` and `finish` return through `t`, since a run rejected later publishes no row | **Yes** (step 7, wall 3) |
+| D145 | L1a's proof for the whole machine | Step 4's five lemmas. The view's part gains the view's account and the pending effects known by `τ`; a wish's arrival after `τ − δ` is a step of one side whose effects are not known by `τ` | **Yes** (step 7, wall 4) |
+| D146 | A bar market's staleness length | `Δ < G ≤ 2Δ`, or `start` refuses: at `G ≤ Δ` every bar's prints find the coin stale, and above `2Δ` a missing bar does not make it stale. A bar's print rounds to the nearest grid price and to the least where none is below. Test 6 measures and has no wall | **Yes** (step 8; A16's B5, A18) |
+| D147 | What an identity hashes | Inputs alone, all known before the run: the readers' dropped counts are outputs, in the result row and the summary. One canonical JSON text of named fields, the windows and the build two of them. Aliases rename and do not reorder | **Yes** (step 9, walls 1 to 3; A13) |
+| D148 | K2 in Lean, and test 13's paths | The pin has no Mathlib and no input is added: K2's Lean statement is the arithmetic, and the two real inequalities stay on paper with K3, held by test 9. A null with one law an event leaves every decimal grid, so test 13's paths are rows given to `confirm` | **Yes** (step 10, walls) |
+
+### Settled by a derivation the reviewers have not seen (brief 4)
+
+Read against `kernel-v2.md` part A, `KERNEL.md` A17 to A19 and CS2.1 to CS2.3 as committed. Data read: the times and `dir` of the vault's TON fills and the stamps of the stored `fundingHistory` rows, all before 2026-11-01; no price.
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D149 | The replica's clock | `tick` of 1 s, `decide_every` of 1: with `λ` and `δ` at a second a coarser clock is a third, unregistered delay. It is the ladder's and not the fit's | **Yes** (brief 4, the venue's table) |
+| D150 | Funding's `late` and `lag`, the listings' `lag` | `late` of 3,599,999 ms, the longest admitted: an event's hour is its stamp's floor, so a shorter one catches nothing and one late stamp would end the forward test; every hour of a day run is still due within that day. `lag` of `δ`. Listings an hour, the copy's cadence. The stamps on record are at most 139 ms late (86,496 rows) | **Yes** (the venue's table; the registration holds them) |
+| D151 | Who judges the vault's chain | Lean: `chained` (law M4), from the `flow` rows the replay of given fills now writes and each fill's `startPosition`. CS2.3's "not judged" rested on an OCaml test's check | **Yes** (step 1; brief 3's replay of given fills) |
+| D152 | M1's proof | Sorted lists for one coin; an exchange lemma on the two earliest entries; an induction on the lengths. No Mathlib | **Yes** (step 1, wall 2) |
+| D153 | Where the ladder ends and the trigger begins | Two `let`s, `anchor` and `unit`. Step 2 writes the levels and the exit over them; step 3 writes the entry's slots and those two, and nothing else. A first buy filled in part is the fit's to settle | **Yes** (step 2, wall 1; step 3, wall 1) |
+| D154 | The anchor, the rounding, the kind of order | `first_price`: a fill's row holds no limit and the language no input for one. The engine's rounding: a program cannot round, and one-step misses in one direction are reported, not hidden. `gtc`: the vault's levels and exits took in 1 to 2% of their fills, which no post-only order does | **Yes** (step 2, walls 2 and 3) |
+| D155 | Refusals at a second's tick | A refused slot writes a row a tick, so a level's `when` holds the venue's minimum. Step 2's test 3 forbids `margin` and `cap` refusals and any refusal of a level or the exit; an entry's dust remainder is refused by A6 as designed. The tests enter by a declared source held for one tick; test 5's entry is a literal size and price | **Yes** (step 2, walls 4 and 5; tests 3 and 5) |
+| D156 | The fit's cost and plan (O23) | Rounds: many trials on August 2026, a quarter of an hour of admission each, then the survivors on the whole span, 7 to 17 hours each, side by side | **Yes** (step 3, wall 2) |
+| D157 | The record's holes | Stale, so nothing fills and a held position stays; the price follows prints and funding is paid. The fit and the check count the vault's entries in a hole against the match, as CS2.3 does. Step 4's table names each coin's stale days and whether it was open in them | **Yes** (step 3, wall 4; step 4, test 6) |
+| D158 | A path's arithmetic | Lean's: one pure function from the replay's rows, a pair and 730 days. The pin gives OCaml no exact rationals. The digest is `digestif`'s | **Yes** (step 5, wall 1) |
+| D159 | What `study2 forward` holds itself to | Every registered field of the header, read from the registration. The registered build is the engine's; `study2`'s own OCaml is outside it and may be fixed | **Yes** (step 6, test and wall 1) |
+| D160 | The forward universe | The vault's 17 coins, each listed at the first judged midnight by the listings copy; one that is not is named and is in no market | **Yes** (step 6, wall 2) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O21 | Whether step 3's rates are met | **Closed, met.** On one isolated core the strings day took 8.7 s of 22 and the doubles day 313 s of 470. At the measured 126 µs a quote the window's admission is 8.0 hours of the 12 allowed; the batch runs when calibration ends and is a record of time and memory, not a decision | |
+| O22 | The recorder's reader inside 22,500 a second | Open until step 6's test 11. `feed` alone takes 8.7 of the 44 µs a quote allowed there, so the reader, the prints and the ladder's ticks have 35 | Step 6's reader, if the profile shows it most of them |
+| O23 | The trigger's fit at the new wall | **Closed** by D156 | |
+| O24 | The replica's own trace at a second's tick | 311 million `tick` rows a replay, some 15 GB a run, and a billion over the forward years, rewritten monthly. Nothing judged reads them. Not derived: I have not found the form that removes them without a switch in the engine or a second kind of trace. Test 11's time with rows written, and the first whole day's bytes, decide whether it is a wall at all | The trace's `tick` rows, if a wall |
+| O25 | A position held into a hole of the record | TON's quotes stop on 2026-06-15 and the coin stays listed; every coin is silent for a week in July. If the replica holds a coin there, the replay's variance, which CS2.2 reads and the bootstrap resamples, carries a holding the rule could not sell. Step 4's table decides whether it happens | CS2.2's reading or a dated revision before any judged day, if it happens (H15) |
+
+### What a read should check
+
+1. **D150.** A stamp the longest `late` admits and a shorter one should have refused; an hour of a run's last day that is not due.
+2. **D151, D152.** A vault record that `chained` passes with a fill missing (a round trip missing whole passes: V18 says so); a pair of sorted lists on which the recursion is not the largest matching.
+3. **D153 to D155.** A ladder the two `let`s cannot say; a refusal the restated test 3 lets through that Argon's finding 4 was about.
+4. **D157, O25.** Whether TON traded after 2026-06-16, from the trade record's counts; a coin stale in a hole whose price a print moves, and what `Wᵇ` values it at.
+5. **D159.** A field of the forward header a result moves with that the registration does not hold.
+6. **The earlier rows, D131 to D148:** each against the step it names. The ones I would attack first are D133 (N1's restatement), D135 (one mark a check) and D146 (bars).
+
+### Assumptions only the human can choose
+
+| | Choice | My recommendation |
+|---|---|---|
+| H15 | Only if step 4's table shows the replica holding a coin through a hole of more than a day: whether CS2.2 is read against that replay as it stands, with the holding named as a qualification, or revised with a date before any judged day is run | Read it as it stands. A revision that picks the replay's days or coins after the table was read is a choice made after a price |
+
+### Owed
+
+- **By the advisor:** this section's rows read by GPT and Argon, D133, D135, D150 and D151 first, since each changes what a judged run does; the count of TON's rows in the trade record by day from 2026-06-16; N1's, L3's and L2's restatements by their writer before step 5's build; step 5's test list as the first report gives it; the fit's sandbox and its test (brief 4, step 3, wall 5).
+- **By the next architect:** O24 and O25 when their measurements come; the profile if step 6's rate is missed.
+
+### Convergence
+
+**Answered by derivation and not yet read.** O21 and O23 are closed. No open dispute would change what is built before step 6's test 11 (O22, O24) and brief 4's step 4 (O25).
+
+### Handover to the next architect
+
+Written 2026-11-16 21:28 UTC (16:28 EST) by Claude Fable 5.2, in its last session, for the Opus 5.5 session that takes the role. It restates no brief.
+
+**What is settled, and where its derivation lives.**
+- **What the machine does and why:** `kernel-v2.md` part A is the contract, and parts C to G hold the reason for each rule a review changed. `kernel2/KERNEL.md` A17 to A19 pin every encoding, and each "Pinned here" is a choice a builder once had to make.
+- **The laws:** their statements are `kernel2/lean/Engine/Laws.lean`, committed before their proofs; part B3 says what each is for. Proved today: steps 0 to 4.
+- **Study 2's test:** architecture 6.1 to 6.3 (why 20, the bar, the wealth at the bid, the power), 6.4 (what fidelity can be read) and 6.5 (what the freeze reads). The criteria are on `main` and are never edited.
+- **Every number:** `arithmetic.py.txt`. A number in a brief that is not computed there is a defect.
+- **The walls foreseen:** under each step of briefs 3 and 4, and rows D131 to D160 above. No reviewer has read any of them: that read is the next round, and it should start at D133, D135, D150 and D151.
+- **What the human chose:** the H rows of this ledger, and `audit/decisions.md`.
+
+**What is open, and what would decide it.**
+- **O22, O24:** brief 3's step 6, test 11, with its profile. For O24 I would first compress the spool and measure; I found no form of the trace that drops its `tick` rows without a switch in the engine, and would not build one before a measurement asks.
+- **O25, H15:** brief 4's step 4, test 6, once the trigger exists.
+- **O17 to O20:** the trade record's counts and the venue's page, the advisor's.
+- **Before step 5's build:** N1, L3 and L2's units restated by their writer (D133); the list for the test writer in the first report of this pass.
+- **Running:** B4's comparison on prodesk5; the whole-window batch after calibration.
+
+**How I would approach the next wall.**
+1. **Find the sentence the builder had to choose a reading of.** A wall shows one level below where the design is wrong. L1a's builder sought a lemma, and the answer was the law's own second premise. B5's wall came from costing the wrong record. The fix is to that sentence of part A, never to the step.
+2. **Ask what the machine already holds.** Every answer of this pass removed a choice by pointing at something already there: what admission read, the ledger's fold, the order of a millisecond, the view as the world `δ` late. An answer that needs a new state, a second clock, a deferred count or a stake that moves without a fill is wrong, and the human has said to stop there.
+3. **Read the code as built, not the brief.** `Machine.lean`'s `admit`, `advanceRec`, `staleAt` and `snapshots`; `Ledger.step`'s guards; the statements as they stand in `Laws.lean`. Two walls of this pass were a frozen statement whose text a later step makes false (N1) and a guard the brief contradicted (a settlement at zero).
+4. **Read the facts against every step that touches the record.** The archive's holes and TON's empty book were in `facts-kernel-v2.md` §6 and in no design.
+5. **Derive a number from the run that will be made.** One with no run behind it is measured and reported, and is no wall (brief 3, step 8, test 6).
+6. **For each new law, try the engine that does nothing and the one that answers a constant,** and state it over the world's moves, not over `feed` alone (S1 at step 5).
+7. **Write tests for a writer who sees only the brief.** A test that needs a fill, a trigger or a first buy says where it comes from.
+8. **A wall in a committed criterion is reported.** A dated revision comes before the evidence it judges, and only where it cannot add a false discovery.
+9. **When a review's findings keep landing on patches, re-derive.** That was the thesis refreeze's fourteen rounds.
+
+## The last pass, round 1: Argon's part 1 and GPT's part 2, answered
+
+Appended 2026-11-16 22:32 UTC (17:32 EST) by the Opus 5.5 architect, session "architect: the last pass, round 1" (brief `data/builder/architect-last-pass-r1.txt`). Reviews: `audit/reviews/2026-11-16-argon-cli-last-pass-part1.md` (Argon, priorities 1 and 2) and `audit/reviews/2026-11-16-gpt-last-pass-part2.md` (GPT, priorities 3 and 4, in Argon's place), with the advisor's facts from `kernel2-step4-wip`. Commits `177428d` to `f47a137`. No market data read.
+
+### In plain words
+
+- **Three of Argon's findings had one cause: the move by which an order fills was cut too fine.** The last pass made each level of a book its own fill. So an order selling through its position ended its own cycle when a level happened to match the position's size, a `reduce_only` order cut to nothing became a fill of no units, and a print's next order could not know what the one before took. The contract already said an order's fill at an event is one fill at the levels' prices. The move now takes all an event offers an order, and the `reduce_only` bound moves into the remainder, where `close`'s already was: the cut, its cancel and its cause go.
+- **Two laws claimed the wrong thing.** L1 was restated of rows a rejected run never makes, and spoke of one horizon where the study's monthly replays each end at their own midnight: it is now of runs that complete, across horizon ends. R1's "two equal wishes do what one does" added nothing to A6 and read across events was false: it goes.
+- **The freeze had a hole.** The runner that picks the files, builds the header and hands rows to the verdicts sat outside the registered build. It is inside now, with the readers; what writes the record stays outside.
+- **The record's holes are decided now, before any replay:** the replay is read as it stands. Every other answer would choose its days or coins after a price.
+- Nothing needed a second clock, a deferred count or a stake that moves without a fill.
+
+### Who has seen what
+
+- Argon and GPT read the last pass at `59ff545`. Neither has read this section or its commits.
+- GPT's step 5 tests and laws (`kernel2-step5`, `b1689bc`) were written from the last pass's brief and report, and no other model has read them. What changes in them is in this round's report (`data/builder/architect-last-pass-r1-report.md`), item by item; brief 3's step 5 holds the tests as they now stand.
+
+### Agreed
+
+- **Conceded, each at its cause (rows below):** Argon's 1.1, 1.2 (all four parts), 1.3 (all three), 2.1 (both parts), 2.2 (the built gap, and N1 and L3 silent on the wishes) and 2.3; GPT's 1 to 5.
+- **GPT's two qualifications of Argon's part 1, accepted.** 1.1 is a defect because A7 and F0 define an order's fill at an event as one fill and the last pass's step 6 wall split it, not because the machine owes invariance to every split: across orders at one event the cycle's end still cancels the next order, as A6 means it to. 2.2's second rewrite does not break L3: every rule keeps every node, and its value, where it was.
+- **Stands as each reviewer accepted it.** Argon: the offer as a move given in Lean and no export (D131, D132, as revised by D161), the one-pass evaluator (D133), the view's account (D134), the clock's kinds of time (D138), `snapshots` of none on an abort (D144's half on L1a), L1a's proof (D145). GPT: the fee on what an order opens, an `ioc` that never rests, V10's count, bars at `Δ < G ≤ 2Δ`, an identity of inputs with counts as outputs, and no day or coin dropped after a table is read.
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D161 | What an order's fill is when an event offers it several prices (Argon 1.1, 1.2b) | **One fill an order an event.** `offer` takes the list of lots and prices an event offers one order, in order, up to its remainder: one fee, one change of the position and of `filled`, one row at the fill's notional over its units, one test of the cycle's end. A7 and F0 said so; the last pass's step 6 wall offered a level at a time and so let an order's own walk end its cycle. Across orders at one event, and across events, a cycle still ends at the fill that makes the position zero | **Yes** (step 5, wall 1, tests 2 and 11; step 6, wall 1, test 12; A7, A12, F0, T1; A19's `fill` row) |
+| D162 | Where `reduce_only` is held (Argon 1.2a) | **In the remainder:** at most what of the position the order would reduce, as `close`'s is exactly that. Nothing is cut at a fill, so there is no fill of no units for the ledger to refuse, no cancel for a cut, and no `reduce_only` cause. An order that cannot reduce is not placed, or, placed, rests and takes nothing | **Yes** (A5, A6, A7, S1, V2, A19; step 5, test 11; step 6, test 5) |
+| D163 | What the move does at a stale coin | Nothing, as at a coin with no quote yet, which is the same case: a coin is stale before its first quote (A3). One guard, in the one move, for both rules | **Yes** (step 5, wall 1, test 11) |
+| D164 | Step 6's wall on `alo` and on `optimistic` at a quote (Argon 1.2c, d) | A marketable `alo` is refused and offered nothing, before any walk; under `optimistic` the quote then offers each order resting since before it, whose price its ask meets, its whole remainder (A7's table) | **Yes** (step 6, wall 1, test 12) |
+| D165 | Test 8's order of slots; R1's equal wishes (Argon 1.3a, b) | A fixture that offers sets the order itself, so the clause on the slots' written order is step 6's, through a quote; test 7 holds admission's order now. R1's "two equal wishes arriving in turn do what one does" is A6's second case when nothing comes between, and false across events at step 6 (an `ioc`'s cancel at its arrival): it is deleted | **Yes** (step 5, test 8; R1) |
+| D166 | What X1's second sentence quantifies over (Argon 1.3c) | The rational each `exact(·)` gives, not the float it reads: each evaluator's crossing is its own. So stated it is true, and not empty | **Yes** (X1; step 5, test 1) |
+| D167 | L1 (Argon 2.1) | Of two runs that **complete**, of one header **but for the horizon's end**: the rows before `t`, and a day's end's rows at `t`. A run rejected after `t` publishes nothing and, as built, never made its earlier rows, since admission is checked before the clock runs up to an event; and CS2.1's replays each end at their own midnight, which a law of one horizon did not cover | **Yes** (L1; step 7, wall 3, tests 6 and 7; step 9, test 10 and its laws) |
+| D168 | Aliases, and what N1 and L3 claim (Argon 2.2) | The sources table renames the header's observations by `Config.rename` at `parseHeader` (step 9), so an aliased run is N1's renamed run; until then it fails closed. N1 and L3 claim the wishes as well as both arrays. `Program.redirect` need not touch slots | **Yes** (step 5, wall 4; step 9, wall 3; L3, N1) |
+| D169 | L2's exact half (Argon 2.3) | Sorts and units, with a witness that an exact value is defined. The crossings are definitions (`Exact.decode`, `Exact.nearestBits`), held by test 1 and no clause of L2; `bitsOps.finite` is `decode`'s test on the bits, IEEE 754's definition, so no proof reads `Float.isFinite` | **Yes** (step 5, wall 4) |
+| D170 | What one adverse mark a check claims (GPT 1) | A choice and no bound: the venue's one mark for equity and maintenance, at a mark V6 leaves unwitnessed. Across a tier's step it can be the lenient one. Study 2's account meets that step only once funding has taken its cash below minus half its long notional | No (step 5, wall 6; V6) |
+| D171 | What the registered build holds (GPT 2; the advisor's fact on `identity/gen.ml`) | Every source compiled into what a judged run executes, the Lean engine, `mm2` with its readers and `study2`, taken from the trees as compiled and not from a list, and the store paths of what compiles them and what they call. What writes the record stays outside: the recorders, the vault's collector, and the pull of settled funding, now a collector's. The one-line fix to `gen.ml` restores D147's premise; D159 also needed the runner inside, and is replaced | **Yes** (A13; brief 4, step 6, wall 1; brief 3, step 9, test 10, and the recorders' table; architecture 6.6) |
+| D172 | The record's holes (GPT 3, 4; O25, H15) | **Decided before any replay:** the replay as it stands, holes included, for the forecast, the choice of `φ` and `d` and CS2.2's variance. After test 6's table any other answer chooses after a price; a revision now would hold a replay cleaned of its gaps against a forward run that keeps its own (CS2.3). A19's `open` is the account's exposure while stale, as A3 says | **Yes** (brief 4, step 4, wall 1, test 6; step 5, wall 2; A19) |
+| D173 | What layer 2's "no failure" covers (GPT 5) | Only the fills it judged. Its report counts the vault's maker fills judged, failed and in stale spans by role and cadence period, and a class with more in stale spans than judged goes to the architect before the trigger is fitted | **Yes** (brief 4, what it rests on; brief 3, step 10, test 15) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O22 | The recorder's reader inside 22,500 a second | Open, unchanged: step 6's test 11 | Step 6's reader |
+| O24 | The replica's own trace at a second's tick | Open, unchanged: step 6's test 11 and the first whole day's bytes | The trace's `tick` rows, if a wall |
+| O25 | A position held into a hole | **Closed** by D172 | |
+
+### What the next read should attack first
+
+1. **D161 and D163:** a split of a record, across orders or events, that moves a judged number where it should not; the trace's one price for a fill at several levels.
+2. **D162:** a `reduce_only` order whose position flips and flips back inside one cycle; a statement of steps 5 to 7 whose case the remainder's bound changes.
+3. **D167:** `finish`'s rows at a horizon's end (the last span's rows, funding's due hours, the last day's stale share) against a longer run's.
+4. **D171:** anything that still turns a record into a verdict outside the build.
+5. **D172:** whether a revision fixed now, before any replay, from integrity data alone, would serve CS2.2 better than the record as it stands.
+
+### Committed criteria: reported, not edited
+
+- **CS2.1's definitions** cite L1 for "what a day's end showed stands in every later replay". L1 as frozen did not reach replays of different horizons; restated (D167), it does. The words stand; no human choice.
+- **CS2.1's registration** names "the engine's build". That build now holds `study2` and the readers (D171), so the registration names more than the words ask and nothing less. The words stand; no human choice.
+- **CS2.2** is read as committed, against the replay as it stands (D172). The alternatives were a revision after the table, which the process bars, or one now, which would treat the replay's gaps unlike the forward run's. No human choice.
+- **CS2.3** is untouched: GPT's finding 5 is of a readiness wall (D173).
+
+### Assumptions only the human can choose
+
+None new. H15 is withdrawn (D172): the one answer it could lead to without a choice after a price is the one decided now.
+
+### Owed
+
+- **By the test writer (GPT):** the changes to `b1689bc`, as this round's report lists them, before step 5's build; step 7's writer restates L1 (D167).
+- **By the advisor:** `gen.ml`'s failing test and fix, the test changing a byte in each compiled directory (D171); the collector of settled funding beside `mmvault`; this section read by Argon (its queued part 2, since the design changed) and GPT, D161, D162, D167 and D171 first.
+- **By the next architect:** O22 and O24 when step 6's test 11 reports.
+
+### Convergence
+
+**Answered by derivation, and not yet read.** The design changed in D161, D162, D167, D171 and D172, so the next round is due. No open dispute would change what step 5 builds, once its tests and laws carry the changes listed in the report.
+
+## The last pass, round 2: GPT's read of round 1, answered
+
+Appended 2026-11-16 23:24 UTC (18:24 EST) by the Opus 5.5 architect, session "architect: the last pass, round 2" (brief `data/builder/architect-last-pass-r2.txt`). Review: `audit/reviews/2026-11-16-gpt-last-pass-r1.md`, not converged on four points. Commits `635f748` to the one that appends this. Data read: the vault's fills before 2026-11-01, counts only and no price; this host's libm. No market data.
+
+### In plain words
+
+- **The test's books never needed a fixed grid.** Round 5 derived one from every price being a decimal. A fill that takes several prices costs a unit their mean, which is not a decimal, so the claim goes and the books stay exact. What it costs is measured: copying all of the vault's fills of several prices adds 213 bits to a denominator of 168 over seven months.
+- **A monthly replay reads the whole record again, and the record could change under it.** A later pull of funding can restate an hour already judged, and the venue does restate: the pilot's store held 24 funding keys with several revisions. Now each replay reads the first row recorded for each hour, runs only the days the record has closed, and publishes nothing that differs from the replay before it. So "what a day's end showed stands" is true of everything published.
+- **Our lists of what the engine's build is were short three times.** The build is now what Nix says it is, the hash of its derivation, compile and link options included. The host matters too, and no build holds it: one executable computes `exp` differently with FMA and without (2,446 of 4 million arguments, measured), so the executables check their host at start.
+- **Keeping the replay's holes was right, for another reason than round 1 gave.** The test's wealth lives through both periods' holes. Each alternative measures a wealth the test does not run on, or needs a revision of a committed criterion.
+- Nothing needed a second clock, a deferred count or a stake that moves without a fill.
+
+### Who has seen what
+
+- GPT read round 1 (D161 to D173) at `c8449eb`. Nobody has read this section or its commits.
+- Argon read the last pass at `59ff545` and none of rounds 1 and 2: its read of both comes next, from a bundle in the Gemini web UI.
+
+### Agreed
+
+- **GPT's acceptances of round 1, standing:** D161's one fill an order an event and D163's stale guard; D162's remainder, a `reduce_only` order resting at zero reducible included; D164 to D170 as GPT qualified them; D171's readers and `study2` inside the build; D172's decision, read as narrowing the claim; D173's limited coverage.
+- **GPT's four findings, each conceded at its cause** (rows below).
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D174 | What the test ledger's cash and its proofs rest on (GPT 1) | **Exact rationals on no fixed grid.** The grid of half of `10⁻⁵⁰` came from every price being a decimal; a fill at several prices costs a unit their mean (A7, D161), and a liquidation's close at several levels did so before D161. No proof rested on the grid, and K1 could not have held it for every row `confirm` takes: step 10's simulated nulls already leave every grid. K1's conjunct and A12's sentence go. A denominator grows only at a fill of several prices, by at most a factor of its units in lots: the vault's 46 such fills of 748 takes add 213 bits to 168. Keeping a grid would trade the ledger at a price that is not the account's, which is not the copy CS2.1 judges, or copy each level, a second record beside the fill's cash (A19). `W` as committed (the row's `−cash / units`) is unchanged | **Yes** (A12, K1; step 10, tests 3 and 14; brief 4, step 5's wall on the bootstrap's factors) |
+| D175 | What makes every replay read the same events before a day's end (GPT 3) | **The record, read one way.** Files are recordings, never rewritten, and each pull is a new file. An hour's settlement is the earliest pull's row; a later pull's other row is a revision, counted and never read. A replay runs only through the last midnight every source has closed: the recorder once it has opened an hour past it, a copy once it holds one taken after it, the settled funding once every universe coin then listed has every hour before it, held or not. So no later pull can add to or change a day already run. The pilot's snapshot and stage 7's delivery at known time each let a later revision change a past run, and a test that names a day once cannot | **Yes** (brief 4, step 7, wall 3, tests 2 and 10; brief 3, the recorders' table; L1's text) |
+| D176 | Whether that is enough | **Each replay checks the rows themselves.** Its report and trace, up to the replay before it's last `day` rows, must be byte for byte that replay's; otherwise it publishes nothing and goes to the architect, and if the cause cannot be undone the test ends at the day before, as a record that stops ends it. D175's premises are a list, and GPT's finding 4 of this round showed what a list misses | **Yes** (brief 4, step 7, wall 3, test 10) |
+| D177 | What the engine's build is (GPT 4) | **Nix's hash of the derivation** that builds the executables a judged run executes, with the protected-windows file at a fixed stand-in; the build reads its windows and this hash as data. A derivation holds every input of a build, options included, and Nix builds it in a sandbox. `gen.ml`'s list, the sources it embeds and its hash are deleted. The build was a list four times (the sources; part E's toolchain; `gen.ml`'s three directories; D171's trees), each short: the design was wrong in the list, not in what it left out | **Yes** (A13; step 9, wall 5, test 10; brief 4, step 6; replaces D171's mechanism, keeps its scope) |
+| D178 | What a build cannot hold | **The host.** glibc's `exp` and `log` take one path with FMA and another without, differing at 2,446 of 4 million arguments of `exp` and 1 of `log` by one unit in the last place (glibc 2.42, `arithmetic.py.txt`, `last_pass_r2`). The executables compute both at start, at arguments where the paths differ and no compiler folds them, with a subnormal product, and refuse a host that gives other bits (`E_HOST`). The bits are those of the path B4 passed on. D1 is of the hosts that pass | **Yes** (A13, B2, D1; step 9, test 8; brief 4, step 6) |
+| D179 | D172's derivation (GPT 5) | **The decision stands, and its reason is replaced.** Answers fixed now from integrity data, or one treatment of both periods, also choose before a price. The record as it stands is chosen because the test's wealth lives through both periods' holes: dropped days measure a wealth the test does not run on, a coin dropped for its silence is another replica, and a treatment of both periods revises what CS2.2 reads. Its cost: CS2.2 can say "did not hold" for recording conditions alone (GPT: a record traded on a third of the time against one traded throughout gives a ratio near three). The report gives each period's stale share beside the ratio | No (brief 4, step 4, wall 1; step 5, wall 2: text, and the stale shares reported) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O22 | The recorder's reader inside 22,500 a second | Open, unchanged: step 6's test 11 | Step 6's reader |
+| O24 | The replica's own trace at a second's tick | Open, unchanged: step 6's test 11 and the first whole day's bytes | The trace's `tick` rows, if a wall |
+
+### What Argon should attack first (rounds 1 and 2)
+
+1. **D175 and D176:** a change to a day's events between two replays that the closure, the earliest row and the check all let through; and an honest record on which the check fires, or the closure never comes, and ends the test for nothing.
+2. **D177:** two executables with one build hash that compute differently: a build that reads outside its inputs, a program found on `PATH`, something the environment of a run changes. And whether the stand-in for the windows file can be given without changing what the derivation does with the real one.
+3. **D178:** a host that passes the probe and computes another `exp` or `log` elsewhere, and anything else of a host that reaches a judged number.
+4. **D174:** a proof, test or resource bound that still leans on the grid; where an exact denominator could grow past what was measured (the bootstrap's paths, the guard, step 10's simulated nulls).
+5. **Round 1, which Argon has not read:** D161 to D163 (one fill an order an event), D167 (L1 across horizons), D172 with D179.
+
+### Committed criteria: reported, not edited
+
+- **CS2.1's definitions:** "No later event changes a row of an earlier day (law L1), so what a day's end showed stands in every later replay." The inference needs replays that read the same events, which D175 makes so and D176 checks. The words stand. A replay that cannot reproduce an earlier day publishes nothing, and if the cause cannot be undone the test ends at the day before: read as "a record that stops ... ends it at the last day run". That can only end the test early, never confirm. No human choice: the alternative, results that admit revisions, would make the committed sentence false.
+- **"The last midnight the record reaches"** is now defined (D175), and "the record" is the record as first written, with revisions counted beside. The words stand. No human choice.
+- **CS2.1's registration** names the engine's build, now Nix's hash of the derivation (D177), and the executables refuse another host's libm (D178): more than the words ask, nothing less. No human choice.
+- **CS2.2:** D179 replaces a reason and keeps the decision. Read of the record, CS2.2 can fail for recording conditions; the stale shares are reported beside. No human choice.
+- **`W`:** unchanged; only a false claim about its denominators goes (D174). CS2.3 is untouched.
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the test writer (GPT):** nothing in `kernel2-step5` `b1689bc` beyond round 1's list. No answer of this round touches step 5's statements or fixtures.
+- **By the advisor:**
+  - step 9's wall 5 and tests 8 and 10 as failing tests, then the change: the derivation's hash in place of `gen.ml`, and the probe at start. This replaces round 1's `gen.ml` test, which becomes the first case of test 10;
+  - the sandbox checked on every host that builds a judged executable;
+  - the collector of settled funding writing each pull as a new file named by its time (D175);
+  - Argon's read of rounds 1 and 2, in the order above.
+- **By the next architect:** O22 and O24 when step 6's test 11 reports.
+
+### Convergence
+
+**Answered by derivation, and not yet read.** D174 deletes a false claim; D175 to D178 change what the runner and the build are; D179 is text. No open dispute would change what step 5 builds.
+
+## The last pass, round 3: Argon's read of rounds 1 and 2, answered
+
+Appended 2026-11-17 04:04 UTC (2026-11-16 23:04 EST) by the Opus 5.5 architect, session "architect: the last pass, round 3" (brief `data/builder/architect-last-pass-r3.txt`). Review: `audit/reviews/2026-11-16-argon-web-last-pass-r1r2.md` (Argon in the web UI, on rounds 1 and 2 at `d7a9ba2`), not converged on D162, D167 with D176, D172, D174, D175, D177 and D178; and the human's decision of 2026-11-16 23:33 UTC (18:33 EST) that the engine computes `exp` and `log` itself (`audit/decisions.md`). Commits `71b01b5` to the one that appends this. No market data read; this host's libm against Python's decimal module (`arithmetic.py.txt`, `last_pass_r3`).
+
+### In plain words
+
+- **Round 2's closure of the forward record was wrong in kind.** It asked each source to show that it was complete, which none can: a coin with no settlement wedged every later day, a print received just after a midnight was read by one replay and not the one before, and a fill indexed late fell outside the copy that closed its day. Now a day's record is what was written by 30 days after it, the first of each key's items, and a replay runs only the days 31 days past. Nothing waits, every replay of a day reads the same events, and each result comes a month after its day.
+- **The engine computes `exp` and `log` itself (the human's decision), so the probe of the host goes.** What no build holds is the environment a run starts in: a loader variable can change what the executable runs, and the floating-point control register can change every float operation. So each executable re-executes itself with an empty environment, and the stub that calls the engine checks the control register at every call.
+- **Two premises of the build's hash are now tested:** that the windows file and the hash enter the derivation as data alone, and that one derivation gives one output.
+- **B4 lists every argument at which glibc was not the nearest** (about 720 a million for `exp` on this host, none of 200,000 for `log`) and compares every item such an argument does not reach.
+- **The rest was text,** now exact: A6's exemption is the venue's, an offer to an order of remainder zero does nothing, a millisecond's staleness is the world's after everything in it, L1 and the check name the account row, and step 10's tests lose the grid. The exact rationals were sized: no stall.
+- **Nothing needed a second clock, a deferred count or a stake that moves without a fill.** The 30 days delay when a replay runs a day; the engine's clock, counts and stakes are untouched.
+
+### Who has seen what
+
+- Argon read rounds 1 and 2 at `d7a9ba2`. GPT read round 1 at `c8449eb`. Nobody has read this section or its commits.
+- GPT's step 5 tests (`kernel2-step5`, `b1689bc`) predate rounds 1 to 3; what changes in them beyond round 1's list is in this round's report (`data/builder/architect-last-pass-r3-report.md`).
+
+### Agreed
+
+- **Argon's acceptances, standing:** D161, D163 to D166, D168 to D171 (scope), D173 and D179, with GPT's two qualifications of its part 1; and, in the points it disputed, D175's append-only pulls and first row of a key, D176's fail-closed check, D177's derivation in place of a list, D174's deletion of the grid and D162's remainder.
+- **Argon's thirteen findings, each answered at its cause** (rows below): 1.1 to 1.4, 2.1, 2.2, 3.1, 3.2, 4.1 and 5.1 to 5.3 conceded; 4.2 conceded as a measurement and refuted as a stall.
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D180 | What the forward record is, and which days a replay runs (Argon 1.1 to 1.3) | **A day's record is what was written by 30 days after it ends, and a replay runs the days that ended 31 days or more before it starts.** An item is a recorder's line, by its `recv`, or a pull's or a copy's file, by the time it was finished, written whole before it is named. Of one key's items the first written is read; a later one is a revision, and one written after the 30 days is late, each counted and neither read. Every collector re-reads its last 30 days daily. Nothing waits for a source to be complete: a silent source leaves its day as it is (a recorder's gap is staleness, a held coin's hour with no settlement aborts every replay at that hour and ends the test, an hour of a coin not held is read by nothing). 30 days are V18's, one window for every source. Round 2 closed each source by a rule of its own, and Argon's three findings land on those three rules: the design was wrong in asking for completeness, so the rules are deleted, and D175's file rule and first-of-a-key stay | **Yes** (brief 4, step 7, builds, wall 3, tests 5 and 10; step 1, wall 1; brief 3, the recorders; architecture 6.6) |
+| D181 | The check's slice and L1's day's end (Argon 1.4, 5.2) | At a midnight `T`: the report's rows of a time before `T` and, at `T`, the day's `coin` rows and its `account` row (A19); the trace's rows of a time before `T`; the vault's replay's report likewise. A run's `span` rows and summary at its horizon's end, and rows of events at `T`, are not among them. L1 names the same rows | **Yes** (L1; brief 3, step 7, wall 3; step 9, test 10; brief 4, step 7, wall 3, test 10) |
+| D182 | Whether the derivation's hash is the build (Argon 2.1) | **Two premises, each tested.** The real derivation, with the windows file and the hash put back at their stand-ins, is the stand-in byte for byte, which a flake that reads either as more than data fails; and the executables built on two hosts, each in its sandbox, are one output, since a hash names a build's inputs and not its output. D177 stands | **Yes** (A13; brief 3, step 9, wall 5, test 10) |
+| D183 | What fixes a run's environment, the floating-point one included (Argon 2.2, 3.2) | **A run reads no environment:** each executable re-executes itself with an empty one before it reads anything, and gives one to what it calls. **The control register is the default, and checked:** a process starts there, nothing in the build sets it, and the stub reads it before and after every call into the engine and aborts (`E_FPENV`) unless it rounds to nearest with no flush to zero, no denormals as zero and every exception masked. `leanc` compiles with `-ffp-contract=off` and no fast-math option, in the derivation. Then `+ − × ÷` and `sqrt` are IEEE 754's on every host | **Yes** (A13, B2, D1; brief 3, step 9, test 8) |
+| D184 | D178, under the human's decision (Argon 3.1) | **`exp` and `log` are the engine's own** (the human, 2026-11-16 23:33 UTC, 18:33 EST): of the rational a double is, by a series' bounds at 64, 128 and then 256 bits, the result the bounds' one nearest binary64, and where none decides the lower bound's nearest (X4 ★, total and pinned to the bit, so a constant engine fails it). The probe and `E_HOST` are deleted: one argument of each function tells two of glibc's paths apart and no more, and a probe cannot see the control register. The probe was a list again, of hosts, and its cause is gone. D1 holds on every host | **Yes** (A2, A13, B1, B2, D1, X4; `KERNEL.md` A17; brief 3, step 5, wall 11, tests 12 and 13; step 9; brief 4, step 6) |
+| D185 | How B4 treats an argument glibc rounded wrong (the human's question) | **It is listed, and what it reaches is counted and not compared.** At every `exp` and `log` node and tick whose argument is the reference's, the engine's result is the reference's, or the argument is listed with both results, the engine's equal to MPFR's and one unit in the last place from glibc's. Every other item is bit-identical, but those that read a listed result through A17's windows. Step 4's run with glibc, on hosts of the reference's path, is the evaluator's check in full before the change, and no second entry into the engine gives it glibc's results. Stage 6's results stand as computed | **Yes** (B4; brief 3, step 4, test 1; step 5, test 13) |
+| D186 | A6's minimum, and an offer at remainder zero (Argon 5.1) | **The exemption is the venue's:** an order that only reduces (`reduce_only`, or of size `close`) and whose remainder closes the position exactly (`venue/hyperliquid/rules.json`). "Opens nothing" was wider than that and "closes dust with `close`" narrower. An offer to an order of remainder zero does nothing and writes no row; a `reduce_only` order there stays live and takes again once the position gives it something | **Yes** (A6; brief 3, step 5, wall 1, test 7; R1's statement) |
+| D187 | A millisecond's staleness; the guard through the holes (Argon 5.3) | A millisecond's state is the world's after everything in it: the millisecond of the quote that ends a gap is not stale, and `open` reads positions and orders at the end of stale milliseconds. The guard's rules trade through holes at the trace's prices, as CS2.1 commits them; that is disclosed beside its figures | **Yes** (`KERNEL.md` A19; brief 4, step 4, test 6 and wall 1) |
+| D188 | The grid's traces, and the sizes of exact rationals (Argon 4.1, 4.2) | Step 10's test 14 loses the grid of the guard's cash and test 3 its rule of divisibility: neither holds a judged number, and the second fails where a listing changes lots. **No stall, derived and measured:** a sum's denominator is an lcm, about 900 bits after two years at the vault's rate of fills of several prices and at most 5,540; `held`'s variance is 378,000 bits at 900, under a minute in Python's own integers; a bootstrap path telescopes within its blocks, 48,000 bits; step 10's null is drawn on the lattice of 5/4, where a path's denominators grow with its farthest power, at most 3,081 bits | **Yes** (A12; brief 3, step 10, tests 3, 13 and 14; brief 4, steps 1 and 5) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O22 | The recorder's reader inside 22,500 a second | Open, unchanged: step 6's test 11 | Step 6's reader |
+| O24 | The replica's own trace at a second's tick | Open, unchanged: step 6's test 11 and the first whole day's bytes | The trace's `tick` rows, if a wall |
+| O26 | `exp` and `log` at B5's walls | Open until step 5's build measures them. The ladder takes neither; a trigger that takes them at every tick and coin is the fit's to cost (brief 4, step 3) | A twin proved equal (X3's pattern), if a rate is missed |
+
+### What GPT should attack first
+
+1. **D180:** a change to a day's events between two replays that the rule lets through (a file named before it was whole, a clock that steps, a key that two sources share); an honest record on which the check still fires; whether the first of a key's items, rather than the last within the window, can move a judged number; the 31 days against CS2.2's and CS2.3's "first replay after".
+2. **D183:** anything else of a host or a process that reaches a judged number with an empty environment and the default control register (a thread that calls the engine outside the checked stub, a library's own choice of path in an exact function).
+3. **D184:** X4's statement against an engine that is wrong and passes it; the paper half's claim that a precision always decides; IEEE's special cases at overflow and underflow.
+4. **D185:** an item the reach does not cover that differs, or a reach so wide that the evaluator's check compares nothing that matters.
+5. **D186, D187:** a case where the venue's exemption and A6 still differ; a staleness boundary in a millisecond with a liquidation.
+
+### Committed criteria: reported, not edited
+
+- **CS2.1's definitions:** "the last midnight the record reaches" is now the last 31 days or more before the replay starts, and "the record" each day's items written by 30 days after it, the first of a key (D180). The words stand. No human choice: the alternatives were round 2's closure, which wedges on a silent source and trips on an honest one, or each replay's own snapshot, which makes the record depend on when the operator ran it.
+- **CS2.1's monthly replay:** "each time the end of every day run so far is examined" holds, and every result comes a month after its day. The words stand.
+- **CS2.3:** the vault's fills of the 61 days are closed when it is judged, since the 61st day is run 31 days after it ends; "shown more than 30 days late, or after the judging" now names one case. The words stand. No human choice.
+- **CS2.1's registration:** the build as before; brief 4's test of a host on another path is deleted with the probe (D184). No human choice.
+- **CS2.1's guard:** as committed; its trading through holes is disclosed (D187). No human choice. **CS2.2** is untouched.
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the test writer (GPT):** the changes to `b1689bc` this round's report lists beyond round 1's, before step 5's build.
+- **By the advisor:** the funding collector's 30-day re-read and whole-then-named files (D180); step 9's tests 8 and 10 as failing tests, then the re-execution, the stub's check and the derivation's two checks (D182, D183); MPFR into the test stub's inputs only, which moves no lock; the worst-case lead for X4's paper half certified; this section read by GPT, D180 and D183 first.
+- **By the next architect:** O22, O24 and O26 when their measurements come.
+
+### Convergence
+
+**Answered by derivation, and not yet read.** The design changed in D180 (the record), D183 (the environment) and D184 (the human's `exp` and `log`), so the next round is due, on GPT, since Argon read these points' earlier forms. No open dispute would change what step 5 builds once its tests carry this round's list.
+
+## The last pass, round 4: GPT's read of round 3, answered
+
+Appended 2026-11-17 08:58 UTC (03:58 EST) by the Opus 5.5 architect, session "architect: the last pass, round 4". Review: `audit/reviews/2026-11-17-gpt-last-pass-r3.md` (GPT, read-only, on round 3 at `428e9e2`), not converged on D180's availability, specification and scope, the criteria's reconciliation, the loader, X4's enclosure and ceiling, and B4's reach. Commits `ba9ffd5` to the one that appends this. No market data read; `arithmetic.py.txt`'s new `last_pass_r4` checks X4's formulas against Python's decimal module. Report: `data/builder/architect-last-pass-r4-report.md`, which holds the dated revision's draft text and the test writer's list.
+
+### In plain words
+
+- **D180 and B4's reach were each on their third fix, so both were re-derived, not patched.**
+- **The record.** Rounds 2 and 3 made a day's record stable by something its writers did: being complete, or being on disk by a deadline they stamped. No reader can see either. What the runner controls is what it reads. So **a day is read once**: the first replay to reach it records every file's length and hash before it runs, and every later replay reads the day within those bytes. A suspended recorder, a slow disk or a stepped clock can no longer change a day already read.
+- **`exp` and `log`.** The law now writes each function out: a textbook series, a bound on what it leaves out, a fixed number of terms. The result is the nearest binary64 when both ends of that interval agree, and NaN when they do not.
+  - The true value is inside the interval by textbook math, so no branch can round wrong.
+  - The published worst cases put the NaN far out of reach.
+  - Round 3 instead let the engine supply its own bounds and, at 256 bits, guessed.
+- **B4.** The reference now computes what version 2 must compute: stage 6's evaluator with correctly rounded `exp` and `log` (MPFR's). Every item is compared, and the exemption rule is gone.
+- **The rest is text.**
+  - The criteria get a dated revision beneath their definitions, drafted, which cannot add a false discovery.
+  - The re-execution protects against an honest launch's leftovers, not against injected code, so the launch is trusted.
+- **Nothing needs a second clock, a deferred count or a stake that moves without a fill.**
+
+### Who has seen what
+
+- GPT read round 3 at `428e9e2`. Nobody has read this section or its commits.
+- GPT's step 5 tests (`kernel2-step5`, `b1689bc`) predate rounds 1 to 4. This round's report lists what changes in them beyond rounds 1 and 3.
+
+### Agreed
+
+- **GPT's acceptances, standing:** first-observation record semantics; no source-completeness requirement; D181's slice; the derivation-based identity with explicit premises; trusted-entry floating-point checks; engine-owned `exp` and `log`; the grid's deletion; A6's exemption; the zero-remainder rule; D187.
+- **GPT's nine disputes, each answered at its cause:**
+  - conceded and re-derived: 1.1 to 1.3, 3.1, 3.2, 4.1 and 4.2;
+  - conceded as text: 2, and the criteria's reconciliation.
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D189 | What a replay reads of a day (GPT 1.1 to 1.3) | **A day is read once.** Before the engine starts, an attempt records in its attempt row every file's length and the hash of those bytes, its cut. A day's record is its items within the cut of the first attempt whose horizon reached it; a killed attempt binds too. Every later replay reads the day so, and an item outside is late, counted and never read. **Keys:** a settlement's coin and hour; a print's coin, time and id; a vault fill's coin, trade id and order id. **The record's order:** by writer, then the file's path, then place in the file, with the copy of the vault's fills before 2026-11-01 first. **Writers:** every forward writer writes about a day only within its 30 days. The 31-day lag and the first of a key stay. **Why re-derived:** round 2 asked sources to be complete and round 3 asked items to be on disk by a stamped deadline. Both rested on writers, which no reader sees, so D180's eligibility by writing time is deleted. The historical chain is read whole, since no deadline exists | **Yes** (brief 4, step 7, builds, wall 3, tests 5 and 10; step 1, wall 1; brief 3, the recorders; architecture 6.6; A13's identity) |
+| D190 | The committed criteria (GPT's reconciliation) | **A dated revision beneath the shared definitions** (draft in the report). It defines what the committed words left open, the record once it grows and the last midnight a replay runs to, and restates why a day's end stands. **It cannot add a false discovery:** it is fixed before any judged day, reads no outcome, and removes the one way two replays could name different days. No threshold moves, so it is the advisor's to commit after review, not the human's | The criteria's text, after review |
+| D191 | The loader (GPT 2) | **The re-execution removes what an honest launch carries,** and resets the control register. It does not remove preloaded code, which runs before `main` and which no process contains. **So the launch is trusted,** as the recordings and the build are. Two hosts' builds are evidence for an assumed premise. The design is unchanged and the claim is narrowed | Text (A13, D1; brief 3, step 9, wall 5, test 8) |
+| D192 | X4 (GPT 3.1, 3.2) | **The law writes each function out:** the series, the bound of what it omits, the terms (`⌈2a⌉ + 260` for `exp`, 90 for `log`), `log`'s split, and `exp`'s range clauses at 710 and −746. **The result** is the nearest of both ends when they agree, and the quiet NaN otherwise. Also stated: each interval is at most `2⁻²⁵⁶` of its end wide, and the intervals nest, so the engine may stop early. **On paper:** textbook remainders put the true value inside, so no branch rounds wrong. **Cited:** the NaN is never the result, since the worst cases come no nearer than about `2⁻¹²⁰`; `exp`'s subnormal results may be uncovered, and are uncertified there. **Measured:** the widest intervals at the cap are `2⁻⁴⁷⁷` (`exp`) and `2⁻²⁹⁴` (`log`) on 811 arguments, all correctly rounded. **Deleted:** round 3's precisions, its bounds functions and its fallback | **Yes** (X4, A2; brief 3, step 5, wall 11, test 12; `arithmetic.py.txt`, `last_pass_r4`) |
+| D193 | B4's reach (GPT 4.1, 4.2) | **The reference computes the human's function:** stage 6's evaluator with MPFR's `exp` and `log` and nothing else changed, its streams stored under a hash. Every item is compared, with no exception. Stage 6's streams stand as its record, and their difference is counted once. **The reach rule is deleted:** it came of comparing two functions | **Yes** (B4; brief 3, step 4, test 1; step 5, test 13, wall 4; `KERNEL.md` A17) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O22 | The recorder's reader inside 22,500 a second | Open, unchanged: step 6's test 11 | Step 6's reader |
+| O24 | The replica's own trace at a second's tick | Open, unchanged: step 6's test 11 and the first whole day's bytes | The trace's `tick` rows, if a wall |
+| O26 | `exp` and `log` at B5's walls | Open until step 5's build measures them. In Python, X4's formulas take 26 ms an `exp` (most at `|x|` near 700) and 10 ms a `log`. Lean's GMP is faster, and an integer twin proved equal is X3's pattern | A twin, if a rate is missed |
+
+### What the next read should attack first
+
+1. **D189:** a way two replays read one day differently despite the cut (a prefix that reads two ways, a reader that reads past its cut, a cut recorded after reading starts); a lever an honest operator's timing still has; the keys (a print resent across a reconnect, a fill restated); whether first or last within a cut can move a judged number now.
+2. **D192:** an engine that is wrong and passes X4 as written; an error in the law's own formulas (the tail's condition, `log`'s split, the two clauses); a NaN reachable at the overflow threshold or at a subnormal midpoint.
+3. **D193:** a way the evaluator is wrong and passes B4 (a fault shared by test 12's stub and the reference; a reference build that is not stage 6's evaluator).
+4. **D190:** a run that the revision judges otherwise than the committed words; a way it adds a false discovery.
+5. **D191:** anything of an honest launch that still reaches a judged number.
+
+### Committed criteria: a dated revision, drafted
+
+- **Beneath the definitions the three criteria share** ("The days run"): the draft is in this round's report. It defines the record a replay reads of a day (read once, within the first attempt's cut, the first of each key) and the last midnight it runs to (31 days or more before it starts). It says why a day's end stands: L1 and the one reading of each day.
+- **It cannot add a false discovery,** and it moves no threshold, judged day or engine rule. So no human choice is needed.
+- **The advisor has it reviewed, as a criterion is, and commits it alone.**
+- CS2.2's and CS2.3's "first replay after" the 212th or 61st day is run is the first whose horizon reaches it, as GPT read it, and needs no revision.
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the test writer (GPT):** the changes to `b1689bc` this round's report lists, beyond rounds 1 and 3.
+- **By the advisor:**
+  - the criteria revision, reviewed and committed alone (D190);
+  - `mmvault`'s pulls reaching back at most 30 days before the last midnight, where its daily re-read now reaches 30 days behind its watermark (D189; `recorder/VAULT.md`);
+  - the settled-funding collector stored as `mmvault` stores its pulls;
+  - the worst-case lead certified: Lefèvre and Muller's tables and the ranges they cover, `exp`'s subnormal results and the overflow threshold among them, and the hardest arguments for test 12 (D192);
+  - B4's new reference streams, run on a host and stored under a hash (D193);
+  - this section read, on Argon once its quota returns, D189 and D192 first.
+- **By the next architect:** O22, O24 and O26 when their measurements come.
+
+### Convergence
+
+**Answered by derivation, and not yet read.** The design changed in D189 (the record), D192 (X4) and D193 (B4), each a re-derivation of a part on its third fix. So the next round is due, on another model than GPT, which found them: Argon, once its quota returns, or a fresh Opus session labeled as such if it does not. No open dispute would change what step 5 builds once its tests carry this round's list.
+
+## The last pass, round 5: the record re-derived, and Argon's read of rounds 3 and 4 answered
+
+Appended 2026-11-17 20:36 UTC (15:36 EST) by the Opus 5.5 architect, session "architect: the last pass, round 5". Reviews answered: `audit/reviews/2026-11-17-gpt-cs21-revision.md` (do not commit), `audit/reviews/2026-11-17-opus-cs21-revision.md` (commit with changes) and `audit/reviews/2026-11-17-argon-web-last-pass-r3r4.md` (not converged). Commits `516bf25` to the one that appends this. No market data read. Report: `data/builder/architect-last-pass-r5-report.md`, which holds the derivation, the rejected answers and the test writer's list.
+
+### In plain words
+
+- **How a replay reads a day was on its fifth fix, so it was re-derived from the criteria, not from D189.**
+- **What CS2.1 needs:** one sequence of days' ends, never a second version of a day already shown. The committed text already says so: "what a day's end showed stands in every later replay".
+- **The four rounds tried to make the record of a day fixed.** Each added a rule (a lag, a deadline, a binding, a choice of value), and each rule let a replay read a day otherwise than the committed text reads it.
+- **Now the record is read as it is, with no lag, no cut and no choice.**
+  - A replay runs at a fixed time, to the last midnight its recorder reached.
+  - It publishes only what reproduces what was published.
+  - If the record behind a published day ever changed, the test ends before that day. That can only take a crossing away.
+  - The price: an item that late ends the test early. Under this design it takes a writer's fault, and the venue was never seen to restate a settled rate.
+- **The criteria need no revision,** and D190's draft is withdrawn.
+- **Argon's other points are answered at their causes.**
+  - X4 now states the function the engine computes (the least count of terms that decides), so step 5 needs no extra proof.
+  - The evaluator's binding is a clause of X4, not a comment.
+  - `nearestBits` is tested at every binade, and the MPFR stub subnormalizes.
+  - The floating-point check reads the control bits alone, and the re-execution runs once.
+- **Nothing needs a second clock, a deferred count or a stake that moves without a fill.**
+
+### Who has seen what
+
+- GPT and a fresh Opus read the drafted revision, and Argon read rounds 3 and 4 at `3f911d1`. Nobody has read this section or its commits.
+- GPT's step 5 tests (`kernel2-step5`, `b1689bc`) predate rounds 1 to 5. The report lists what this round changes in them.
+
+### Agreed
+
+- **Argon's acceptances, standing:** D181, D182, D186 to D188; the trusted launch (D191); X4's series, remainders and edges (D192, its 3.2); B4's full comparison (D193).
+- **The reviews' common ground, kept:** a replay must not run past a recorder that stopped (Opus 1); a day is read once (Opus); the check of the rows themselves (wall 3); D181's slice.
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D194 | What a replay reads of the record (replaces D189; GPT 1 to 6, Opus 1 to 4, Argon 1.1 to 1.3) | **The record as it is, with its early ends.** A replay at 12:00 UTC (07:00 EST) on the first of each month, once the settled-funding collector has completed a pull begun after both that time and the midnight, does the following. That pull is `e691341`'s own fetch. It reads every registered writer's files as they are, every attempt of that month to its first attempt's lengths. Lines holding one event are one item, and two different items of one event both reach the engine (A18 and C2 reject) or the vault's chain (it fails). It runs to the last midnight at or before the last quote the recorder's files hold. It publishes only rows that reproduce those published. If its rows differ and a second host's run differs alike, the test ends at the last midnight before the first row that differs. The vault's fills are ordered by their chain within a millisecond, and CS2.3 and CS2.2 are judged once and stored. **Deleted:** the cut and its binding, the 31-day lag, the writers' 30-day window, the keys, the record's order, and "the venue does restate", which misread C0.3's 24 identical revisions. **Why:** each deleted rule was a way to read a day otherwise than the committed text. This design is that text read at fixed times, and is pathwise no more permissive than it: where nothing behind a published day changes the two are one run, and where something does, this one stops | **Yes** (brief 4, step 7: builds, tests 5 and 10, wall 3; step 1, wall 1; brief 3, the recorders; architecture 6.6) |
+| D195 | The criteria (replaces D190) | **No revision.** Every term the reviews found open is the committed words read at fixed times (the report, 1.7). The one consequence they leave implicit, the early end where a published day cannot be reproduced, can only remove a discovery; the report gives a sentence for it if the advisor wants it pinned. D190's draft is withdrawn | No |
+| D196 | X4's form and binding (Argon 3.1, 6.1) | **X4 states the engine's function:** the least count from `⌈2|x|⌉` (from none for `log`) to the cap at which both ends round alike, and NaN if none. The bits are the cap's, since the intervals nest and rounding is monotone. `bitsOps.exp = Exact.exp ∧ bitsOps.log = Exact.log` is a clause. (width) and (nesting) move to paper. **Why:** at the cap the engine's early stop needed a Lean proof of nesting and monotonicity, or hours of test 12 | **Yes** (X4; brief 3, step 5, wall 11; the test writer's Laws.lean) |
+| D197 | `nearestBits` beyond X2's decimals (Argon 3.1.2, 3.1.3) | **Test 12 holds it on its own** against MPFR's rounding of the same rational. It covers every binade from below `2⁻¹⁰⁷⁴` to `2¹⁰²⁴` at both signs, the midpoints (which round to even), both sides of the overflow threshold, and value order across signs. It stays a definition held by a test (D169); the gap was the test's coverage | **Yes** (brief 3, step 5, test 12) |
+| D198 | The MPFR stub and B4's printout (Argon 4.1) | The stub sets binary64's exponent range and `mpfr_subnormalize`s before `mpfr_get_d`, and is checked at subnormal results. Test 13 prints the arguments at which glibc is not MPFR at that argument, apart from the count of items that differ | **Yes** (brief 3, step 5, tests 12 and 13; B4) |
+| D199 | The floating-point check and the re-execution (Argon 5.1) | The check reads `(MXCSR & 0xFFC0) == 0x1F80`, and the sticky flags choose nothing. A process re-executes by `/proc/self/exe` unless its environment is already empty, which is what the re-execution makes. x87 is not read | **Yes** (A13; brief 3, step 9, test 8) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O22 | The recorder's reader inside 22,500 a second | Open, unchanged: step 6's test 11 | Step 6's reader |
+| O24 | The replica's own trace at a second's tick | Open, unchanged: step 6's test 11 and the first whole day's bytes | The trace's `tick` rows, if a wall |
+| O26 | `exp` and `log` at B5's walls | **Narrowed:** step 5 has no proof fork (D196). Open for B5's rates at step 6; test 12's own time is reported at step 5 | A twin (X3's pattern), if a rate is missed |
+
+### What the next read should attack first
+
+1. **D194's pathwise claim:** a run on which this design names a crossing that the committed text, run at the same scheduled times, does not. Also any lever left in the time, the collector's wait, a month's attempts, or the second host.
+2. **D194's cost:** a source of items about a published day, written after the replay that published it, that is not a writer's fault. That is where the test would end early on an honest record.
+3. **A published replay whose host was wrong.** Its rows are wrong, and a final "outgrew" named on them stands, because every later replay only ends the test. The premise is D1's two-host determinism, and the gap is noted, not acted on.
+4. **D196:** an engine that is wrong and passes X4 as now stated, and a start for `exp`'s count at which the tail's bound fails.
+5. **D197:** a `nearestBits` that passes the extended test and is not round-to-nearest-even.
+
+### Committed criteria: reported, not edited
+
+None needs a revision (D195). D190's draft, never committed, is withdrawn.
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the test writer (GPT):** the changes to `b1689bc` the report lists, beyond rounds 1, 3 and 4.
+- **By step 7's and step 9's writers:** test 10 as now written, and test 8's two new cases.
+- **By the advisor:**
+  - this section read on a model other than GPT and Argon's last, D194 first;
+  - **withdrawn:** round 4's owed change to `mmvault`'s reach and D190's review and commit;
+  - **still owed:** the settled-funding collector, stored as `mmvault` stores its pulls (it now gates each replay's start), and the worst-case lead's certification for test 12.
+- **By the next architect:** O22, O24 and O26 when their measurements come.
+
+### Convergence
+
+**Answered by derivation, and not yet read.** The record is re-derived from the criteria, not patched a fifth time. Its design changed, so the next round is due on another model. No open dispute would change what step 5 builds once its tests carry this round's list.
+
+## The last pass, round 6: GPT's read of round 5, answered
+
+Appended 2026-11-17 21:07 UTC (16:07 EST) by the Opus 5.5 architect, session "architect: the last pass, round 6". Review answered: `audit/reviews/2026-11-17-gpt-last-pass-r5.md`. Commits `52536d2` to the one that appends this. No market data read. Report: `data/builder/architect-last-pass-r6-report.md`, which holds the derivations, X5's statement and the test writers' lists.
+
+### In plain words
+
+- **A killed replay now counts for nothing,** and the next one reads the record as it then is. Round 5 had it reread the killed one's file lengths, the last piece of the deleted cut, and GPT showed that could name a crossing the committed text does not.
+- **A late row from an honest venue can end the test early.** That cost stays, and is now said plainly. What a replay reads is fixed mechanically: an hourly timer from the first of the month, a pull of settled funding, then the attempt, reading the files as they are at that moment.
+- **Every replay runs on two machines, and publishes only what both compute.** One faulty machine could otherwise have named a final verdict that nothing later could withdraw.
+- **The rounding every `exp` and `log` result rests on is now proved correct for every input, not tested on samples** (law X5). Writing it found that the rounding gave +0 where IEEE gives −0, which the round-5 test would have failed on; the fix deletes a special case.
+- **Two different versions of one vault fill now make CS2.3 "not judged",** as intended. The position chain alone let them through.
+- **Nothing needs a second clock, a deferred count or a stake that moves without a fill.** No criterion is edited, and the human has no new choice.
+
+### Who has seen what
+
+- GPT read round 5 at `a0f5c06`. Nobody has read this section or its commits.
+- GPT's step 5 tests (`kernel2-step5`, `b1689bc`) predate rounds 1 to 6. The report lists this round's two changes to them.
+
+### Agreed
+
+- **GPT's acceptances of round 5:** the cash grid's removal, L1 and the midnight slice, the build identity, B4's full comparison, D198, D199, reading the record with no lag and no revision, and conservative stopping on a changed published prefix.
+- **GPT's five points,** each conceded at its cause (D200 to D204).
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D200 | A killed attempt's reading (GPT 1) | **It produced nothing** (A13: nothing published before its result row), so the next attempt reads the files as they are when it starts, as the committed text at the same attempt times does. **Deleted:** the inheritance of the first attempt's lengths (round 5's remnant of the cut), the pilot sentence arguing for fixing what a run read, and L1's "the record's and the runner's to make so". Test 10's round-4 case no longer has a later replay abort on a row it holds | **Yes** (brief 4, step 7: wall 3, test 10; part B's L1 text) |
+| D201 | Late honest data, and the capture (GPT 2) | **The early end is a cost an honest record can incur:** a row the venue served late, with every writer to its specification, ends the test before its day. The 887 s bounds no serving time. **The capture:** a timer fires at 12:00 UTC (07:00 EST) on the first and then hourly until the month's replay publishes or ends the test. Each firing pulls the settled funding (complete when every page is stored, the last under the cap, as `mmvault`'s); if the pull completed on the UTC day it began, the firing starts an attempt at once, whose row records the bytes it reads. The check is not narrowed: a late row of a coin not held moves the guard's funding too | **Yes** (brief 4, step 7: builds, wall 3, test 10; brief 3, the recorders) |
+| D202 | A faulty host (GPT 3) | **Validate, not assume.** Every attempt runs on two hosts from one identity, and its rows are those both give. A disagreement is resolved on the same identity by the next host of a fixed list; where none agree, nothing is published and the runs go to the architect. A host fault is a wrong computation of a reading the comparator made, so it gets no new reading; a kill computed nothing, so it does. Round 5's "second host when the rows differ" is deleted. **Assumed:** two hosts that err alike. **Cost:** twice each replay's core-hours, and a second host reading the recorder's volume | **Yes** (brief 4, step 7: builds, wall 3, test 10; architecture 6.6) |
+| D203 | X4's reliance on `nearestBits` (GPT 4) | **X5, a universal law:** `nearestBits` is IEEE 754's roundTiesToEven at every rational, stated over `Exact.decode` (nearest finite, ties to an even last bit, overflow at `(2 − 2⁻⁵³) 2¹⁰²³`, the sign `q`'s). X4 and X5 prove that the engine computes the stated function and rounds as IEEE does. On paper: each interval holds the true value. **Found:** `nearestBits` gave `+0` for a negative rational that rounds to zero, where IEEE and MPFR give `−0`, so round 5's test 12 would have failed. The case is deleted. Test 12's order sample is deleted, since X5 implies it | **Yes** (step 5: X5 in Laws.lean, its proof, `nearestBits`, test 12) |
+| D204 | Two versions of one vault event (GPT 5) | **One fill, one item.** The reader merges identical lines, and the replay of given fills rejects a fill whose trade and order ids an earlier fill holds, as admission rejects a repeated print id (C2). CS2.3 is then "not judged": its fills fail their replay, as committed. No version is preferred | **Yes** (A13; brief 3, step 2, test 5; brief 4, step 1, wall 1, and step 7, wall 3, test 5) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| O22 | The recorder's reader inside 22,500 a second | Open, unchanged: step 6's test 11 | Step 6's reader |
+| O24 | The replica's own trace at a second's tick | Open, unchanged | The trace's `tick` rows, if a wall |
+| O26 | `exp` and `log` at B5's walls | Open, unchanged: B5's rates at step 6 | A twin, if a rate is missed |
+
+### What the next read should attack first
+
+1. **D202:** a run on which resolving a host disagreement on the same identity names a crossing that the committed text, computed right at the same attempt times, does not; any lever in the host list.
+2. **D201:** a lever left in the hourly firings, the same-day rule, or an outage repaired by hand.
+3. **D203:** a binary64 rounding IEEE 754 forbids that X5 allows, or the reverse, at the subnormals, the overflow threshold and the sign of zero.
+4. **D204:** two versions of one vault event that share no trade and order id and still both reach the chain.
+
+### Committed criteria: reported, not edited
+
+- **CS2.1's "Fails while the claim holds"** does not list the honest early end of D201. It can only remove a discovery. The report gives a sentence; the advisor's to pin, and I recommend it.
+- **CS2.1 to CS2.3's "Passes while the claim is false"** do not list a computation two hosts got wrong alike (D202). It is the premise every judged number shares, as the build's sandbox is, and I recommend no revision.
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the test writer (GPT):** X5's statement in Laws.lean, and test 12's `−0` case with its order sample deleted (the report, item 4), beyond rounds 1, 3, 4 and 5.
+- **By step 2's writer:** test 5's case of one fill's two versions, before its fix.
+- **By step 7's writer:** test 10's killed attempt, capture and two-host cases, and test 5's case of two versions.
+- **By the advisor:** this section read on a model other than GPT, D202 and D203 first; a list of at least two hosts that can read the recorder's volume; and the settled-funding collector, still owed, now run by the replay's timer as well as daily.
+- **By the next architect:** O22, O24 and O26 when their measurements come.
+
+### Convergence
+
+**Answered at the causes, and not yet read.** Each of GPT's five points is conceded and answered at its cause, not patched. D202 and D203 change the design, so the next round is due on another model. No open dispute would change what step 5 builds once its tests carry this round's two items.
+
+## The last pass, round 7: Argon's read of rounds 5 and 6, answered for steps 6 and 7
+
+Appended 2026-11-18 22:06 UTC (17:06 EST) by the Opus 5.5 architect, session "architect: steps 6 and 7's specifications (round 7)". Review answered: `audit/reviews/2026-11-17-argon-web-last-pass-r5r6.md`. Commits `1210fd9` to the one that appends this. No market data read. Report: `data/builder/architect-r7-report.md`, which holds the derivations, CS2.1's note with its argument, the test writers' lists and the host list.
+
+### In plain words
+
+- **Each month's replay now reads the record once, at a fixed moment, and nothing that goes wrong afterwards changes what it read.** If a computer crashes, is killed, runs out of time or gives a wrong answer, the same reading is computed again on another computer. Round 6 had a killed run read the record afresh, so a kill could change what was read. A run that crashed on one computer and finished on another fell under two rules at once.
+- **The two computers now compare everything a verdict rests on,** not just the engine's rows: the error a run stopped with, every verdict, the vault's fills, the matching and the report.
+- **There must be at least three computers,** so that one fault resolves without a person. Agreement must come from two different machines, never the same machine twice.
+- **The replay cannot run past what the funding pull covered.** A pull that began before midnight could otherwise let the replay run into a day whose last settlement it lacked, falsely ending the test.
+- **The pull now reaches back to the last published day,** however long ago that was. Pulls have time limits, and no step waits on a run.
+- **What a replay reads of a line is now pinned:** only the venue's message, never when or how it was fetched. One row fetched several times is then one row. Each file is read to the length recorded at the moment of reading, and only events inside the replay's span go in.
+- **One vault fill is identified by its coin, trade and order,** and two copies are the same fill when every field the replay reads is equal.
+- **The note to CS2.1 that an honest late row can end the test early is drafted,** with the argument that it can only remove a discovery.
+- **Nothing needs a second clock, a deferred count or a stake that moves without a fill.** No criterion is edited, and the human has no new choice.
+
+### Who has seen what
+
+- Argon read rounds 5 and 6 at `57ce8b9`. Nobody has read this section or its commits.
+- D205 reverses D200, which GPT's round-5 finding 1 produced. GPT has not seen why.
+
+### Agreed
+
+- **Argon's acceptances, standing:**
+  - D195 to D199;
+  - D200's closing of GPT's finding as a pathwise claim, now restated by D205;
+  - D202's two-host architecture;
+  - D203 and X5;
+  - D204's detection;
+  - the CS2.1 note as safe.
+- **Argon's findings 1.1, 3.1, 3.2 and 4.1,** each conceded at its cause (D206 to D209). **Its finding 1.2,** conceded at a wider cause (D205).
+- **Its finding 2.1** is step 5's, taken by the advisor (`audit/decisions.md`, 2026-11-17).
+- **Its common modes** (the capture's own host, one volume, one build) are assumed, and wall 3 now says so.
+
+### Settled by a derivation the reviewers have not seen
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D205 | A host that crashes or aborts, against one that disagrees (Argon 1.2.1 to 1.2.3); a killed attempt (D200, GPT's round-5 finding 1) | **One reading a month.** A timer captures the month's identity once, after a complete pull. Every failure to compute it is answered on it, by the next host of the list: a kill, a crash, a timeout, a host's refusal, a file not the identity's, or an output no other host gives. The identity computes to the same output at any later time, since the files are only appended to and it holds every length and hash. So waiting loses nothing, and reading again would let a failure choose the reading. The truncated rerun after an agreed abort is part of each run, at once, on the same bytes. Months publish in capture order. **Replaces** D200's "a killed attempt produced nothing" and D202's separate rule for faults. **GPT's construction** is now the honest late row of D201: the print appended after the capture is read by the next month. Its comparator was killed alike, so a kill chose its reading. The committed text, replayed once a month and computed right, is this design run for run | **Yes** (brief 4, step 7: builds, wall 3, test 10) |
+| D206 | What two hosts compare (Argon 1.1.1 to 1.1.3) | **Everything a run computes from its identity:** the horizon, the engine's summary with its error and time, the truncated rerun, the report and trace, `confirm`, `guard`, `held`, CS2.3's chain, replay and matching, layer 2, the readers' counts and the report's text; not the host or its times. Runs that give no output are failures and agree on nothing. **The identity holds every file a run reads,** `mmvault`'s and the copy before 2026-11-01 included (A13: "every file the run reads" for "the market's every file") | **Yes** (brief 4, step 7, wall 3, test 10; brief 3, step 9, wall 2 and test 11; A13) |
+| D207 | The capture (Argon 3.1.1 to 3.1.3) | **The horizon is the last midnight at or before both the pull's start and the recorder's last quote.** Each run reads the start from the pull's own `start` event. **The firing's pull covers every universe coin from the last published horizon,** and is killed at 30 minutes. **No firing waits on a run;** a run's timeout is the operator's, 7 days, and moves nothing (D205). **Deleted:** the same-day rule, its "starts none" case, and "a firing while one runs does nothing". The cap reads the clock the same-day rule read, and sets a midnight, never an event's time | **Yes** (brief 4, step 7: wall 3, test 10; `recorder/VAULT.md`, settled funding) |
+| D208 | The reader (Argon 3.2.1 to 3.2.3) | **A quote, a trade and a funding row take nothing from their line's envelope.** Funding's `known` is `time + lag`, and a settlement is (coin, `time`, rate). A listing, whose source states no time, stays timed at the first copy that shows it. **Each file is read to the identity's length** (`mmrec cat <file> <length>`): whole lines only, a cut frame not read, the file counted as cut. **Only events in `[w_start, w_end)` are fed,** the rest counted. Files before the hour before `w_start` are not read | **Yes** (A3; `KERNEL.md` A18; brief 3, step 6, test 13 and step 7, test 8; `recorder/RECORDER.md`) |
+| D209 | A vault fill's identity (Argon 4.1) | **(coin, `tid`, `oid`)**, and an item is the fields the replay reads, parsed (A18's placed decimals), nothing of the envelope or of unread fields. The coin adds nothing on the venue's data and keeps every identity coin-scoped. `mmvault`'s count used `tid` alone, which counted a self-trade's second fill as a duplicate; it now uses the same key | **Yes** (brief 3, step 2, test 5; A13; `recorder/VAULT.md`) |
+| D210 | CS2.1's dated note (Argon 5) | **Drafted, with its argument** (the report, item 4). Against any procedure that agrees through the replay before the changed row and keeps every published day as shown, the end's rejections are a subset. Its finals were named by common replays, and its "earned" stands on a day that procedure keeps. So the 5% of any such reading holds | No (the advisor's to review and commit) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| D205 | GPT's comparator (killed alike) against "replayed once a month, computed right" | Settled here by derivation; GPT has not read it | Step 7's timer and runner, if GPT's comparator is shown to be the committed text's |
+| O22 | The recorder's reader inside 22,500 a second | Open, unchanged | Step 6's reader |
+| O24 | The replica's own trace at a second's tick | Open, unchanged | The trace's `tick` rows, if a wall |
+| O26 | `exp` and `log` at B5's walls | Open, unchanged | A twin, if a rate is missed |
+
+### What the next read should attack first
+
+1. **D205:**
+   - a run on which the outcome depends on a failure of computation;
+   - a reading the committed text makes that D205 never makes;
+   - a lever in the capture's moment, the months' order, or the architect's power to rerun an identity.
+2. **D207:** a due hour the pull can lack while the horizon is at or before its start; a pull whose completion a person can time.
+3. **D206:** anything a verdict or the report's sentences rest on outside the compared output; a part of the output two right runs give differently.
+4. **D208:** an event of the horizon in a file the reader skips; a cut at which two hosts' `mmrec cat` can differ.
+
+### Committed criteria: reported, not edited
+
+- **CS2.1's "Fails while the claim holds"** does not list the honest early end. The note is drafted in the report for the advisor, with its argument. Both of the round's readers called it safe.
+- **CS2.1 to CS2.3's "Passes while the claim is false"** still do not list two hosts erring alike. As round 6 said, no revision is recommended.
+
+### Assumptions only the human can choose
+
+None new.
+
+### Owed
+
+- **By the advisor:**
+  - a host list of at least three distinct x86-64 machines (the report, item 2c);
+  - `mmvault`'s fill identity, with VAULT.md's test 10;
+  - `mmrec cat`'s length, with RECORDER.md's test 4 case;
+  - the settled-funding collector as VAULT.md now specifies;
+  - CS2.1's note, reviewed and committed;
+  - this section read on GPT first (D205), then Argon.
+- **By step 2's writer:** test 5's new cases, before the fix.
+- **By steps 6, 7 and 9's writers:** brief 3's step 6 test 13, step 7 test 8 and step 9 test 11; brief 4's step 7 tests 5 and 10 as rewritten.
+- **By the next architect:** O22, O24 and O26 when their measurements come.
+
+### Convergence
+
+**Answered at the causes, and not yet read.** Argon's points are specifications, each conceded. D205 changes the design by reversing a point GPT's own finding produced, so the next round is due on GPT. No open dispute would change what step 5 builds. Steps 6 and 7 wait on D205's read.
+
+
+## The last pass, round 8: steps 6 and 7 re-derived, closed-hour seekable packs, kernel v2 open questions, and test 12 hardening
+
+Appended 2026-11-19 03:40 UTC (2026-11-18 22:40 EST) by the Gemini 4 Neon architect (`CLAUDE.md`, `audit/decisions.md` `81a47aa`). Reviews answered: `audit/reviews/2026-11-18-neon-round7.md`, `audit/reviews/2026-11-18-neon-efficiency-recorder.md`, `audit/reviews/2026-11-18-neon-efficiency-kernel2.md`, `audit/reviews/2026-11-18-neon-efficiency-study1.md`, `audit/reviews/2026-11-18-neon-x4-inputs.md`, and `data/builder/queued-after-step4.md` items 10 and 12. Commits `2ad4b33` (item 1), `e7fb8d7` (item 2), `6eed7d8` (item 3), `3d7992e` (item 4), plus this ledger commit. No market data from 2026-11-01 on, no `data/holdout/`, and no token/key files read. Report: `data/builder/architect-r8-report.md`.
+
+### In plain words
+
+- **Round 7's five disputes are conceded and re-derived at their causes (D211 to D215):**
+  - The monthly settled-funding pull now always starts from `w_start` (with no `endTime`, weight-paced at ≤ 750 weight/min, 90-minute timeout, staged atomically), severing Step 1 from Step 2's publication latency and catching both >30-day-late unheld rows and historical restatements.
+  - The host wall clock is **deleted** from the horizon formula: the horizon uses strictly the venue clock minus the `CLOCK_BOOTTIME` capture duration and a fixed 1-hour indexing margin (`floor_midnight(last_quote_universe − D_capture − 1 h)`), making it invariant to arbitrary host clock skew and closing `00:00` zero-margin retries.
+  - Both `mmvault` and `mmvault funding` stage each pull atomically into `.tmp/` and rename only on completion; Step 1 holds a single-instance lock (`Forbid`) and reuses verified closed-file hashes (cutting capture hashing from 40–100 min to ~1–2 s while strengthening bitrot detection).
+  - Transient execution failures (crash, kill, OOM, timeout, stream drop) retry automatically without consuming disagreement slots (lone outputs sealed hash-only); computational disagreements resolve deterministically by 2-of-3 across distinct hosts (retiring the lone faulty host), and a 3-way split halts the study unconditionally (zero post-outcome architect lever).
+  - Step 2 runs on `RunInput_k = (Capture_k, State_{k-1})`, putting every runtime input (registration file, prior settled state + published report/trace, all `mmvault` files `fills`/`funding`/`fees`/[`orders`], hourly fee copy, `D_capture`) and every decision (prefix check, exact cutoff midnight $T^*$, `"Earned"` withdrawal, carry-forward of prior final `"Outgrew"`/CS2.2/CS2.3, Layer-1 fee-schedule witness halt) inside the two-host byte-for-byte compared output.
+  - `mmrec cat` specifies stdin `-`, exact-length short-read looping, full `ZSTD_decompressStream` draining (chunk-size invariant across local files and pipes), and `L = 0` / partial-checksum cuts; forward `listings` initialize from the latest copy with `recv ≤ w_start`; D208 extends placed-decimal equality; CS2.1's drafted note defines $T^*$ unambiguously on the matched `account` row and states survival of prior final `"Outgrew"`/CS2.2/CS2.3 vs. withdrawal of later non-final `"Earned"`.
+- **Replay size solved cleanly (D216):** Study 2 forward replays read only `l2Book-fast` and `trades` (`l2Book`, `allDexsAssetCtxs`, `events` excluded unconditionally; `last_quote_universe` scoped to the 17 universe coins). Live `mmrec` files stay untouched. Strictly post-release and after an hour file is provably closed, two distinct hosts run frozen `mm2 pack` (inside the registered Nix derivation, A13) to pack it 1-to-1 off the `ws` PVC into a standard Zstd Seekable Format `.packed.zst` (one continuous frame per coin + `_other` + RFC 8878 skippable `_order` for byte-exact `mm2 unpack-verify` + skippable coin-index metadata + EOF seek table). Month-24 replay reads drop from ~1.2–1.5 TB (~21–26 TB uncompressed) to **~55–78 GB (~1.0 TB uncompressed)**, fitting B5's 24-hour wall and cutting `ws` PVC disk reads ~15×.
+- **Float windows and kernel v2 efficiency settled (D217 to D219):** `sum`, `mean`, and `std` move from stage 6's drifting running-subtraction sums to a **two-stack SWAG queue with Chan's parallel variance formula** over `NumOps α` (zero subtractions, zero post-eviction pollution, centered `M2`, compact memory), splitting B4 cleanly with zero tolerances (non-`sum`/`mean`/`std` programs bit-identical to stage 6 + MPFR; full C6.4 corpus bit-identical to B4's v2 reference = stage 6 + MPFR + SWAG/Chan). Parameter/identifier names are verified already restricted to `[a-z][a-z0-9_]{0,31}` in `Syntax.lean` (regression tests added). **Step 5a** is planned after Step 5 merges (rolling windows, mark reuse + `quotes` FIFO + `fireNoRec`, pending binary min-heap, streaming `mm2 finish`, identifier tests; zero frozen law statement changes; before/after speedups measured). Fast `exp`/`log` is answered (not planned; `O26` open pending `x4_local` / trigger timing; 4-theorem algebraic `@[csimp]` proof sketch given).
+- **Test 12 inputs and hardening (D220):** `emit_x4_draws` added to `audit/program/arithmetic.py.txt` (verified 1,000,000 draws bit-identical on the 200,000 prefix), and all seven loopholes from `2026-11-18-neon-x4-inputs.md` specified in Brief 3 Step 5 Test 12.
+- **Stop-condition check:** Nothing requires a second clock (the host wall clock is deleted from D207), a deferred count, or a stake that moves without a fill. No committed criterion in `audit/criteria.md` was edited.
+
+### Who has seen what
+
+- No adversarial reviewer (fresh Claude Opus session or GPT) has seen this round yet. Both are due to review D211–D220 adversarially before Step 5a, Step 6, and Step 7 proceed.
+
+### Agreed
+
+- **Standing from rounds 6–7:** D205's core reversal of D200 ("one reading a month", subject to GPT reading the reversal); D206's full-output two-host comparison and ≥ 3 distinct hosts; D207's deletion of the same-day rule; D208's message-only event rule and `[w_start, w_end)` filtering; D209's `(coin, tid, oid)` vault fill identity; D210's core statistical safety (cannot add a false discovery relative to published-day-preserving procedures); Argon's common-mode assumptions.
+
+### Settled by derivation in round 8 (not yet adversarially reviewed)
+
+| | Question | Settled by | Changes what is built |
+|---|---|---|---|
+| D211 | D205 disputes: pull coupled to publication, capture non-atomicity, host exhaustion lever, state-machine deadlock (`neon-round7` 1.1–1.3, 2.2) | Pull from constant `w_start` (decoupled from Step 2; catches >30 d late unheld rows & restatements); single-instance Step 1 capture lock (`Forbid`); atomic pull staging (`.tmp/` + `fsync` + rename on completion) in `mmvault` and `mmvault funding`; closed-file hash reuse at capture (size check + reuse prior verified hash; ~1–2 s capture, stronger bitrot detection); transient execution failures auto-retried without burning disagreement slots (lone outputs sealed hash-only); 2-of-3 settlement across distinct machines retiring lone faulty host, and unconditional `halt_non_deterministic` on 3-way split (zero architect lever); Step 2 runs `"earliest capture not yet settled"` with explicit timer stop on `ended_study` or `halt_*` | **Yes** (brief 4 step 7, `recorder/VAULT.md`, brief 3 recorders) |
+| D212 | D207 positive host clock skew & `00:00` zero-margin retry (`neon-round7` 2.1) | **Host wall clock deleted from horizon.** `mmvault funding` omits `endTime` and paces by weight (≤ 750 weight/min, 90-min kill). Capture measures `D_capture` via `CLOCK_BOOTTIME` (immune to wall jumps & S3 suspend) from pull start until strictly after snapshotting open `l2Book-fast` length. Horizon `T = min(floor_midnight(last_quote_universe − D_capture − 3,600,000 ms), w_start + 730 d)` uses strictly one clock (the venue's), proving `t_0 ≥ T + 1 h > H + late` for every due hour regardless of host wall-clock offset | **Yes** (brief 4 step 7, `recorder/VAULT.md`, brief 3 recorders) |
+| D213 | D206 prefix check, verdicts, unpinned inputs & fill fallback outside two-host comparison (`neon-round7` 3.1–3.2) | Step 2 forms `RunInput_k = (Capture_k, State_{k-1})` once Month `k−1` settles, pinning registration file, `State_{k-1}` (state JSON + prior published report & trace), all `mmvault` files (`fills`/`funding`/`fees`/[`orders`]), hourly fee copy, and `D_capture`. Prefix check, exact cutoff $T^*$, `"Earned"` withdrawal, carry-forward of prior `"Outgrew"`/CS2.2/CS2.3, and Layer-1 fee-schedule witness check (`halt_fee_witness`) all execute inside `study2 forward`'s two-host compared output; each host records `output_sha256` in the ledger; unchainable millisecond fills fall back to `(tid, oid)` ascending | **Yes** (brief 4 step 7, brief 3 step 9 & recorders, `kernel-v2.md` A13) |
+| D214 | D208 `mmrec cat` flush-cut/pipe divergence, edge cuts, freeze-to-midnight `listings`, skip scope, decimals (`neon-round7` 4.1–4.2) | `mmrec cat` supports `-` stdin, exact-length short-read loop, complete `ZSTD_decompressStream` drain invariant to chunk size, `L = 0` and 1–3 byte partial-checksum cuts as `cut` (exit 0); zero-TOCTOU in-memory per-file/frame SHA-256 verification before feeding; registration pins 17 coin names and `study2 forward` initializes coin rules from latest pinned `listings` copy with `recv ≤ w_start`; `w_start − 24 h` skip scoped to `l2Book-fast`/`trades` only; placed-decimal equality extended across D208 | **Yes** (`recorder/RECORDER.md` interface & test 4, `KERNEL.md` A18, brief 3 steps 6–7, brief 4 steps 6–7) |
+| D215 | D210 CS2.1 drafted note contradiction & midnight boundary (`neon-round7` 5.1–5.2) | Unambiguous cutoff $T^*$ = last published midnight whose `day` coin rows, `account` row, and all prior report/trace rows match byte-for-byte (or `w_start` if day 1 differs), so a late `23:59:59.995` quote differing first at midnight `coin`/`account` row ends at `T − 1 d`. Drafted CS2.1 note explicitly states prior final `"Outgrew"` and once-judged CS2.2/CS2.3 stand while later non-final `"Earned"` is withdrawn, and replaces `"would name every verdict"` with `"would confirm every rung this end leaves confirmed"` | **Yes (minor)** (drafted CS2.1 note for advisor review/commit; brief 4 step 7 prefix cutoff & test 10) |
+| D216 | Replay size (1.2 TB / ~21 TB uncompressed at Month 24), forward channels & 17-coin extract (`neon-round7` 6.1, `neon-efficiency-recorder` finding 1) | Forward replays read only `l2Book-fast` and `trades` (`l2Book`, `allDexsAssetCtxs`, `events` excluded; `last_quote_universe` scoped to 17 universe coins). Live `mmrec` unchanged. Post-release closed raw files packed 1-to-1 off `ws` PVC by two distinct hosts running frozen `mm2 pack` (A13) into `.packed.zst` (1 frame/coin + `_other` + skippable `_order` `0x184D2A5D` for lossless `mm2 unpack-verify` + skippable coin-index `0x184D2A5F` + EOF seek table `0x184D2A5E`). `Capture_k` pins per-frame hashes for the 17 coins + `_other`; replay asserts coin-frame purity; open/unpacked files read raw. Cuts Month-24 replay read to ~55–78 GB (~1.0 TB uncompressed), 2-year `ws` reads ~15×, capture hashing to ~1–2 s | **Yes** (brief 3 step 6 test 14 & step 9, brief 4 step 7, `recorder/RECORDER.md`, `KERNEL.md` A18, `kernel-v2.md` A13) |
+| D217 | Float window (`sum`, `mean`, `std`) semantics & B4 split (`neon-efficiency-study1` finding 1) | Two-stack SWAG queue + Chan's parallel variance formula over `NumOps α` (zero subtractions, zero post-eviction pollution, centered `M2`, overflow-safe `mean` fallback on non-finite `μ_b − μ_a`, compact memory ~160–427 MB at max window × 17 coins). B4 stays zero-tolerance: non-`sum`/`mean`/`std` C6.4 programs bit-identical to stage 6 + MPFR; full C6.4 corpus bit-identical to B4's v2 reference (stage 6 + MPFR + SWAG/Chan), plus direct exact-oracle tests on extreme/eviction cases | **Yes** (`KERNEL.md` A17, `kernel-v2.md` A2 & B4, brief 3 steps 4 & 5a) |
+| D218 | Parameter name restriction (`neon-efficiency-study1` finding 2) | Verified already enforced in `KERNEL.md` A17 and `kernel2-step5:Syntax.lean` (`validName`: `[a-z][a-z0-9_]{0,31}` across all 5 name kinds); explicit `E_PARSE` regression test added in Step 5a (v1 Rust `dsl.rs` note stays for any future v1 fork) | **Yes (test only)** (brief 3 step 5a test 5) |
+| D219 | Kernel v2 efficiency build step & fast `exp`/`log` (`neon-efficiency-kernel2` findings 1, 3, 6, 8 & 2) | Planned **Step 5a** (after Step 5 merges, before Step 6): rolling windows (SWAG/Chan + ring buffer + circular monotone deque + linear `Mach.step`), `marks` reuse + `quotes` FIFO + `fireNoRec`, pending binary min-heap, streaming `mm2 finish`, identifier tests; zero frozen law statement changes; before/after speedups & peak RSS measured. Fast `exp`/`log` answered only (not planned; `O26` open pending `x4_local`/trigger timing; 4-theorem algebraic `@[csimp]` proof sketch for X4) | **Yes** (brief 3 step 5a) |
+| D220 | Test 12 inputs & seven loopholes (`neon-x4-inputs`) | Added `_x4_draw_pairs` + `emit_x4_draws` to `audit/program/arithmetic.py.txt` (`--emit-x4-draws OUT_DIR`, 1,000,000 draws verified bit-identical on 200k prefix); specified all seven loophole hardenings in Brief 3 Step 5 Test 12 (`x4_local.ml`, `x4-hosts.sh`, `x4-specials.lean`, `x4-counts.lean`, `x4_mpfr_stubs.c`) | **Yes** (`audit/program/arithmetic.py.txt`, brief 3 step 5 test 12) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| D205 / D211–D216 | Round 7–8 Study 2 capture, single-clock horizon, `RunInput_k`, 2-of-3 halt, and closed-hour `.packed.zst` | Settled by derivation; awaiting fresh Claude Opus and GPT adversarial review (GPT has also not yet read D205's reversal of D200) | **Yes**, if a reviewer breaks D211–D216 (Steps 6, 7, 9, `RECORDER.md`, `VAULT.md`) |
+| D217 / D219 | SWAG + Chan float windows, B4 v2 reference split, and Step 5a plan | Settled by derivation; awaiting fresh Claude Opus and GPT adversarial review | **Yes**, if a reviewer finds a flaw in SWAG/Chan or Step 5a |
+| O22 | The recorder's reader (now with `.packed.zst`) inside 22,500 quotes/s | Open until Step 6's test 11 measurement (greatly eased by D216) | Step 6's reader, if missed |
+| O24 | The replica's own trace at a 1-second tick (~3–5 GB zstd at Month 24) | Open until Step 6's test 11 measurement | Trace storage / compression, if a wall |
+| O26 | `exp` and `log` wall time on `x4_local` and Study 2's trigger | Open until Step 5's `x4_local` and Step 3's trigger run; D219 gives the 4-theorem algebraic proof sketch if needed | A fast `@[csimp]` twin, only if a wall is hit |
+
+### Committed criteria: reported, not edited
+
+- **CS2.1's *Fails while the claim holds*:** revised drafted note is in `data/builder/architect-r8-report.md` §1e (fixing Finding 5.1's survival/withdrawal wording and Finding 5.2's midnight `coin`/`account` boundary). Ready for the advisor's two-reviewer check and commit; `audit/criteria.md` untouched.
+- **CS2.1 to CS2.3's *Passes while the claim is false*:** two hosts erring alike remains an assumed premise (no revision recommended).
+
+### Assumptions only the human can choose
+
+None new. (Disk volume for 2-year retention and off-`ws` `.packed.zst` storage remains the existing deferred choice of `architecture.md` 6.8; Months 1–3 of `.packed.zst` take ~65–110 GB on an existing replay host.)
+
+### Owed
+
+- **By the adversarial reviewers (fresh Claude Opus session and GPT):** attack D211–D220 (and GPT on D205's reversal of D200), starting with the targets below.
+- **By the advisor:**
+  - host list of at least three distinct x86-64 machines (with packed Month-24 reads of ~55–78 GB, even the laptop at 11 MB/s streams in ~1.4–2.0 h);
+  - `mmrec cat` (`-` stdin, short-read loop, full `ZSTD_decompressStream` drain, `L = 0` & partial-checksum cuts) with `RECORDER.md` test 4 additions;
+  - `mmvault` atomic pull staging + fill identity `(coin, tid, oid)` with `VAULT.md` tests 6 & 10;
+  - `mmvault funding` (no `endTime`, ≤ 750 weight/min pacing, `--from-ms = w_start`, 90-min timeout, atomic staging, `CLOCK_BOOTTIME` `elapsed_ms`) with `VAULT.md` settled-funding tests 1–4;
+  - CS2.1's revised drafted note, reviewed by two fresh reviewers and committed alone;
+  - test 12's input bundle generated from `arithmetic.py.txt --emit-x4-draws`, pinned nixpkgs glibc + `GLIBC_TUNABLES`, CORE-MATH `1851882b` conversion, `boundaries.txt`, `manifest.json`, and root `SHA256SUMS` hash;
+  - B4's v2 reference run (combining D198's MPFR `exp`/`log` and D217's SWAG + Chan `Win.sums` in one queued multi-host run, once Step 5a's design converges).
+- **By the test writers:**
+  - Step 5 test 12 (hardening all 7 loopholes in `x4_local.ml`, `x4-hosts.sh`, `x4-specials.lean`, `x4-counts.lean`, `x4_mpfr_stubs.c`);
+  - Step 5a (all 7 test items in `briefs/3-kernel-v2.md`);
+  - Steps 6, 7, and 9 of brief 3 (Step 6 tests 13–14, Step 7 test 8, Step 9 test 11) and Steps 6–7 of brief 4 (Step 6 listings init test, Step 7 tests 5 and 10).
+
+### What the next reviewers should attack first
+
+1. **D212 (single-clock horizon `last_quote_universe − D_capture − 1 h`):** look for a venue/recorder scenario where `last_quote_universe` exceeds capture end $t_2$ (e.g., an out-of-order future-stamped quote, or `CLOCK_BOOTTIME` drift/wrap/VM pause), or where a dead recorder loses a valid last day unnecessarily, or where `mmvault funding` without `endTime` hits an unexpected API cap/default range.
+2. **D211 (pull from `w_start`, atomic staging, closed-file hash reuse, 2-of-3 halt):** look for a timing attack in the 90-minute Month-24 pull (weight contention with `mmrec`/`mmvault`/429 storms), a crash window between `mmvault funding` atomic rename and `Capture_k` commit, a subtle interaction when a file was open (`cut`) at Month `m−1` and closed at Month `m`, or any remaining post-outcome discretion in replacing permanently dead hardware during a 2-of-3 tie.
+3. **D213 (`RunInput_k = (Capture_k, State_{k-1})`):** look for any file still opened by `study2 forward` outside `RunInput_k`, any difference in how two hosts read `State_{k-1}`'s compressed report/trace, or any gap in `halt_fee_witness` or `no_op`/`ended_study` state transitions.
+4. **D216 (closed-hour `.packed.zst`):** look for a line-routing edge case in `l2Book-fast`/`trades` (`_other`, unicode/escaped `"coin"`, empty/mixed arrays), a race in the provably-closed condition on `mmrec` crash/restart, a holdout leak path if `mm2 pack` sees a file spanning a protected-window boundary (e.g. a quote at `2027-01-31 00:00:01` inside `20270130/23` or vice versa!), or a flaw in `Capture_k`'s per-frame hash pinning vs. full-pack verification.
+5. **D217 (SWAG + Chan float windows & B4 split):** look for NaN/overflow/signed-zero edge cases in `combine` (especially `δ = μ_b − μ_a` overflow fallback, subnormal underflow in `m2`, `k_a * w`, or `frontGoodLen` off-by-one when `none` is pushed at index 0 or `n`), phase-dependence implications of the `front`/`back` split for L3/N1/determinism, or any hole in the two-part B4 comparison.
+6. **D220 (`emit_x4_draws` & test 12 hardening):** look for any remaining loophole in the 7 hardenings that still lets a wrong `exp`/`log`/`nearestBits` pass test 12, or a portability/reproducibility pitfall in `GLIBC_TUNABLES` verification on `x4-hosts.sh`.
+
+### Convergence
+
+**Re-derived at every cause; not yet read by adversarial reviewers.** Every round 7 dispute, the replay sizing problem, kernel v2's window semantics and efficiency step, and test 12's inputs and loopholes are settled cleanly with zero patches and zero second clocks. Adversarial review by a fresh Claude Opus session and GPT is required before Step 5a, Step 6, and Step 7 proceed (and before Step 5's test 12 hardening is finalized).
+
+
+## The last pass, round 9: Opus's read of round 8 answered — dual-channel coverage horizon, packing equivalence, refusal states, funding-pull human choice, and CS2.2/SWAG text fixes
+
+Appended 2026-11-20 05:30 UTC (00:30 EST) by Gemini 4 Neon acting as the architect (`CLAUDE.md`, Orchestration; the human, 2026-11-19). Review answered: `audit/reviews/2026-11-20-opus-round8.md` (fresh Claude Opus 5.5 at maximum effort, not converged). Commits `f4aff27`, `051194d`, `ed8cd59`, `be23a7a`, and the one that appends this. No market data from 2026-11-01 on, no `data/holdout/`, no token/key files read; `PROGRESS.md` and `audit/criteria.md` untouched. Report: `/home/kevin/repos/moneymachine/data/builder/architect-r9-report.md`.
+
+### In plain words
+
+- **D212's inferred-clock horizon is deleted and re-derived from capture coverage (D221).** Opus broke D212 four ways (a wild future quote, a stopped recorder with growing `D_capture`, unbounded/multi-boot `D_capture`, and a short `< 500` funding page). `T = min(T_raw, w_start + 730 d)` is now read directly from `Capture_k`: the largest UTC midnight `T` whose bounded 24-hour witness window `[T + 1 h, T + 25 h)` is covered by **every** still-listed universe coin in `settled/funding` (plus a pre-delisting coverage check for delisted coins) and at least `⌈|U(T)|/2⌉` still-listed coins in `l2Book-fast`. `D_capture` and `CLOCK_BOOTTIME` are gone; `T_k ≥ T_{k−1}` holds by construction; a single wild quote, a short page, a quiet coin like `TON`, or a delisting cannot break it.
+- **Packing is simplified and made raw ≡ packed by construction (D222–D223).** Host-clock `<run>` ids no longer declare a file closed: only cleanly stream-ended zstd files (valid xxHash32 + exact EOF) are packed (`raw_cut` deleted; cut files stay raw). One shared JSON routing function (`Coin_route.classify_line`) skips non-universe lines unread in raw mode too, `_order` restores exact A3 tie order whenever `_other` is non-empty, `mm2 unpack-verify` checks purity on every frame `0..K`, and Step 1 packs cleanly closed hours before `Capture_k` (never flipping a previously published closed file from raw to packed).
+- **Agreed refusals stop silently stalling the study, and windows/environment are pinned (D224–D225).** Deterministic refusals (`E_HASH`, `E_HEADER`, `R_PURITY`, `R_MALFORMED_FRAME`, `R_HORIZON_REGRESSION`, `R_PROTECTED`, `R_WINDOWS_INVALID`) participate in 2-of-3 settlement and transition to `halt_refused(code)` or `halt_storage_corrupt` (stopping the monthly timer permanently; Step 1 closed-file size mismatches likewise record `halt_storage_corrupt`). `Capture_k` pins `protected_windows_sha256` (stale host builds exit operationally as `R_HOST_WINDOWS_MISMATCH` without emitting a ballot); `mm2`/`study2` ban `localtime()`/`/etc/localtime` and host CPU-count dependence completely.
+- **Pulling funding from `w_start` reduces to a plain human choice (D226).** Fetch-once per `(coin, hour)` + gap backfill (Option 1, literal `e691341`, recommended) closes round 7 Findings 1.1 and 2.2, keeps Ville's 5% bound, cuts Month-24 pulls from ~39 min to ~30 s, and survives venue precision changes — at the cost of not seeing retroactive corrections to already-fetched rates. Option 2 (`--from-ms = w_start`, current default until the human picks) catches retroactive rate corrections at the cost of ending the whole study at Day 1 on any benign precision change.
+- **CS2.2 revision drafted and SWAG/B4 text fixed (D227–D228).** CS2.2 gets its own drafted dated revision (reported, never edited in `audit/criteria.md`); D217's false $O(1)$-ULP phase claim is corrected (defects 1–2 fixed, not defect 3; zero Study 2 outcome impact); `KERNEL.md` A17 now holds the complete bit-exact SWAG + Chan spec so a **different model** than Sonnet builds B4's v2 reference from A17 alone without reading `Eval.lean`; Step 5a Test 2 has zero tolerances and exact verified 64-bit hex words.
+
+### Who has seen what
+
+- Fresh Claude Opus 5.5 (maximum effort) reviewed round 8 (`cc984da`, `audit/reviews/2026-11-20-opus-round8.md`).
+- Neither GPT nor Opus has read round 9 (`f4aff27` through this commit). GPT reads round 9 next (and has not yet reviewed D205's reversal of D200 or D211–D228).
+
+### Agreed (accepted by Opus in round 8)
+
+- **D211 (parts):** atomic staging (`mmvault` & `mmvault funding`, plus destination directory `fsync` in round 9), single-instance Step 1 capture lock, closed-file hash reuse for stream-ended files, 2-of-3 settlement with sealed lone ballots (zero post-outcome lever; common-mode fault stays assumed), and open-at-`m−1` → closed-at-`m` re-hashing.
+- **D213 (parts):** completeness of compared outputs for verdicts, in-memory hash verification before decode, `(tid, oid)` fallback for unchainable millisecond fills.
+- **D214:** `mmrec cat` drain/short-read/edge-cut spec, listings initialization from latest copy `≤ w_start`, placed-decimal equality across D208.
+- **D215 (parts):** exact cutoff `T*` (last matching `account` row), survival of prior final `"Outgrew"`/CS2.2/CS2.3 vs. withdrawal of later non-final `"Earned"` adding no discovery against first reading (premise now holds under D221).
+- **D216 (parts):** forward channels `l2Book-fast` + `trades` only, 1-to-1 `.packed.zst` off `ws` PVC, reconstruction via `_order`, per-frame pins from `Capture_k`.
+- **D217 (parts):** SWAG + Chan fixes Stage 6 defects 1 and 2, is specified to the bit, cannot produce `NaN` in `m2`, has exact `frontGoodLen` boundaries, and preserves `L3` and `N1`.
+- **D218:** `validName` identifier restriction verified in `Syntax.lean` + regression test.
+- **D219:** Step 5a's four efficiency builds and unchanged frozen laws; fast `exp`/`log` proof sketch (`O26` open).
+- **D220:** `emit_x4_draws` and all seven Test 12 hardenings (Opus found no eighth loophole; N7.1 peak-size bands and N7.2 linked engine store-path check added in round 9).
+
+### Settled by derivation in round 9 (not yet reviewed by GPT or Opus)
+
+| ID | Point | Settled by | Changes what is built |
+|---|---|---|---|
+| D221 | Horizon re-derived from capture coverage (replaces D212; Opus F1.1–F1.4, F6.2, N1.1, N2.1) | `T = min(T_raw, w_start + 730 d)` where `T_raw` is the largest UTC midnight `≥ w_start` with `U(T) ≠ ∅`, every `c ∈ U(T)` having a valid `settled/funding` row in `[T + 1 h, T + 25 h)`, every delisted `c` (`t_prev_listed > w_start`) having a row in `[max(w_start, t_prev_listed − 24 h), t_delist)`, and `≥ ⌈|U(T)|/2⌉` coins in `U(T)` having a valid non-crossed two-sided `l2Book-fast` quote in `[T + 1 h, T + 25 h)`. Deletes `D_capture`, `last_quote_universe`, and `CLOCK_BOOTTIME`. Provably monotone (`T_k ≥ T_{k−1}`); `T_k == T_{k−1}` runs prefix check → `no_op` or `end_study`; `T_k < T_{k−1}` refuses `R_HORIZON_REGRESSION` (never a prefix divergence). `VAULT.md` adds destination directory `fsync` after rename | **Yes** (`briefs/4-study-2.md` step 7, `briefs/3-kernel-v2.md` step 9, `kernel-v2.md` A13, `architecture.md` 6.6, `recorder/VAULT.md`) |
+| D222 | Packing closed condition & safety (Opus F4.1, N4.1, N4.2) | Deleted host-clock `<run'> > <run>` clause (b) and `raw_cut` completely: a raw file is provably closed iff its zstd stream ended cleanly (valid xxHash32 + exact EOF; `mm2 pack` refuses truncated/open files with `R_UNCLOSED`; cut files stay raw). `mm2 pack`'s `R_PROTECTED` emits code and file path only (no line/timestamp/coin/count). Two-host re-packing of a lost `.packed.zst` from the hash-verified raw file on `ws` counts as a byte-identical mirror | **Yes** (`recorder/RECORDER.md`, `KERNEL.md` A18, `kernel-v2.md` A13, `briefs/3-kernel-v2.md` step 6 test 14 & step 9, `briefs/4-study-2.md` step 7) |
+| D223 | Raw ≡ packed equivalence by construction + no published switch (Opus F4.2) | Single shared RFC 8259 routing function `Coin_route.classify_line` skips non-universe lines unread in raw mode too; when `_other` is non-empty, `Capture_k` pins `_order` and packed reading restores exact raw line indices for A3 ties; `mm2 unpack-verify` verifies purity on every frame `0..K` (not just read frames); Step 1 two-host packs cleanly closed hours before `Capture_k` and preserves prior published closed hours' pinned representation | **Yes** (`recorder/RECORDER.md`, `KERNEL.md` A18, `kernel-v2.md` A13, `briefs/3-kernel-v2.md` step 6 test 14 & step 9, `briefs/4-study-2.md` step 7) |
+| D224 | Agreed refusals & Step 1 corruption state (Opus F2.1) | 3-way attempt classification: transient/host-local no-ballot (`E_FPENV`, `R_HOST_WINDOWS_MISMATCH`, crashes/timeouts) vs. deterministic refusal ballot (`E_HASH`, `E_HEADER`, `R_PURITY`, `R_MALFORMED_FRAME`, `R_HORIZON_REGRESSION`, `R_PROTECTED`, `R_WINDOWS_INVALID`) vs. normal output ballot. Two-host agreed refusal settles as `halt_storage_corrupt` (`E_HASH`) or `halt_refused(code)` and stops the monthly timer permanently; Step 1 `stat(f).size != L_prev` likewise records `halt_storage_corrupt` and stops the timer | **Yes** (`briefs/4-study-2.md` step 7) |
+| D225 | Pinned protected windows & host environment (Opus F3.1, F3.2, N3.1) | `Capture_k` pins `protected_windows_sha256`; Step 1 waits until every date the replay reads is released; `study2 forward` asserts `self.compiled_windows_sha256 == Capture_k.protected_windows_sha256` on startup (`R_HOST_WINDOWS_MISMATCH` operational exit if stale binary, no ballot/retirement/halt). `mm2`/`study2` keep A13 empty-env re-exec, ban `localtime()`/`/etc/localtime` (pure UTC integer calendar math), enforce CPU-count-independent execution, and test `TZ`/`LC_ALL`/`OCAMLRUNPARAM=R`/`taskset` byte-identity. Failed-pull list from pinned `settled/events` enters compared output | **Yes** (`kernel-v2.md` A13, `briefs/3-kernel-v2.md` step 9 tests 8 & 11, `briefs/4-study-2.md` steps 6 & 7) |
+| D226 | Settled-funding pull survival cost & pending human choice (Opus F2.2, N2.2) | Priced full-history precision-change exposure of `--from-ms = w_start` (Option 2, current spec default until human picks) and derived Option 1 (fetch-once per `(coin, hour)` + contiguous gap backfill, literal `e691341`, closing Round 7 F1.1 & F2.2, keeping 5% bound, ~30 s Month-24 pull, surviving precision changes at the cost of keeping first readings of restated rates — architect's recommendation). Daily `00:17 UTC (19:17 EST)` `settled` job and monthly timer share one single-instance `settled` lock | **Yes, once human chooses** (`recorder/VAULT.md`, `briefs/4-study-2.md` step 7) |
+| D227 | Drafted dated revision for CS2.2 (Opus F6.1) | Drafted CS2.2's own dated revision in `data/builder/architect-r9-report.md` §4a: a prefix-divergence early end at `T*` counts as the record stopping at `T*` for CS2.2, superseding *"goes on to that day whatever CS2.1 has named by then"* before day 212 (conservative; reviewed beside D215's CS2.1 revision by two fresh reviewers before advisor commits; `audit/criteria.md` untouched) | Advisor criteria commit only |
+| D228 | D217 SWAG + Chan text, independent B4 v2 reference, zero-tolerance Test 2, & Test 12 cleanups (Opus F5.1, F5.2, N5.1, N5.2, N7.1, N7.2) | Retracted false $O(1)$-ULP phase claim (SWAG + Chan fixes Stage 6 defects 1–2, not defect 3; real reason against exactness is `NumOps α` parametricity; zero Study 2 outcome depends on split phase); documented `mean([-0.0, -0.0]) = +0.0`; put complete bit-exact SWAG + Chan equations in `KERNEL.md` A17; mandated a **different model** than Sonnet writes B4 v2 reference windows from A17 alone without reading `Eval.lean` (in its own multi-host run after `d91e14b`); replaced Step 5a Test 2 tolerances with exact dyadic oracle + verified 64-bit hex words; unconfounded Test 3 baseline; added Test 12 peak-size bands and linked engine store-path check | **Yes** (`kernel-v2.md` A2 & B4, `KERNEL.md` A17, `briefs/3-kernel-v2.md` steps 4, 5 test 12, and 5a) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| D221–D228 (+ D205, D211–D220 for GPT) | Round 9 re-derivations (and round 7–8 changes GPT has not yet reviewed) | Settled by derivation; awaiting GPT adversarial review (and Opus confirmation of round 9 if needed) | **Yes**, if GPT breaks D221–D228 (Steps 5 test 12, 5a, 6, 7, 9, `RECORDER.md`, `VAULT.md`) |
+| H16 (D226) | Settled-funding pull policy: Option 1 (fetch-once + gap backfill, recommended) vs. Option 2 (`--from-ms = w_start`, current default) | **Reduced to a human choice** — both preserve Ville's 5% bound and close Round 7 F1.1 & F2.2; differs only on what record the claim is about vs. survival against venue precision changes | **Yes** (`mmvault funding` pull query logic in `VAULT.md` and `4-study-2.md` step 7 test 10) |
+| O22 | The recorder's reader (now with `.packed.zst`) inside 22,500 quotes/s | Open until Step 6's test 11 measurement | Step 6's reader, if missed |
+| O24 | The replica's own trace at a 1-second tick (~3–5 GB zstd at Month 24) | Open until Step 6's test 11 measurement | Trace storage / compression, if a wall |
+| O26 | `exp` and `log` wall time on `x4_local` and Study 2's trigger | Open until Step 5's `x4_local` and Step 3's trigger run | Fast `@[csimp]` twin (D219 sketch), only if a wall is hit |
+
+**Would any open point change what is built?** **Yes:** (1) **H16** (the human's choice between Option 1 fetch-once + gap backfill vs. Option 2 `--from-ms = w_start`) directly determines `mmvault funding`'s pull query logic before it is built; and (2) **GPT's adversarial review** of round 9 (plus round 7–8 changes GPT has not yet seen) could still find a break in D221–D228 that changes Steps 5a, 6, 7, 9, or the recorders. Step 5's Test 12 hardening (D220 + N7.1/N7.2) was accepted by Opus with no eighth loophole and needs only GPT's confirmation.
+
+### Committed criteria: reported, not edited
+
+- **CS2.1's *Fails while the claim holds*:** D215's drafted note (`data/builder/architect-r8-report.md` §1e; its premise now holds under D221).
+- **CS2.2's *A record that stops before the 212th day*:** D227's companion drafted revision (`data/builder/architect-r9-report.md` §4a).
+- Both are reported for the advisor's two-reviewer check and commit; `audit/criteria.md` is untouched.
+
+### Assumptions only the human can choose
+
+- **H16 (D226 — settled-funding pull policy):**
+  - **Option 1 (Fetch-once + gap backfill, architect's recommendation):** `mmvault funding` queries only `(coin, hour)` pairs not yet stored in `<root>/settled/funding/` (missing historical spans + new tail; daily and monthly). Matches `e691341` literally (*"for the judged days it does not yet hold"*), preserves Ville's 5% bound, closes Round 7 F1.1 & F2.2, runs in ~30 s at Month 24, and survives benign venue precision changes unscathed — at the cost of keeping first readings if the venue ever substantively corrects an already-fetched funding rate (zero rate-value restatements have ever been observed on Hyperliquid).
+  - **Option 2 (`--from-ms = w_start`, current default in specs):** every monthly firing re-pulls all funding history from `w_start` (~39 min at Month 24). Catches retroactive rate corrections conservatively — at the cost of ending the entire study at Day 1 (`T* = w_start`) if Hyperliquid ever changes historical precision (e.g., 8 → 10 digits) or any old row's decimal value.
+- *(Existing deferred choice unchanged:)* Disk volume for 2-year retention and off-`ws` `.packed.zst` storage (`architecture.md` 6.8).
+
+### Owed
+
+- **By the human:** pick Option 1 or Option 2 for **H16** (settled-funding pull policy) before `mmvault funding` is built.
+- **By GPT (the next adversarial reviewer):** attack round 9 (D221–D228) plus round 7–8 changes GPT has not yet reviewed (especially D205's reversal of D200), starting with the targets below.
+- **By the advisor (once converged):**
+  - host list of ≥ 3 distinct x86-64 machines;
+  - `mmrec cat`, `mmvault` (with destination directory `fsync`), and `mmvault funding` (under the human's H16 pick, with shared `settled` lock and destination directory `fsync`);
+  - CS2.1 (D215) + CS2.2 (D227) companion dated revisions reviewed together by two fresh reviewers and committed alone;
+  - Test 12's input bundle + Step 5 test 12 hardening (including N7.1 peak-size bands and N7.2 linked engine store-path check);
+  - B4's v2 reference (SWAG + Chan written by a **different model** than Sonnet from `KERNEL.md` A17 alone without reading `Eval.lean`, then run as its own multi-host job after `d91e14b`).
+- **By the test writers:** Step 5 test 12 (with N7.1/N7.2), Step 5a (zero-tolerance Test 2 with verified hex words, unconfounded Test 3), Steps 6 (test 14 with `R_UNCLOSED`, `_other`/`_order` tie order, non-universe malformed skip, whole-pack purity, silent `R_PROTECTED`), 7 (test 8), and 9 (tests 8 & 11 with `TZ`/`LC_ALL`/`OCAMLRUNPARAM=R`/`taskset` and `protected_windows_sha256`), and Brief 4 steps 6–7 (tests 5 and 10).
+
+### What GPT, the next reviewer, should attack first
+
+1. **D221 (dual-channel capture-coverage horizon):** try to construct (a) a capture where `T_k < T_{k−1}` despite append-only files (e.g., via a `listings` delisting or `recv` edge case changing `U(T_{k−1})`, or a packed-vs-raw quote validity mismatch); (b) a false overshoot (either via `settled/funding` + `l2Book-fast` boundary timing around `[T + 1 h, T + 25 h)`, or via `trades` lagging `l2Book-fast` by > 1 h, or via a delisted coin's `[max(w_start, t_prev_listed − 24 h), t_delist)` check passing on a truncated pull or freezing on an honest delisting); (c) a permanent freeze on an honest record (e.g., > half of active coins losing two-sided quotes simultaneously, or a 24-hour `settled/funding` outage across `T_max`); or (d) an early-exit bug in the newest-first `l2Book-fast` scan when host receive hours are skewed relative to venue timestamps.
+2. **D222 & D223 (stream-ended packing & raw ≡ packed by construction):** try to construct (a) a case where a cleanly stream-ended file is still modified, or where `mm2 pack` accepts a truncated stream; (b) a raw vs. packed divergence that survives shared `Coin_route.classify_line`, `_order` tie restoration, and whole-pack `mm2 unpack-verify` (e.g., a file open at `Capture_{k−1}` containing an event `< T_{k−1}` that later closes and packs at `Capture_k`, or `_other` holding a malformed JSON line that changes reader counts or error order, or a mixed-coin `trades` line containing two events for the same coin at the same timestamp); (c) a holdout leakage channel in `mm2 pack` or `Capture_k` at the `2027-01-31 00:00 UTC (19:00 EST)` boundary.
+3. **D224 & D225 (agreed refusals, pinned `protected_windows_sha256`, environment):** try to construct (a) a refusal path that still stalls silently or accidentally halts the whole study on a transient/deployment fault (check the boundary between `R_HOST_WINDOWS_MISMATCH` [no ballot] vs. `R_WINDOWS_INVALID` / `R_PROTECTED` [ballot]); (b) a residual host-environment leak that still causes `halt_non_deterministic` across three NixOS machines even with empty `envp`, no `localtime()`, and fixed core-count execution (e.g., `/etc/hosts`, locale tables, filesystem `readdir` order, or zstd dictionary/SIMD behavior).
+4. **D226 (H16 — Option 1 fetch-once + gap backfill vs. Option 2 `w_start`):** attack Option 1's claim that it does not reopen Round 7 Findings 1.1 or 2.2 and keeps Ville's 5% bound (e.g., check whether a daily `00:17 UTC (19:17 EST)` pull failing/succeeding on different days can interact with a venue restatement or short page to move a verdict, or whether `Gaps_c` pagination with `endTime = H_b + 3,599,999` can miss or duplicate a boundary row stamped late or on an exact hour edge).
+5. **D205's reversal of D200 (round 7–8, not yet reviewed by GPT):** verify whether decoupling Step 1 (`Capture_k`) from Step 2 (`RunInput_k`) with 2-of-3 sealed ballots and unconditional 3-way halt leaves any residual optional-stopping lever (e.g., hardware replacement rules, Step 1 capture failure/retry timing, or CS2.1/CS2.2 companion revisions D215 & D227).
+6. **D228 (SWAG + Chan & independent B4 v2 reference):** check `KERNEL.md` A17 for any remaining ambiguity where two independent models implementing A17 without reading each other's code could disagree by 1 bit (e.g., `N.ofNat` conversion, `front` empty vs. non-empty at `n = 1`, `N.keep` placement on `s`/`μ`/`m2`, or `NaN` handling in `N.finite δ`).
+
+### Convergence
+
+**Re-derived at every cause; not yet read by GPT (or confirmed by Opus).** All 14 of Opus's round 8 findings (F1.1–F1.4, F2.1, F2.2, F3.1, F3.2, F4.1, F4.2, F5.1, F5.2, F6.1, F6.2) and all cheap notes (N1.1, N2.1, N2.2, N3.1, N4.1, N4.2, N5.1, N5.2, N7.1, N7.2) are answered at their causes with zero patches and zero clocks in the horizon. Two gates remain before convergence: **GPT's adversarial review** of round 9 (plus round 7–8 changes GPT has not yet read), and the **human's choice on H16** (Option 1 fetch-once + gap backfill vs. Option 2 `--from-ms = w_start`).
+
+- **Round 9b (2026-11-20 07:09 UTC (02:09 EST), Gemini 4 Neon):** **H16 (D226) settled by the human** (`audit/decisions.md`, 2026-11-20 06:58 UTC (01:58 EST)): Option 1 (`mmvault funding` fetches each `(coin, hour)` once, then backfills missing gaps); `recorder/VAULT.md`, `audit/program/briefs/4-study-2.md` step 7, `audit/program/briefs/3-kernel-v2.md`, and `audit/program/architecture.md` rewritten to Option 1 alone with Option 2 and pending-choice text deleted; only GPT's adversarial review of round 9 remains before convergence.
+
+
+## The last pass, round 10: O26's measurement answered — fast `exp`, `log`, and `nearestBits` twins (Step 5x, law `X6`)
+
+Appended 2026-11-20 14:29 UTC (09:29 EST) by Gemini 4 Neon acting as the architect (`CLAUDE.md`, Orchestration; the human, 2026-11-19); **revised 2026-11-20 15:08 UTC (10:08 EST) in Round 11** after fresh Opus's review (`audit/reviews/2026-11-20-opus-round10.md`), deleting the replaced integer-ball design, wrong speed claims, vacuous self-comparison tests, and non-`CLAUDE.md` model governance (see Round 11 below for full derivations). Trigger: O26's measurement on `kernel2-step5` (`b94e128`), where `x4_local` finished ~73,000 of 3,265,488 arguments in 8 h 15 min single-threaded (~0.407 s/argument, ~15 CPU-days per single-host run) while B4 took 2.7–8 h per node on 4–5 workers (~75 CPU-hours total). `kernel2/KERNEL.md` needs no edit (zero semantic change). Report: `/home/kevin/repos/moneymachine/data/builder/architect-r10-report.md` (superseded by `architect-r11-report.md` on F1–F7 and governance).
+
+### Settled in round 10 (standing after Opus's review, with Round 11 replacements noted)
+
+| ID | Point | Settled by | Changes what is built |
+|---|---|---|---|
+| D229 | O26 wall confirmed on `kernel2-step5` `b94e128` (`x4_local` ~0.407 s/arg ≈ 15 CPU-days/run, ~45+ CPU-days across `x4-hosts.sh`'s 3 runs, months for `x4-counts.lean`, ~75 CPU-hours B4) | Direct code inspection (`Exact.lean:1492–1573`, `x4_local.ml`, `x4-hosts.sh`, `x4-counts.lean`, `c64-corpus.jsonl`) and compiled Lean measurements (Round 11: ~99% of the 0.407 s/arg wall is `Exact.exp` at large `|x|`; `log` and `nearestBits` are `< 1%`). Sharding test 12 as it is patches around a recomputation loop (`CLAUDE.md` §1); stop the slow run as sunk cost and build the proved-equal `@[csimp]` twin. *(Round 10's choice of the integer ball over the incremental exact series is **replaced by D232** in Round 11.)* | **Yes** (`kernel-v2.md` B1/B3/Part G, `briefs/3-kernel-v2.md` Step 5x) |
+| D230 | Step 5x (`◆`, law `X6 ★`): fast `exp`, `log`, and `nearestBits` twins between Step 5 and Step 5a, `X4`/`X5` zero-diff, compiled `x4-counts`, full Test 12 + B4 rerun | **Superseded in Round 11 by D232–D235:** Round 10's integer-ball / Ziv / sandwich / nesting / CAF / stage design, its `< 15 min` gate, its vacuous self-comparison tests, and its Argon/Hydrogen/self-reviewing-GPT governance are **deleted** and replaced by the 5-substep incremental exact twin (D232), F5/F7 bypass & compiled-IR guards for X3 and X6 (D233), F6 independent-only test contract (D234), and `CLAUDE.md`-strict governance (D235). | **Yes** (see D232–D235) |
+| D231 | Step 5 merge gate into `kernel2-build` (**accepted by fresh Opus**) | **Do not merge before Step 5x.** `X4`/`X5` do not prove X4's paper half and B4 covers only small `exp` (`[-3, 3]`) and 2 `log` streams; Test 12 is the sole full-domain check of X4's paper half (`CLAUDE.md`, Correctness). Build Step 5x directly on `kernel2-step5`, pass full Test 12 + B4 rerun (reusing stored `data/stage6/c64-reference-mpfr/`), then merge green into `kernel2-build` before Step 5a. | **Yes** (build & merge order in `briefs/3-kernel-v2.md` Steps 5, 5x, 5a) |
+
+---
+
+## The last pass, round 11: answering fresh Opus's review of round 10 (incremental exact twin, bypass & IR guards for X3/X6, governance)
+
+Appended 2026-11-20 15:08 UTC (10:08 EST) by Gemini 4 Neon acting as the architect (`CLAUDE.md`, Orchestration; the human, 2026-11-19), answering fresh Claude Opus 5.5's adversarial review of round 10 (`audit/reviews/2026-11-20-opus-round10.md`). Re-ran and extended the reviewer's compiled Lean 4.34.0 timing and compiler-IR experiments under `~/.cache/mm-r10-review/`. Revisions on `rearchitecture`: Item 1 (`8dd30df`, `kernel-v2.md` X6/B1/Part G), Item 2 (`e0bca23`, `kernel-v2.md` B2/X3 and `briefs/3-kernel-v2.md` Steps 0 & 3), and Item 3 (`briefs/3-kernel-v2.md` Step 5 Test 12 & Step 5x rewrite, plus this ledger commit). `kernel2/KERNEL.md` unchanged (zero semantic change). No market data from 2026-11-01 on, nothing under `data/holdout/`, and no token or key file read; `PROGRESS.md` and `audit/criteria.md` untouched. Report: `/home/kevin/repos/moneymachine/data/builder/architect-r11-report.md`.
+
+### In plain words
+
+- **Conceded F1 & F2 — replace the integer ball with the incremental exact series twin, deleting the ball completely (D232).** Compiled Lean 4.34.0 timings over the true Test 12, B4, and 1-second trigger workloads show the wall's cause is X4's recomputation (`a^k`, `k!`, and GMP `gcd`s from scratch at every term and every count), not exact arithmetic:
+  - Incremental exact `exp` + gcd-free incremental exact `log` + `Nat.log2`/`roundDiv` `nearestBitsFast` measure **12.9 µs** (`exp` at `|x| ≤ 0.011`) and **14.6 µs** (`log` at `1 ± 1.4e-3`) at 1-second trigger scale (**3× faster** than Round 10's fixed-`extra=60` ball at `38.0 µs`), **35–39 µs** at B4's `|x| < 3` (faster than the ball's `38–43 µs`), **0.10–0.11 ms** on `log_draws` (`0.35 ms` at worst-case `n = 42`), **0.007 ms** for `exp` on `log_draws`, and **2.64 ms** for `exp` on `Uniform(-700, 700)`.
+  - That drops single-threaded `x4_local.exe` from **15 days** to **~50–75 min** on desktop (**~1.5–2 h** on slower homelab nodes; Test 12 gate (viii) corrected from `< 15 min` to **`< 3 hours` per host**), drops B4 from **~75 CPU-hours** to **~5–6 CPU-hours** (~25–35 min across 3 nodes), and drops compiled `x4-counts` from **months** to **~1 hour** while preserving X4's **exact** least deciding `(n*, first)` across all 3,265,488+ inputs (proved directly in `X6`).
+  - Its proof needs only `nearestBitsRatio_eq`, two elementary recurrence invariants, `logSplit_pos` (5 lines), and one loop-fusion lemma — **deleting** `nearestBits_sandwich`, `nearestBitsDyadic`/`Int`, `exp_interval_nested`, `logSplit_bounds`, `log_interval_nested`, `firstDeciding_of_enclosure`, `expBallNat`/`expBallTry`, `atanhBallNat`/`logBallTry`, `ln2Ball1`/`ln2Ball2`, `logSplitBits`/`expStartBits`, and all Stage 0/1/2/3 machinery.
+  - Study 2's ladder uses neither `exp` nor `log`; its trigger (Brief 4, Step 3) is not yet fitted (and even 1 call/coin-tick takes ~1.2 h over the 212-day archive and ~4.0 h over the 2-year forward run). **O26 stays open solely for a fitted Study 2 trigger that later misses B5 on `exp`/`log`.**
+- **Conceded F5 & F7 — mechanical bypass ban and compiled-IR `@[csimp]` verification for BOTH X3 and X6 (D233).** Verified live on Lean 4.34.0: `checks.engine-proofs` (`check-proofs.sh`) now checks (1) `Engine`'s transitive import boundary (`Engine.*`, `Init.*`, `Std.*` only), (2) all constants (`.thmInfo`, `.defnInfo`, `.opaqueInfo`, public or `private`) and module attribute tables for zero `@[implemented_by]` (`getImplementedBy?`), zero `@[extern]` (`isExtern`; `@[export]` passes), zero `unsafe` (`ConstantInfo.isUnsafe`), and allowed-three axioms only, and (3) compiled IR (`Lean.IR.declMapExt`) for both X3 (`readBits`) and X6 (`nearestBits`, `exp`, `log`): registered in `CSimp.ext`, production caller roots present (`Engine.Machine.readInt`, `Engine.Exact.call`, `Engine.Lang.bitsOps`), zero `.fap`/`.pap` references matching `S` or `Name.isPrefixOf S` (catching `._boxed`/`.spec_*`) in any `Engine` module outside `Engine.Exact` or reachable from the twins inside `Engine.Exact`, and positive twin reachability (handling one-line wrapper inlining). `checks.engine-proofs-fixtures` (`engine-proofs.sh`) tests every rejection (`ImplementedBy` incl. `rfl`-proved fake twin, `Extern` `opaque`+`def`, `Unsafe`, `SorryDef`, stripped `@[csimp]` for X3 and each X6 twin, and an IR-only leak test with `CSimp.ext` still populated). Flaky wall-time bounds in `checks.mm2-tests` are deleted (`x6_speed_test.ml` → `x6_mpfr_test.ml`).
+- **Conceded F6 — delete every vacuous self-comparison test (D234).** Once `@[csimp]` is active, comparing `expFast`/`logFast`/`nearestBitsFast`/`readBitsFast` to their originals in compiled or `#eval` code compares the twin with itself. All such planned checks are deleted from `x6-fast.lean` and `x4-counts.lean`, replaced exclusively by independent checks: `decide +kernel` (kernel never applies `@[csimp]`), MPFR (`x6_mpfr_test.ml`, `x4_local.exe`), `Engine.Laws` series formulas (`expLoAt`/`logLoAt`), and literal IEEE 754 bit constants.
+- **Conceded F3, F4, contract gaps, and model governance (D235).** F3 (impossible Stage 2 width `< 2⁻⁵¹²` vs. X4 cap tail `2⁻⁴⁸¹`), F4 (`expBallNat` off-by-one `k` vs. `k + 1`, missing `nearestBitsDyadicInt`), and all `stage`/`terms_m`/`expBallTry` ambiguities vanish cleanly with the ball's deletion; `X6`'s new `expFastCount`/`logFastCount` contract is total and exact on every `UInt64`. Governance is rewritten strictly from `CLAUDE.md` roles (deleting Argon-as-builder, Hydrogen, "Opus strictly forbidden", and GPT reviewing its own tests): Sonnet builds, Opus gives commit check & last review (neither building nor writing tests), Neon is Rounds 10–11 architect (neither building nor reviewing Rounds 10–11), and GPT is either test writer OR outside build reviewer (mutually exclusive — if the advisor substitutes an `agy` Gemini model under `ops/agy-write.sh`, the advisor logs it in `audit/decisions.md` and that model never reviews its own work).
+
+### Who has seen what
+
+- **Fresh Claude Opus 5.5** reviewed Round 10 (`audit/reviews/2026-11-20-opus-round10.md`) and raised F1–F7 + governance; all seven findings and every governance point are conceded and re-derived here in Round 11.
+- **GPT** has not yet reviewed Round 11 (`D229`, `D231`, `D232–D235`) — **GPT is the next adversarial reviewer** (`CLAUDE.md`: a review repeats on another model when findings changed the design).
+- **GPT** also has not yet reviewed Round 9 (`D221–D228`) or D205's reversal of D200.
+
+### Agreed (standing with fresh Claude Opus)
+
+- O26's wall on `kernel2-step5` is real (~99% `Exact.exp` at large `|x|`; `log` and `nearestBits` `< 1%`); `x4-counts.lean` over `Engine.Laws` is infeasible as written; sharding Test 12 is rejected (`CLAUDE.md` §1).
+- A `@[csimp]` twin in `Engine.Exact`, proved equal on every input with `X4` and `X5` byte-identical, is the right pattern.
+- **D231:** Hold `kernel2-step5` unmerged until Step 5x passes `X6`, full Test 12, and full B4 rerun (reusing stored `data/stage6/c64-reference-mpfr/`).
+- **Standing from rounds 6–9b:** H16 settled by the human as Option 1 (`audit/decisions.md` 2026-11-20 06:58 UTC (01:58 EST)); Opus's round 8 acceptances (`D218`–`D220`, accepted parts of `D211`, `D213`–`D217`).
+
+### Settled by derivation in round 11 (awaiting GPT review)
+
+| ID | Point | Settled by | Changes what is built |
+|---|---|---|---|
+| D232 | Which twin for X6 (F1, F2): incremental exact series vs. integer ball, plus corrected Test 12 speed gate and narrowed O26 | Compiled Lean 4.34.0 benchmarks (`r11_bench.lean`, `r11_bench2.lean`) across Test 12, B4, and 1-s trigger scales + `CLAUDE.md` §1–§2: incremental exact `expFastCount`/`expFast` + gcd-free `logFastCount`/`logFast` + `nearestBitsFast` (reusing `roundDiv`) clears Test 12 (~50–75 min desktop / ~1.5–2 h homelab; gate (viii) **`< 3 hours`/host**), B4 (~5–6 CPU-h, 35–39 µs/arg), and compiled `x4-counts` (~1 h, preserving X4's exact least deciding `(n*, first)`), and is **3× faster** than Round 10's ball at 1-s trigger scale (12.9–14.6 µs vs. 38 µs) with a strict-subset proof. Integer ball deleted completely; O26 narrowed and left open only for a fitted Study 2 trigger that misses B5. | **Yes** (`kernel-v2.md` B1/B3/Part G, `briefs/3-kernel-v2.md` Step 5 Test 12 & Step 5x) |
+| D233 | Mechanical guards against bypasses and silent non-firing `@[csimp]` for BOTH X3 and X6 (F5, F7) | Verified live on Lean 4.34.0: `checks.engine-proofs` (`check-proofs.sh`) adds import-graph boundary check, all-constant (`thmInfo`/`defnInfo`/`opaqueInfo`) axiom check, ban on `@[implemented_by]`/`@[extern]`/`unsafe` (`@[export]` allowed), and deterministic compiled-IR `@[csimp]` verification (`CSimp.ext` + caller roots `Engine.Machine.readInt`/`Engine.Exact.call`/`Engine.Lang.bitsOps` + zero slow `S`/`Name.isPrefixOf S` refs outside `Engine.Exact` or reachable from twins inside `Engine.Exact` + positive twin reachability); `checks.engine-proofs-fixtures` (`engine-proofs.sh`) adds negative fixtures (`ImplementedBy`, `Extern`, `Unsafe`, `SorryDef`, stripped `@[csimp]` for X3 and each X6 twin, and IR-only leak with `CSimp.ext` populated). Wall-time assertions deleted from `checks.mm2-tests` (`x6_speed_test.ml` → `x6_mpfr_test.ml`). | **Yes** (`kernel-v2.md` B2/B3, `briefs/3-kernel-v2.md` Steps 0, 3, 5x; `check-proofs.sh`, `engine-proofs.sh`, `test-fixtures/`) |
+| D234 | Delete vacuous compiled/`#eval` self-comparisons (F6) | Once `@[csimp]` is active, comparing a twin to its original compares it with itself. Deleted all such checks from `x6-fast.lean` and `x4-counts.lean`; contract mandates exclusively independent references: `decide +kernel` (kernel never runs `@[csimp]`), MPFR (`x6_mpfr_test.ml`, `x4_local.exe`), `Engine.Laws` series formulas (`expLoAt`/`logLoAt`), and literal IEEE 754 bit constants. | **Yes** (`briefs/3-kernel-v2.md` Step 5x tests & contract) |
+| D235 | F3, F4, contract completeness, and `CLAUDE.md`-strict governance | F3/F4 and all `stage`/`terms_m`/`expBallTry` gaps erased with the ball; `expFastCount`/`logFastCount` fully specified in `X6` and the test writer's contract. Governance names only `CLAUDE.md` roles (Sonnet builds, Opus gives commit check & last review, Neon is architect and does not build/review, GPT is test writer OR build reviewer — mutually exclusive; any `agy` substitution under `ops/agy-write.sh` is advisor-logged; Argon retired as reviewer; Hydrogen deleted; 4-point Lean build-review checklist stated). | **Text & routing** (`briefs/3-kernel-v2.md` Step 5x) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| D231, D232–D235 | Round 11 Step 5x design (incremental exact `X6`, F5/F7 bypass & IR guards for X3/X6, F6 independent-only tests, `< 3 h` Test 12 gate, governance) | Settled by derivation answering fresh Opus's review; awaiting **GPT** adversarial review | **Yes**, if GPT breaks a recurrence/edge case, finds an unguarded bypass or IR false positive/negative in `check-proofs.sh`, or finds a gap in the test contract |
+| D221–D228 (+ D205, D211–D220 for GPT) | Round 9 re-derivations (and round 7–8 changes GPT has not yet reviewed; H16 already closed by human in 9b) | Settled by derivation; awaiting **GPT** adversarial review | **Yes**, if GPT breaks D221–D228 (Steps 5a, 6, 7, 9, `RECORDER.md`, `VAULT.md`) |
+| O22 | Recorder reader (with `.packed.zst`) inside 22,500 quotes/s | Open until Step 6 test 11 measurement | Step 6's reader, if missed |
+| O24 | Replica trace size at 1-second tick (~3–5 GB zstd at Month 24) | Open until Step 6 test 11 measurement | Trace storage/compression, if a wall |
+| O26 | `exp` and `log` wall time on Study 2's fitted trigger (Brief 4, Step 3) | **Narrowed in Round 11:** Step 5x's incremental exact twin clears Test 12 (~50–75 min desktop / `< 3 h` gate) and B4 (~5–6 CPU-h). O26 stays open solely for Brief 4 Step 3's trigger fit (not yet fitted): if a fitted 1-second trigger calls `exp`/`log` at a rate that misses B5's 24-hour wall, a faster measured twin replaces `expFast`/`logFast` behind the same `X6` | Only if Step 5x misses its `< 3 h` Test 12 gate, OR if a fitted Study 2 trigger misses B5 on `exp`/`log` |
+
+**Would any open point change what is built?** **Yes:** (1) **GPT's adversarial review of Round 11 (`D232–D235`)** gates Step 5x before it is built; and (2) **GPT's pending review of Round 9 (`D221–D228` + `D205`)** still gates Steps 5a, 6, 7, 9, and the recorders. Among measurement opens (`O22`, `O24`, narrowed `O26`), none changes what is built today unless a future measured run misses its wall.
+
+### Committed criteria: reported, not edited
+
+None touched in Round 11. (D215's CS2.1 note and D227's CS2.2 companion revision remain queued for the advisor's two-reviewer check and commit.)
+
+### Assumptions only the human can choose
+
+None new in Round 11. (H16 was settled by the human as Option 1 in Round 9b; disk volume for 2-year retention / off-`ws` `.packed.zst` remains the existing deferred choice of `architecture.md` 6.8.)
+
+### Owed
+
+- **By GPT (the next adversarial reviewer):** attack Round 11 (`D232–D235`) — targets below; also complete its pending review of Round 9 (`D221–D228` + `D205`).
+- **By the advisor (once Round 11 converges with GPT):**
+  - pick Governance Option A (GPT writes Step 5x's tests; Opus + mechanical checks review the build) or Option B (advisor-logged non-Neon `agy` Gemini model under `ops/agy-write.sh` writes Step 5x's tests; Opus + GPT review the build) so no model reviews its own work;
+  - route Step 5x's implementation & proofs to **Claude Sonnet** (or advisor-logged non-reviewer/non-test-writer fallback);
+  - verify Opus's four-point Lean build checklist (`X6` statement, `X4`/`X5` zero-diff, `checks.engine-proofs` + `checks.engine-proofs-fixtures` passing for X3 & X6, full Test 12 + full B4 rerun), then merge `kernel2-step5` into `kernel2-build` before starting Step 5a.
+
+### What GPT, the next reviewer, should attack first (Round 11)
+
+1. **Can a wrong twin still pass `checks.engine-proofs` + `checks.engine-proofs-fixtures` (D233 / F5 & F7)?**
+   - Try to construct a Lean 4.34.0 module in `Engine` that executes unproved/foreign code while passing: `import` boundary check, `implementedByAttr`/`externAttr` module-entry checks, `getImplementedBy?`, `isExtern`, `ConstantInfo.isUnsafe`, and `collectAxioms` on every `.thmInfo`/`.defnInfo`/`.opaqueInfo` (for example: `partial def` inside a proof-irrelevant helper, `@[macro_inline]`/`@[inline]`/`@[specialize]` quirks, `noncomputable`, `opaque` with a default value, `Lean.Compiler.CSimp` pointing to an unexpected target, or an attribute applied inside a `section`/`namespace` or metaprogramming macro).
+   - Try to break the compiled-IR `@[csimp]` check in either direction: (a) a false negative where `@[csimp]` fails to fire (e.g., via higher-order closure, typeclass dictionary `Numbers UInt64`, partial application, or `Wire.lean`/`MachineCore.lean` specialization) yet passes the IR scan; or (b) a false positive where valid `Engine` code (e.g., `Engine.Laws.firstDeciding`, `Engine.Exact.readBitsFast`, or inlined `nearestBitsFast`/`expFast`) fails the IR scan.
+   - Check whether `checks.engine-proofs-fixtures`'s IR-only negative scratch test actually exercises the IR scan independently of the `CSimp.ext` registry check.
+2. **Exactness & edge cases of the incremental exact recurrences and `X6` (D232):**
+   - Check `nearestBitsRatio` / `nearestBitsIntRatio` / `nearestBitsInvIntRatio` at every boundary: `A = 0`, `B = 0` (`1 / 0 = 0` matching Lean's `Rat` division when `s1 = t1` in `expFastCount` for `x < 0`), `e = -1075` exact tie (`-2⁻¹⁰⁷⁵ → -0`, `-(2⁻¹⁰⁷⁵ + ε) → -2⁻¹⁰⁷⁴`), `e = -1076` signed zero preservation, `e = -1022` subnormal→normal carry, `e = 52 → 53` shift-direction switch, `e = 1023` rounding up to `m = 2⁵³` (`infBits`), and `e ≥ 1024`.
+   - Check `logFastCount`'s unified gcd-free recurrence for every `y > 0`: verify `logSplit_pos` holds for subnormals (`2⁻¹⁰⁷⁴`) and `DBL_MAX`, verify `z = (m - 1)/(m + 1)` always satisfies `v² - u² > 0` (including `y = 1`, where `e = 0, u = 0, v = 1, bGap = 1, D > 0`), and verify `cNum ± rNum` matches `logLoAt y n` and `logHiAt y n` exactly for both `e < 0`, `e = 0`, `e > 0`, and `z < 0`, `z = 0`, `z > 0`.
+   - Check `X6`'s exact `.2` count clauses against `Engine.Laws.expLoAt`/`expHiAt`/`logLoAt`/`logHiAt`: confirm `Engine.Laws`' definitions are definitionally equal to `Engine.Exact`'s, confirm `expFastCount`/`logFastCount` return `none` on cutoffs/specials/non-finite and `some (n*, first)` on the interior (including `x = 0 → some (0, 0)` and `y = 1 → some (0, 0)`), and check whether any input in `hardest.txt` or N7.1 peak-size bands could blow up `expFastCount` or `logFastCount` past the `< 3 hours` Test 12 gate on slower homelab CPUs (`prodesk5`/`prodesk7`).
+3. **Vacuous-test audit (D234 / F6) and `x4-counts` compilation:**
+   - Check whether ANY remaining planned test in `x6-fast.lean`, `x6_mpfr_test.ml`, or `x4-counts.lean` still compares a `@[csimp]`-replaced function with itself, or whether `Engine.Laws.firstDeciding` calling `Engine.Exact.nearestBits` creates any subtle blind spot in `x4-counts`' bounded cross-check that `x4_local` + `x6-fast.lean` (`decide +kernel`) + `x6_mpfr_test.ml` does not close.
+   - Check whether compiling `x4-counts.lean` via `lake env lean -c` + `leanc` against `$MM2_ENGINE_LIB` in `x4-hosts.sh` has any Nix/Lake toolchain or initialization hazard (e.g., module initializers, `LEAN_PATH`, GMP linkage, or differing optimization flags vs. `packages.mm2`).
+4. **The O26 scoping call (D232) and governance (D235):**
+   - Challenge whether leaving O26 open for Study 2's trigger fit could cause avoidable rework if a Study 2 trigger turns out to need multiple `exp`/`log` calls per 1-second tick, vs. the cost of building and proving an unmeasured ball today.
+   - Check D235's governance options A and B against `CLAUDE.md` (Reviewers & Orchestration) for any residual self-review loophole.
+
+### Convergence
+
+**Re-derived at every cause; fresh Opus's Round 10 findings all conceded; awaiting GPT.** Round 11 (`D232–D235`, with Opus-accepted `D231`) now goes to **GPT** for adversarial review before Step 5x is built; Round 9 (`D221–D228` + `D205`) also awaits GPT before Steps 5a, 6, 7, 9, and the recorders proceed.
+
+## The last pass, round 12, kernel: GPT's reads of rounds 10 and 11 and of round 12's first answer
+
+Appended 2026-11-21 21:06 UTC (16:06 EST) by Claude Opus 5.5 at maximum effort, the architect for round 12's kernel half (item 1 by a first session, item 1b by a second), answering `audit/reviews/2026-11-21-gpt-round10-11.md` (findings 1 to 3 and governance) and `audit/reviews/2026-11-21-gpt-round12-kernel.md` (its three open points). Revisions on `rearchitecture`: `kernel-v2.md` B2, B3 and part G and brief 3's step 5x (`9590d3f`, `f19ffb8`, then `9e6795b` to `bddb435` and this commit). Experiments on the pinned Lean 4.34.0 under `~/.cache/mm-r12/`. Study 2's half of round 12 is the other architect's, on `rearchitecture-s2`. No market data from 2026-11-01 on, nothing under `data/holdout/`, no token or key file read; `PROGRESS.md` and `audit/criteria.md` untouched. Report: `/home/kevin/repos/moneymachine/data/builder/architect-r12-report.md`.
+
+### In plain words
+
+- **The guard stopped patching.** Rounds 10, 11 and 12 each closed one way the compiled engine could differ from the proved one, and GPT found the next (a local macro that runs code while the library builds). The guard now stands where every such way must pass: before the build, it reads the library's source against a list of the forms the engine already uses, each reviewed to give the compiler no unproved direction and to run nothing with an effect. Anything new fails until the architect lists it. The one way a listed form can run the project's own code, native reduction, runs code that on the pinned toolchain cannot touch a file, and any proof using it is rejected. Round 12's first guard, a list of four mechanisms inspected after the build, is deleted.
+- **A law's meaning is frozen by what it is, not by where it is written.** Every constant a law reaches is either engine code the law constrains (its body may change; the law must be proved again) or the vocabulary the law is stated in (frozen, wherever it lives). Applying that to every law found that R1, S1, L1a and C2 read the clock, horizon, delays and rules from the machine's own start state, so a new law, L0, ties that state to the program and header as read. It also found three functions R1 is stated in that the first draft had left free.
+- **What only tests hold is now said plainly:** that `Float`'s arithmetic is IEEE's, that the readings of the inputs are their specs, that the machine's log and state are what they record (until P1 ties the log's fills to the report), and that the evaluator's values are `SEMANTICS.md`'s.
+
+### Who has seen what
+
+- **GPT** read rounds 10 and 11 (accepting the incremental twin), and round 12's first answer (accepting artifact provenance, the export-rooted walk, the two-reviewer routing and the timing as a measurement, and disputing three points). It has not seen item 1b.
+- **Neon** has not reviewed round 12.
+
+### Agreed (GPT, `2026-11-21-gpt-round12-kernel.md`)
+
+- The incremental exact twins, their recurrences and rounding, `nearestBitsRatio`'s contract and X6's count clauses; no ball twin.
+- `@[init]` is a real bypass of round 11's guard. An allowlist beats a list of known attributes.
+- The production walk starts at the exports and covers every module (speed only).
+- Every ◆ build gets two fresh reviewers (brief 3, How every step runs, item 4). Test 12's wall time is a recorded measurement, not a gate.
+- `nearestBits`'s body stays free under X5.
+
+### Settled by derivation in round 12 (awaiting GPT)
+
+| Point | Settled by | Changes what is built |
+|---|---|---|
+| GPT's point 1: code run while the build elaborates | The boundary moved to what the build may execute and what the shipped engine is built from (kernel B2, first clause). Before the build, the toolchain's own parser checks every syntax kind and keyed name of the library against lists from `b94e128`, reviewed form by form; the check runs in the flake's shared engine build. It fails closed for any spelling, because a departure needs a form, the check's parse is the build's (the library declares no syntax and stays inside `Engine`), and only reviewed forms pass. Native reduction is the one remaining route, and runs pure code (4.34.0: an `IO` action needs a `Void IO.RealWorld`, unobtainable by computable code; `~/.cache/mm-r12/purity/`); its proofs rest on `Lean.trustCompiler`, which the axiom clause rejects. Round 12's first guard (provenance, extension list, `unsafe` ban, `#eval`/`skipKernelTC` searches, reserve replay) is deleted. | **Yes:** `check-source.lean`, `syntax.txt`, the shared build step, and the source fixtures (`LocalMacroEval`, `Partial`, `OpenOutside`, `DisguisedCore`, `NativeReduce`, …) |
+| GPT's point 2: specification by meaning, not by file | Subjects (engine code a law constrains, or functions a law determines) are printed by type; specification (inputs' readings, laws' vocabulary, observers, `bitsOps`, record types, export bindings) is printed in full wherever defined. There is one subject list in `frozen.txt`, and unlisted means specification. The roots are the laws and the exports. Applied to every law, this added L0 ★ (`start`'s `cfg`, `prog` and `rules` are `Machine.prepare`'s reading of the inputs; proved on `b94e128`'s build under the three axioms, `~/.cache/mm-r12/l0/`) and made `Orders.cancelSlot`, `install` and `admission` specification. Reads of the machine's own record (its log, the coins in view, its rules after a listing) are listed as held by tests until P1 ties the log's fills to the report. | **Yes:** `frozen.txt`'s rule and list, L0 and its proof in sub-step 1, fixtures `MovedClock`, `AdmissionEquity`, `NewSubject` |
+| GPT's point 3: `bitsOps` beyond X4's four bindings | `bitsOps` is specification, frozen in full, and the exported machine runs on it (frozen export body and instance; X1's rows clause). That `Float`'s operations are binary64's rests on the trust boundary, B4 and review, as kernel B2 says. Item 1's "holds by definition under the laws" is retracted. | **Yes:** fixture `BitsOpsAdd`; text in kernel B2 |
+| Step 5x's order | L0's statement goes with sub-step 1's tests, and X6's with sub-step 4's (the twins do not exist before), so each sub-step ends with the library passing. | **Yes:** commit order within step 5x |
+
+### Disputed, or open
+
+| Point | State | Would change what is built |
+|---|---|---|
+| Item 1b as a whole | Settled by derivation; awaiting GPT | **Yes**, if GPT breaks parse equivalence, finds a listed form that directs compilation or runs project code with an effect, finds a computable world on 4.34.0, or finds a misclassified constant |
+| The machine's own records (log, coins in view, rules after a listing, the books admissions read) | Stated as held by tests, not laws. P1 (step 9) closes the fills; no law yet closes the rest | Not before step 9; a law that ties one would be added at its step |
+| O26 | Open only for study 2's fitted trigger (unchanged) | Only if that trigger misses B5 |
+
+**Would any open point change what is built?** Yes, only through GPT's review of item 1b: step 5x is not built before it. No dispute with GPT is open on the arithmetic, the walk or the routing.
+
+### Committed criteria: reported, not edited
+
+None touched by the kernel half.
+
+### Assumptions only the human can choose
+
+None.
+
+### Owed
+
+- **By GPT:** the attack below, on item 1b.
+- **By the advisor:** once it converges, route step 5x as brief 3 says, with the review of `syntax.txt`'s kinds and of `frozen.txt`'s subject list made part of sub-step 1's reading.
+
+### What GPT, the next reviewer, should attack
+
+1. **Parse equivalence and the listed forms.** Find a library file that the check parses one way and the build another (scoped syntax, a header, an option, a `choice` node), or a form on `b94e128`'s list whose elaboration by 4.34.0 gives the compiler a direction other than `@[csimp]` and an `mm2_` export, or runs project code by a route other than `Lean.reduceBool` and `Lean.reduceNat`.
+2. **Purity.** Find a safe, computable way on 4.34.0 to obtain an `IO.RealWorld` or a `Void IO.RealWorld`, or a pure-typed `Init` function with a file effect, so that code run by native reduction rewrites an artifact.
+3. **The classification.** Find a constant the subject categories free that a law only uses to state what another subject must do (as `admission` was in the draft), a free observer, or a further read of the machine's own record, not listed in kernel B2, that could change CS2.1 to CS2.3 before P1.
+4. **L0.** Find anything else a law reads from the start state.
+
+### Convergence
+
+**Not yet converged.** Item 1b answers GPT's three points at their cause, and none of the answers is a patch: the guard's boundary no longer depends on the next spelling, and the frozen surface no longer depends on a file. It goes to GPT.
+
+## The last pass, round 13, kernel: GPT-6.2's read of item 1b, Neon's read of round 12, and study 2's routed changes
+
+Appended 2026-11-22 02:10 UTC (2026-11-21 21:10 EST) by Claude Opus 5.5 at maximum effort, the architect for round 13's kernel half, answering `audit/reviews/2026-11-21-gpt62-round12-kernel-1b.md` (parts A and B) and `audit/reviews/2026-11-21-neon-round12-kernel.md` (Neon's web UI truncated its bundle: it saw neither GPT's round 12 review, the round 12 report nor the step 5 Lean), and folding in the kernel changes study 2's round 13 routes (`architect-r13-s2-report.md`, "Kernel changes", `rearchitecture-s2` `d79a8ca`), which replace round 12's list. Revisions on `rearchitecture`: `b4d6a8a` to this commit. Experiments on the pinned Lean 4.34.0 under `~/.cache/mm-r13/`. No market data from 2026-11-01 on, nothing under `data/holdout/`, no token or key file read; `PROGRESS.md` and `audit/criteria.md` untouched. Report: `/home/kevin/repos/moneymachine/data/builder/architect-r13-kernel-report.md`.
+
+### In plain words
+
+- **Round 12's guard could be walked around with the forms step 5 already uses.** Lean's elaborator runs the library's own code when a binder's type is `autoParam`, and then compiles whatever syntax that code returns, which is in no file. Built on the pinned toolchain with nothing but `b94e128`'s 25 kinds: the kernel proves `g = 4` and the compiled `g` returns 999; the same route can plant an initializer that runs IO when the next module is built. Neither reviewer named it; GPT-6.2's `include_str` coercion and Neon's world taken from `sorryAx` were two more of its kind.
+- **So the question changed from "which forms run code" to "when does this toolchain run code at all".** Read from its source: at three entry points only, each reached by a form, by `autoParam`, or by naming `Lean.reduceBool`/`reduceNat`. The check now refuses forms off its lists and any name under `Lean` or named `autoParam`, so the build runs none of the library's code, native reduction included. Lean's module system would have refused it by the toolchain's own rule, but modules hide `Init`'s bodies from the kernel, which the laws' witnesses need (round 13's conversion of step 5 failed there).
+- **The build reads exactly what the check read:** the check writes the tree Lake builds, and the policy as a literal; `include_str` is gone.
+- **The frozen surface now holds the start, the evaluator and the export bindings.** A function is left free only where every build re-establishes it: a law determines it, or the suite reruns on it. L0 now says that every run that completes is observed and ticks on its clock, which R1 needed.
+- **Study 2's changes are in:** the listings copy, V13, the recorders' table and the ledger's reserve for funding.
+
+### Who has seen what
+
+- **GPT-6.2** read item 1b (parts A and B), accepting the pre-build allowlist, the semantic split, frozen `bitsOps` and the local macro's rejection. It has not seen round 13.
+- **Neon** read round 12's kernel bundle without GPT's round 12 review, the report or the step 5 Lean. It has not seen round 13.
+
+### Agreed
+
+- A boundary before the build, fail-closed on forms, replacing round 12's first guard (GPT-6.2, Neon).
+- The frozen surface by meaning, not by file; `bitsOps` and `cancelSlot`, `install`, `admission` as specification (GPT-6.2, Neon).
+- The export-rooted IR walk, the incremental twins, X6's counts, test 12's time as a measurement, step 5x's commit order (Neon; GPT earlier).
+- Export bindings printed as symbol–constant pairs (GPT-6.2 and Neon proposed it; done).
+- `include_str` leaves the library (GPT-6.2 and Neon).
+
+### Settled by derivation in round 13 (awaiting GPT and Neon)
+
+| Point | Settled by | Changes what is built |
+|---|---|---|
+| Round 13's own finding: an `autoParam` binder makes the elaborator run library code and compile syntax no file holds (`F3.lean`; `let rec` attributes carry `implemented_by` and `init`, `B.lean`, `M2.lean`) | The routes read from the pinned toolchain: compiled code runs while building only at `evalConst`, the kernel's native reduction and imported initializers, reached by forms, `autoParam` or `Lean.reduceBool`/`reduceNat`. Forms by the lists; names by one rule (nothing under `Lean`, no `autoParam`). The build runs none of the library's code (kernel B2) | **Yes:** the name rule in `check-source.lean`; fixtures `AutoParam`, `AutoParamInit` |
+| GPT-6.2 B1: `include_str` through a coercion; the "sole route" claim | Off the list; the check writes `Engine/PolicyText.lean` from the file and requires the literal to be its bytes; the purity argument deleted (nothing rests on it) | **Yes:** generated policy module, `lakefile.lean` without `input_file`; `IncludeStr`, `PolicyModule` |
+| GPT-6.2 B2: checker and Lake reading the same files | The check reads the import closure by Lake's module paths and writes the tree Lake builds, nowhere else | **Yes:** `SymlinkedDir` |
+| GPT-6.2 B3: atom variants | An atom is checked with its kind | **Yes:** `NoncomputableSection` |
+| GPT-6.2 B4 and Neon 1: purity wording; a world from `sorryAx` | Conceded: the premise was false (`sorryAx IO.RealWorld true` is safe and computable). Closed at the cause: native reduction needs `Lean.reduceBool`, which the name rule refuses; `sorryAx` needs no ban, since nothing runs it during the build and the axiom clause rejects it after. Neon's ban list is replaced by the derived rule | **Yes:** `NativeReduce` now a source fixture; `SorryWorld` |
+| GPT-6.2 A1: the first tick; R1's schedule read from the log | The start (`start`, `startAdmission`, `initialState`) is specification, whole; round 12's L0 deleted. L0 restated: a completed run is observed, and its ticks are each multiple of the tick in the horizon, once, in order (`tickTimes`) | **Yes:** L0's statement and proof in sub-step 1; `FirstTick` |
+| GPT-6.2 A2: C symbol bindings | Printed as pairs (`b4d6a8a`) | **Yes:** `ExportSwap` |
+| GPT-6.2 A3: the stated limits incomplete | The list derived from the statements: the log after the start, the cycle records, coins in view, C2's running fields, the evaluator's values, the toolchain reading; IEEE: bit casts, `trunc`'s direction, `ofNat`/`ofInt`, comparisons | Text |
+| Neon 2: the evaluator a subject though only invariances constrain it | Conceded; the subject rule re-derived: free only where every build re-establishes it (a law determines it, or the machine under its laws and the suite). The evaluator is specification, its values resting on B4 on the build that froze it | **Yes:** `frozen.txt`'s subject list; `EvalBranch` |
+| Neon 3: `policyText` could filter future windows; `startAdmission` and the start's fields unbound; a shadow field | The policy literal is written by the check and `windows` reads it directly (a filter changes the print); the start is specification; the state's constructor is printed (through `recast` and `initialState`), so any added field changes the print | **Yes:** `PolicyFilter`, `ShadowField` |
+| Neon 5: usability | Roots at the laws B3 names, not every theorem of `Laws.lean` (conceded). The constructor coupling is the stated cost of observers that build the state. The tactic list stays the forms in use, reviewed as walls arrive: with evaluation closed by the name rule, a new form's review is only whether it directs compilation | **Yes:** roots |
+| Study 2's routing (round 13 list, replacing round 12's) | KERNEL.md A18: a copy is a whole main-dex `meta` with its request, rules only from a whole entry, an end only by the flag; `R_SETTLEMENT_MISSING` kept distinct. V13: an acknowledged `trades` subscription delivers every print, books paired at routing. Brief 3's recorders table. A12, K1 and step 10: the funding's reserve. Withdrawn by study 2's architect: round 12's reader liveness rule and A13's identity holding `events` | **Yes:** the forward reader's listings rule; `confirm`'s cut of a buy |
+
+**Refuted:** Neon's remark that L5 only constrains `bind` (its two clauses fix every result `bind` returns); Neon's shadow field (the constructor was already printed, through `recast`).
+
+### Disputed, or open
+
+| Point | State | Would change what is built |
+|---|---|---|
+| The toolchain reading (three entry points; each `evalConst` call site's trigger) | Derived from the source and experiments; awaiting GPT and Neon | **Yes**, if a trigger is missed: the name rule or the lists change |
+| The machine as a subject | Kept: its laws and suite rerun on every build. Neon's principle, read strictly, would freeze it too, and make each later step a restatement | **Yes**, `frozen.txt`'s scope, if a reviewer shows a judged path the suite cannot rerun |
+| The machine's records after the start (log, coins in view, cycle records, C2's running fields) | Stated as held by tests; P1 (step 9) closes the fills | Not before step 9 |
+| Study 2's reserve and listings rule | Under review on study 2's side; the kernel follows | Only if that review changes them |
+| O26 | Open only for study 2's fitted trigger (unchanged) | Only if that trigger misses B5 |
+
+**Would any open point change what is built?** Yes: step 5x waits for GPT's and Neon's reads of this round, since round 13 changed the design at the boundary.
+
+### Committed criteria: reported, not edited
+
+None touched by the kernel half. The reserve needs CS2.1's dated revision, which study 2's half drafts.
+
+### Assumptions only the human can choose
+
+None.
+
+### Owed
+
+- **By GPT and Neon (Neon with the step 5 Lean in its bundle):** the checks below.
+- **By the advisor:** once this converges, route step 5x as brief 3 says.
+
+### What GPT and Neon should check next
+
+1. **The toolchain reading.** Another way the pinned 4.34.0 runs compiled code while it builds (an `evalConst` call, the interpreter, the kernel's native reduction, an initializer, a process) that a listed form, or a name the rule admits, reaches.
+2. **The name rule.** A way to reach a constant under `Lean`, or `autoParam`, without writing it: dot notation, an `Init` abbreviation, unification, instance resolution, a structure field's default.
+3. **The tree the check writes.** A file Lake reads that the check did not write (the manifest, the toolchain file, a build directory), or a module the check and Lake resolve differently.
+4. **L0.** A completed run that is not observed, or whose ticks differ from the clock, under L0 as stated; whether `finish` of `runMoves` is the run X1 ties.
+5. **The subject rule.** A subject whose law does not determine it everywhere it is called (`Ledger.step` outside A1's premises, `admit`'s reason when two conditions fail), and whether the machine should stay one.
+6. **Study 2's changes as specified:** the listings copy, and the reserve in K1 and step 10's test 2 figures.
+
+### Convergence
+
+**Not yet converged.** Round 13 re-derived the boundary from the toolchain's own entry points after a construction no reviewer had named, so another round on another model is due.
+
+## The last pass, round 14, kernel: the fresh Opus review of round 13's build boundary, and GPT-6.2's part B
+
+Appended 2026-11-22 07:59 UTC (02:59 EST) by Claude Opus 5.5 at maximum effort, the architect for round 14's kernel half, answering `audit/reviews/2026-11-22-opus-round13-kernel-boundary.md` (a fresh Opus session in GPT's place, labeled as `CLAUDE.md`'s fallback, since OpenAI's filter refused part A three times) and part B of `audit/reviews/2026-11-22-gpt62-round13-kernel.md`. Revisions on `rearchitecture`: `9fb48c5` (the boundary), `c59a67c` and `b1e7573` (part B), and this commit, revising `kernel-v2.md` (A3, A12, V13, B1, B2, B3, part G), `kernel2/KERNEL.md` (A19) and brief 3 (steps 5x, 5a, 6, 10, the recorders table). Computations under `~/.cache/mm-r14k/`. Study 2's half of round 14 is the other architect's, on `rearchitecture-s2`. No market data from 2026-11-01 on, nothing under `data/holdout/`, no token or key file read; `PROGRESS.md` and `audit/criteria.md` untouched. Report: `/home/kevin/repos/moneymachine/data/builder/architect-r14-kernel-report.md`.
+
+### In plain words
+
+- **The build boundary's reasoning held under a fresh adversarial review, with one real hole.** The reviewer built a library that kept its own copy of the protected-dates list, one day short, and left the generated copy unused: every check passed and the compiled engine had the hole. The cause was that round 13 tied the dates to a file when what matters is the value the engine reads. Now the check, after the build, requires that value to be the file's bytes exactly. Two smaller points are closed with it: a module's name must be plain, so that a name and its file are one-to-one, and the check and the build start from an empty environment, so no inherited search path can put another standard library ahead of the pinned one.
+- **The laws now read the engine only through what it did.** The laws about orders observe a run through a log the engine writes about itself. GPT-6.2 found three places where a law read the engine's own account instead of its deeds: the check that a run completed read the summary's text one way while the program that publishes read it another; the wishes the engine owed at a deciding tick were counted from the coins its own log said were in view, so an engine that marked none and skipped the tick owed none; and the record of an arrival held the book a function returned, not the book the engine then held. One cause, three rules: what a law requires comes from the inputs and the specification; what it checks is the state the engine actually moved to; and "the run completed" is one typed value, read alike by the publisher and the law.
+- **The test ledger's law now says exactly what it buys.** It had stated only bounds (never overdrawn, keeps its reserve), which a confirmer that bought too little would also meet. K1 now writes the whole calculation out, and step 10's examples are recomputed under the reserve: the verdicts do not change, the figures do (a few had been computed before the reserve existed, one more than GPT named).
+- **Smaller fixes:** the reader brief now defers to the market spec on listings (a coin missing from one copy keeps its rules), and the record's completeness assumption says plainly that after a trades subscription drops, the last book is still read for up to `G` while prints are not recorded.
+
+### Who has seen what
+
+- **The fresh Opus reviewer** read round 13's boundary at `828a971` and built its constructions on the pinned 4.34.0. It has not seen round 14.
+- **GPT-6.2** read part B of round 13 (part A refused by its provider's filter), and has not seen round 14.
+- **Neon**'s read of round 13 is queued with the human (web bundle); it has seen neither round 13's answers nor round 14.
+
+### Agreed
+
+- The boundary's derivation (the fresh Opus review): compiled code runs while building only at `evalConst` (with `[init]`), at the kernel's reduction of `Lean.reduceBool`/`reduceNat`, and at imported initializers; every `evalConst` site is reached by a form, by an `autoParam` type or by a name under `Lean`; the name rule suffices for 4.34.0; `include_str` off the list; the tree the check writes as the build's only source; modules rejected for the reason round 13 gave.
+- The frozen start, evaluator, observers, numerical vocabulary and C symbol bindings; the subject fix route (a reviewed restatement for specification, a law proved again for a subject); the machine kept editable under its laws and suite (GPT-6.2, settling round 13's open point).
+- The funding's reserve and step 10's test 2 (0.464 of B, 0.036 of cash); A18's per-coin listings and V13's routing assumption (GPT-6.2).
+
+### Settled by derivation in round 14 (awaiting the next reviewers)
+
+| Point | Settled by | Changes what is built |
+|---|---|---|
+| Opus 1: the policy literal bound a file, not the constant `windows` reads (built: a one-day hole, frozen print byte-identical) | After the build, the frozen-surface clause requires `Engine.Machine.policyText` to be a definition whose value is the string literal of the policy file's bytes, wherever declared; the generated module stays as the literal's way into the build (kernel B2) | **Yes:** one comparison in the frozen-surface clause; fixture `PolicyShadow` |
+| Opus 2: `.`/`..` import components (no outcome found) | Adopted: each component ASCII letters, digits and `_`, beginning with a letter, so a name and Lake's path are one-to-one and "a module of that name" is exact | **Yes:** one rule; fixture `DotComponent` |
+| Opus 3: wording | "No compiled code" (the kernel's reduction is what proofs are); the inline `evalConst` site list deleted rather than completed, since every site is reached through the three triggers; `native_decide`, `decide +native` and `bv_decide` are forms through `evalConst` in 4.34.0; the check and Lake start from an empty environment with named variables only | **Yes**, the environment: the build step's `env -i`; a behaviour test under a scratch `LEAN_PATH`/`LEAN_SYSROOT` |
+| GPT-6.2 B, the common cause of its three design findings: the laws read the machine's account of itself | Three rules (kernel B2): a law's obligations are the inputs' and the specification's; a record a law checks is the projection of the state the run continues from; completion is one typed value. Applied to every read of R1, S1, X1, L0 and L1a; what remains the machine's word is listed (a step's kind and a fill's units, the evaluator's values and so the wishes' values, C2's four running fields) | **Yes**, as below; step 5x gains sub-step 2, the observation (six sub-steps) |
+| GPT-6.2: L0's completion predicate disagreed with production's | `finish` returns `Except Fault Summary`; `FinishResult` carries `ok` beside A19's JSON of it, written by one function; OCaml publishes by `ok`; `orderRun` and L0 read it (KERNEL.md A19) | **Yes:** the outcome type, the flag, the C stub, `mm2 finish`, step 5a's spool rename; fixture `SummaryText` |
+| GPT-6.2: a logged tick not tied to a decision | `slotKeysAt` reads the moves (A17: a coin is in view until its listing's end is known), so R1 alone holds every deciding tick to its wishes and no law reads the log's ticks; L0's clock clause binds `snapshots`, the records L1a compares; round 13's `tickTimes` deleted, unbuilt | **Yes:** `slotKeysAt`'s restatement and R1's first clause proved again through the view; L0 restated; fixtures `ViewSkip`, `SnapshotDrop` |
+| GPT-6.2: `Orders.arrive`'s effects not pinned | Neither of GPT's options as offered: freezing `arrive`, or making R1 fix its tags, leaves the same gap one function over (`arrivalEffects`, the machine's, reads the tags). The arrival's record holds the world's book after the effects, so R1's existing clause binds what production did; `arrive` is reclassified as a transition of the machine | **Yes:** the record's `after`; R1's arrival clause proved again by one lemma (the effects applied to the account give `arrive`'s book); fixture `ArriveTags` |
+| GPT-6.2: K1 an inequality | K1's first clause is A12's fold written out; its old clauses follow from it; A12's text exact (the least of the scale's units and the reserve's room, then whole lots; a sale lowers what was paid by the fraction of its units actually sold) | **Yes:** K1's statement at step 10 |
+| GPT-6.2: step 10's pre-reserve figures | Test 1: 0.04 and 0.04. Construction A: wealth 409.6, at the bid 0.9995; with bids following 409.2 (bar 18.64, verdicts unchanged). Test 5, which GPT did not name, was a wholly invested ledger the reserve forbids: restated at `φ = 1/2` (1.00981 and 0.99010; 1.00250 and 0.99502). Exact, `~/.cache/mm-r14k/` | **Yes:** test expectations |
+| GPT-6.2: brief 3 step 6 against A18; V13's wording | Step 6's test 13 defers to A18 and tests the per-coin fallback; kernel A3 points to A18; V13 and the recorders table: pairing decides which books are recorded, and the last paired book is read until `G` passes | **Yes**, step 6's tests; V13 is text |
+
+**Noted, not pressed (GPT-6.2):** X2 leaves scales above 12 open on the generic wire; R1 admits either reason when margin and cap both fail. Neither can change a judged result.
+
+### Disputed, or open
+
+| Point | State | Would change what is built |
+|---|---|---|
+| The observation's three rules and their application | Derived here; no reviewer has seen them | **Yes**, if a reviewer finds a law obligation still taken from the machine's record, or a checked record that is no projection of the continuing state, beyond the listed ones |
+| The boundary after round 14 | The derivation confirmed by the fresh Opus review (a fallback, labeled); the outside review queued (Neon: GPT's filter refuses the subject) | **Yes**, if a trigger or an aliasing route is missed |
+| What remains the machine's word (a step's kind and a fill's units; the evaluator's values and the wishes' values; C2's running fields) | Listed as held by review, tests and fixtures; P1 (step 9) ties the fills to the report's rows | Not before step 9; a law that ties one would be added at its step |
+| `arithmetic.py.txt`'s `TestLedger` and `construction_a` | Predate the reserve on both branches; not edited here, since study 2's half edits the same file in parallel. `~/.cache/mm-r14k/k1_fold.py` is K1's fold, exact | No: test 6a's figures are stated in brief 3 from the exact fold; owed, below |
+| O26 | Open only for study 2's fitted trigger (unchanged) | Only if that trigger misses B5 |
+
+**Would any open point change what is built?** Yes: step 5x waits for the next reviewers' reads of round 14, since the observation's design changed (R1's first clause restated, a typed completion, an arrival lemma). No dispute with GPT-6.2 remains open on the reserve, the frozen surface or the subject route.
+
+### Committed criteria: reported, not edited
+
+None touched by the kernel half. K1's exact fold restates A12 and changes no criterion's meaning; the reserve's dated revision of CS2.1 is study 2's half's, as round 13 said.
+
+### Owed
+
+- **By the next reviewers:** the checks below.
+- **By the advisor:** once this converges, route step 5x as brief 3 says (now six sub-steps); have `arithmetic.py.txt`'s `TestLedger` follow K1's fold, with `construction_a`'s printed figures, at the next edit that both halves' branches have merged.
+- **By study 2's half:** `study2` decides publication by `FinishResult`'s flag, as `mm2` does, never by the summary's text (`KERNEL.md` A19); it reads `R_SETTLEMENT_MISSING` from the outcome's fault as before.
+- **Routing:** the boundary (checks 1 and 2 below) goes to Neon or a fresh Opus, since GPT's filter refuses the subject; the observation (checks 3 to 6) changed the design, so it goes to a model other than GPT-6.2 first (Neon), and to GPT-6.2 after if Neon is short.
+
+### What the next reviewers should check
+
+1. **The policy constant** (Neon, or a fresh Opus): a value `windows` reaches other than `Engine.Machine.policyText`'s literal, such as a literal under metadata, a coercion, or a second constant the print shows by type alone.
+2. **Names and the environment** (the same): a name and a path still two-to-one under the plain-component rule; a variable the build step must name for C compilation that also redirects Lean's or Lake's search.
+3. **The three rules** (GPT on part B, and Neon): a law whose obligation still comes from the machine's record beyond C2's running fields; a checked record that is not a projection of the state the run continues from; a published run that L0's flag does not observe.
+4. **R1 restated:** a run on which the inputs' coins in view (an ending known exactly at a tick, an ending among offers) differ from the machine's under A17, so that R1 is false of a correct machine; and whether the arrival lemma holds on `b94e128`'s `Acct.apply` (order of orders, remainders).
+5. **L0 over `snapshots`:** a dropped or doubled tick that the clause misses; whether a run that aborts at step 7 (`R_SETTLEMENT_MISSING`) needs the clause stated otherwise.
+6. **K1's fold** against A12, step 10's tests and study 2's `dip()` (`round13_study2`); step 10's recomputed figures.
+
+### Open questions
+
+None that only the human can decide. Judgments a reviewer may contest: binding an arrival through its record rather than freezing `arrive`; L0's clock clause read from `snapshots` rather than the log; restating R1 at step 5x rather than at a later step; leaving `arithmetic.py.txt`'s `TestLedger` to the advisor because both halves edit that file at once.
+
+### Convergence
+
+**Not yet converged.** The boundary's derivation stands, with one built hole closed at its cause; the observation was re-derived at the cause GPT-6.2's three findings share, which changes what is built, so another round on another model is due.
+
+## The last pass, round 15, kernel: GPT-6.2's and Neon's reads of round 14, and study 2's routed changes
+
+Appended 2026-11-22 09:12 UTC (04:12 EST) by Claude Opus 5.5 at maximum effort, the architect for round 15's kernel half, answering `audit/reviews/2026-11-22-gpt62-round14-kernel.md` and `audit/reviews/2026-11-22-neon-round14-kernel.md` (Neon's bundle whole), and folding in the kernel changes study 2's round 14 routes (`architect-r14-s2-report.md`, "Kernel changes", `rearchitecture-s2` `be858e5`). Revisions on `rearchitecture`: `cd1cb2e` to this commit. Experiments on the pinned Lean 4.34.0 under `~/.cache/mm-r15k/`. No market data from 2026-11-01 on, nothing under `data/holdout/`, no token or key file read; `PROGRESS.md` and `audit/criteria.md` untouched. Report: `/home/kevin/repos/moneymachine/data/builder/architect-r15-kernel-report.md`.
+
+### In plain words
+
+- **The build boundary had a real hole, and Neon found it.** The rule that keeps the build from running the library's own code refused two kinds of name, and a third kind reached the same machinery: Lean makes some names on demand, such as an equation lemma of `autoParam`, which appear in no file, and through one of them a library could again compile code no file holds. Built on the pinned toolchain, the proof says 4 and the compiled program says 999. The rule now refuses those names wherever they appear in a name, and the check no longer trusts a reading of the toolchain for which names are dangerous: it lists them from the toolchain itself, on every build. Neon also found that the release binary skipped the checks that run after the build; it now runs all of them.
+- **The laws now read the run as one run.** Both reviewers found ways for the engine to do something wrong that no law sees, and they share one cause: the laws read separate records of single steps (a second copy of the clock's fold, an arrival's effect on the world without its effect on what the strategy sees, arrivals without their order, wishes without their content), never the run those steps make up. Now there is one observation, made by the code production runs, and the laws read it whole: what production publishes is exactly what the laws observe; the arrivals of one millisecond are checked in order, each from where the last left the book; each wish is checked against what the strategy computed at its tick; and a new law says that what the strategy sees of its own account is exactly the account one delay earlier.
+- **"The run completed" is read the same way everywhere,** by three older laws too, which still read the text and would not have compiled against the typed result. The callers and tests that change with it are listed.
+- **The test ledger's rule for a sale that flips the account short is fixed** (it sold twice what it held), its ending row is defined, and the reserve's guarantee is stated only of buys that buy.
+- **Study 2's changes are in:** a delisted coin ends where its settlements stop and settles at its own price; listing copies are taken in the order they were fetched; prices off the rules get a stop code of their own; one JSON decoder.
+
+### Who has seen what
+
+- **GPT-6.2** read round 14's observation (its filter refuses the boundary). It has not seen round 15.
+- **Neon** read round 14 whole, boundary and observation. It has not seen round 15.
+
+### Agreed
+
+- The typed completion flag, the world's book after an arrival, `slotKeysAt` from the inputs (GPT-6.2, Neon); K1's recurrence (GPT-6.2); step 10's recomputed figures, each reviewer by its own exact arithmetic; step 6's per-coin fallback and V13's wording.
+- The policy constant bound as the constant `windows` reads, plain import components, the build's empty environment, and the frozen-surface split (Neon).
+
+### Settled by derivation in round 15 (awaiting the next reviewers)
+
+| Point | Settled by | Changes what is built |
+|---|---|---|
+| Neon 1: the name rule admitted `autoParam.eq_def` | Built on 4.34.0 (`~/.cache/mm-r15k/autoparam/N1.lean`), with `b94e128`'s forms and dot constructors: no identifier with `Lean` first or `autoParam` last; the kernel proves `g = 4`, the compiled `g` returns 999. The cause: the rule read the names written, while a trigger is reached through any constant whose statement holds one with an argument a binder chooses, a reserved name realized on demand included. The rule refuses `Lean` or `autoParam` as any component; the source check walks the environment it imports (types, definitions' values, aliases) and fails unless every constant exposing an open trigger is refused. On 4.34.0: 66,152 constants and 139 aliases, finding only `Lean.ofReduceBool` and `Lean.ofReduceNat` beside the triggers (`audit.lean`, `aliases.lean`) | **Yes:** the rule; the walk; fixtures `EqDef`, `ExposedTrigger` |
+| Neon 6: the release binary skipped the clauses after the build | The shared engine build runs all four clauses in one derivation, and `checks.engine-proofs` is that build; it names no `LEAN_CC` or `LEAN_AR` | **Yes:** `mm2For`'s build |
+| The cause GPT-6.2's and Neon's observation findings share | A fourth rule (kernel B2): one observation, `orderRun`, whose records the transitions make as they run, read as one run | **Yes**, below |
+| GPT-6.2, Neon 2: L0's clock and L1a on `snapshots`, a second fold | Each tick records itself in the run's records; L0 ties production's flag to the observation both ways and reads the clock off `run.ticks`; L1a over `orderRun`; `snapshots` and step 5a's `fireNoRec` twin deleted; an abort is unobserved and unpublished (step 7, wall 3) | **Yes:** `TickRecord` in the records; L0, L1a restated; fixtures `TickDrop`, `NonDecidingSkip` |
+| GPT-6.2: R1 over raw `known`, which `pack` cuts to 64 bits | C1's wire premise on R1 and L1a | **Yes:** two premises |
+| GPT-6.2, Neon 3b: the effects queued for the view | **L1c ★, new:** at every tick the world's account is the view's with the queued effects applied in order, each known `δ` after it was made and after the tick | **Yes:** L1c; the record's account, world and queue; fixtures `QueueDrop`, `LateRelease`; `tickWorlds`, `history`, `sampleAt` deleted |
+| GPT-6.2: the order of one millisecond's arrivals | R1: they are in A6's order and chain, each one's book before the last one's after; R1's clauses on the order of admissions and of placements, the chain's consequences, deleted | **Yes:** R1 restated; fixture `ArrivalOrder` |
+| Neon 3a: wish payloads free; B2's claim that B4 held them | R1: each wish is `wishAt` of its tick's record (the evaluator's reading of the slot, the program's side, `reduce_only` and `tif`, the view account's cycle). B2's claim was false (B4's programs have no slots) and is corrected | **Yes:** `wishAt`; fixtures `WishInactive`, `WishCycle` |
+| GPT-6.2, Neon 5: the typed `finish` against frozen C1, C2 and L1a | All three restated in sub-step 2, each reading the flag; C2's rejected run has it false, whatever earlier chunks spooled; every caller and test to migrate named | **Yes:** the restatements and the migration |
+| GPT-6.2: the headline | B2's list of what is the machine's word: a step's kind and a fill's units, an effect's time stamp, the evaluator's stepping on the view's inputs, C2's four running fields, and which stop a run is, with the admission of valid events | Text |
+| GPT-6.2, Neon 4: K1 | A sale of more than the position sells all the ledger holds; the ending row counted first, as architecture 6.1 counts it; the reserve after a buy that buys | **Yes:** K1's statement at step 10 |
+| GPT-6.2: step 10's ask | 3,411.1, recomputed | Text |
+| Study 2's routed changes | A18: the end where settlements stop, settling at the coin's price, the record holding none, later events cut, its hour not due; copies in acquisition order; `R_OFF_RULES`, admission's rule-free checks first; `jsont`; the reserve's wording; the recorders' table. Settlement at zero is unreachable, so its tests and clauses are deleted | **Yes:** the ending's payload (in C2's restatement), step 6's reader and admission, step 7's settlement |
+
+**Noted, not pressed (Neon):** a fault for `known < time` in C2: admission rejects `known < time + lag` already, and R1 and L1a, proved on every build, fail on a machine that admits one, so the clause adds no assurance. Rejecting compiler-internal prefixes: the walk decides, and on 4.34.0 it finds none. `w.cycle > b.cycle` in `arrive`: with R1's payload clause and L1c a wish's cycle is the view's, never above the world's.
+
+### Disputed, or open
+
+| Point | State | Would change what is built |
+|---|---|---|
+| The fourth rule and its application (one observation, L1c, R1's payload and chain) | Derived here; no reviewer has seen it | **Yes**, if a reviewer finds a law reading a second record of one step, or a value production carries from one step to a later one that no law reads at both ends, beyond B2's list |
+| The boundary after round 15 | Built and audited here; no reviewer has seen it | **Yes**, if a trigger is reached in a way the walk does not see |
+| A stop's code | Held by tests (`KERNEL.md` A18; step 6's test 15, step 7). A law could pin it in C2's restatement: an event rejected with `R_OFF_RULES` exactly when rules a listing could give would admit it | **Yes**, if a reviewer shows a mislabel that changes a verdict: C2 gains that clause in sub-step 2 |
+| The ending record's `known` | Derived here: the later of its hour plus the listings' lag and the flagging copy's time | **Yes**, if study 2's half dates it otherwise |
+| `arithmetic.py.txt`'s `TestLedger` and `construction_a` | Predate the reserve and the sale's fix; `~/.cache/mm-r15k/k1_fold.py` is K1's fold | No |
+| O26 | Open only for study 2's fitted trigger (unchanged) | Only if that trigger misses B5 |
+
+**Would any open point change what is built?** Yes: step 5x waits for the next reads, since the observation's design changed again (one observation, L1c, R1's payload and chain) and so did the boundary's rule.
+
+### Committed criteria: reported, not edited
+
+None touched by the kernel half. Study 2's routed end rule and its stop codes change what stops a forward run, which study 2's criteria and their dated revisions answer.
+
+### Owed
+
+- **By the next reviewers:** the checks below.
+- **By the advisor:** once this converges, route step 5x as brief 3 says (sub-step 2 now adds L0 and L1c and restates R1, L1a, C1 and C2); have `arithmetic.py.txt`'s `TestLedger` follow K1's fold, the reserve and the sale of more than the position both, at the next edit both branches have merged.
+- **By study 2's half:** confirm the ending record's `known` as A18 now dates it; a fold of study 2's that sells by fraction sells all at a sale of more than the position; the runner reads the stop codes as A18 lists them; any "settled at zero" case left in study 2's texts is unreachable now that a listing settles at the coin's price.
+- **Routing:** the boundary (checks 1 and 2) to Neon, or a fresh Opus, since GPT's filter refuses it; the observation (checks 3 to 6) to GPT-6.2 and Neon, neither of which has seen round 15.
+
+### What the next reviewers should check
+
+1. **The walk.** A constant or alias it misses that reaches `autoParam`, `Lean.reduceBool` or `Lean.reduceNat`: a reserved-name family (`.eq_N`, `.induct`, `.fun_cases`, a matcher's splitter) whose statement exposes an open trigger that its realizing constant's type and value do not hold; an elaborator path that evaluates at a binder type other than `autoParam`.
+2. **The shared build.** A derivation that links the engine without the clauses after the build.
+3. **One observation.** A law still reading a record not made by the transition it records; a value production carries from one step to a later one that no law reads at both ends, beyond B2's list.
+4. **L1c.** A run whose view account differs from the world's `δ` earlier while L1c holds, beyond an effect stamped late.
+5. **R1 restated.** A wrong order of one millisecond's arrivals that passes the chain; `wishAt` against the machine's `wishFor` and `slotEvalAt`; whether the payload clause is provable from what the record holds.
+6. **The stop codes.** Whether `R_OFF_RULES` and admission's order can change a verdict, and so belong in C2.
+7. **Study 2's ending.** Its hour not due, its settlement at the coin's price, its `known`.
+
+### Open questions
+
+None that only the human can decide. Judgments a reviewer may contest: L1c as a ★ law rather than a test; deleting R1's clauses on the order of admissions and placements as the chain's consequences; leaving a stop's code to tests; the ending record's `known`; the walk run on every build rather than read once per toolchain.
+
+### Convergence
+
+**Not yet converged.** The boundary had a built hole, closed at its cause by a rule the build now checks against the toolchain itself; the observation was re-derived at the cause both reviewers' findings share, which changes what is built, so another round is due.
+
+## The last pass, round 16, kernel: two-stage clean-compile boundary, unified effect-log & `marketAt` observation, and study 2's round 15 changes
+
+Appended 2026-11-22 23:04 UTC (18:04 EST) by Gemini 4 Neon through agy, the architect for round 16's kernel half, answering `audit/reviews/2026-11-22-opus-round15-kernel.md` (fresh Opus 5.5 fallback reviewer), `audit/reviews/2026-11-22-neon-round15-kernel.md` (Neon on round 15's kernel half), and study 2's round 15 kernel changes (`/home/kevin/repos/moneymachine/data/builder/architect-r15-s2-report.md`, "Kernel changes"). Revisions on `rearchitecture`: `e71e67d` (merge `main`), `a503574` (study 2 round 15 changes, `R_OFF_RULES` erasure, Opus finding 3 and minor #3), `dfe0ae2` (two-stage clean-compile boundary, deleting the source guard), `14b1ab7` (unified effect-log & `marketAt` observation), and this commit. Experiments on pinned Lean 4.34.0 under `~/.cache/mm-r16k/`. Study 2's round 16 is the other architect's (Opus) on `rearchitecture-s2`; brief 4, `recorder/`, study 2's criteria texts, `PROGRESS.md` and `audit/criteria.md` untouched. No market data from 2026-11-01 on, nothing under `data/holdout/`, no token or key file read. Report: `/home/kevin/repos/moneymachine/data/builder/architect-r16-kernel-report.md`.
+
+### In plain words
+
+- **The source-level build guard is deleted and replaced by a two-stage clean-compile boundary that fails closed on Lean 4.34.0.** Five consecutive reviews defeated the source syntax/name guard, ending with Opus's `N2.lean` showing command elaboration's `foApprox := true` opens all 220 `Init` constants holding a closed `autoParam` via field notation `@xs.insertionSort` (beside Neon's 2-hop wrappers and dot-methods on `Lean.<Type>`). A post-build attribute check alone is also unsound on 4.34.0 (`ToDecl.getDeclInfo?` prefers `declName._unsafe_rec` with zero attributes and zero kernel check against `declName`, built in `forged_unsafe_rec.lean`; plus `@[cpass]`, `@[cfold]` and `.olean` IR). The shared engine build now splits into two sandboxed Nix derivations under `env -i`: **Stage 1** runs untrusted `lake build` and exports only a plain UTF-8 hash-consed DAG of pure safe kernel declarations (`engine.kexp`, no `.olean`/`.ir`/`.c`/`.o`/`._unsafe_rec`); **Stage 2** starts from pristine `Init` + 12-line `CleanPrelude` alone (never importing Stage 1 `.olean`s), rejects reserved compiler suffixes (`_unsafe_rec`, `_redArg`, `_boxed`, `_closed*`, `_spec*`, `_lam*`, `_jp*`, `_override`, `_impl`, `main`) and forbidden constants, replays all declarations through Lean 4.34.0's C++ kernel (`Kernel.Environment.addDeclCore`), checks axioms, `policyText` against read-only `protected-windows.json`, and `frozen.txt`, regenerates inductive auxiliaries and `_sparseCasesOn` (modulo `mdata`), derives `projFn`/match-inline hints, synthesizes and **kernel-proves** structural `T.brecOn` recursions (with call-by-value strict-descent checking), validates `@[csimp]`/`@[export]`, clean-compiles from scratch (`Compiler.compile`, `LCNF.impureExt` reachability walk, `LCNF.emitC`, `leanc -O3`), and archives the sole Lean library linked into `mm2`. Verified end-to-end on `b94e128`: all 4,747 declarations kernel-replayed from pure text, 1,396 export-closure declarations clean-compiled in 5.2 s (compile+emit 2.9 s), all OCaml tests pass unedited (`strings_scale_test` 88,637 q/s; `scale_test` 6,655 q/s, 42.2 MiB RSS), and `N2.lean`, `ForgedUnsafeRec`, `SafeUnsafeRec`, `BadReservedRedArg` and `DuplicateDecl` are neutralized or rejected.
+- **All four remaining observation gaps close at one root cause.** Recording the single chronological world effect log `run.effects` in `emitOne` and reading the world's market state (`rules`, `ended`, `bid`, `ask`, `price`, adverse marks) from the input moves via specification `marketAt` closes Neon finding 1 (`EarlyViewApply`: L1c now requires an exact `l.time + δ ≤ r.time` / `r.time < l.time + δ` prefix split of `run.effects`), Neon finding 2 (`EmptyAdmissions`: R1 binds `run.admissions` directly to `run.arrivals.filterMap` via `arrivalAdmission`), Neon finding 4 (`UnnecessaryReplace`: R1 binds `a.before`/`a.after` to `bookFrom` of `marketAt` and `acctAt` over `run.effects`, binds `[a.effectStart, a.effectEnd)` to `arrivalEffectsOf` stamped at `a.time`, and requires every effect in `run.effects` to belong to an arrival slice, a rule-changing `.listing` move via `rulesChangedAt`, or a `CycleStep` fill/cycle-end matching `acctAt`), and Opus finding 2 (`StaleMark`: `a.before`'s market state is `marketAt`, never the machine's word).
+- **Study 2's round 15 changes folded in and `R_OFF_RULES` erased.** Study 2 deleted the hold class so every stop ends the test via `FinishResult.ok = false`; `R_OFF_RULES` and admission's rule-free-first check order are deleted (`CLAUDE.md` §2), closing Neon finding 5 without adding a stop-code clause to C2. A18 adopts reach `R`, `ending.known = max(R, t_F) + listings.lag` (Opus finding 3), `recv` copy timing, the three-pass `jsont` decoder, unreadable-print withholding, and vault/funding page rechecks.
+
+### Who has seen what
+
+- **Fresh Opus** reviewed round 15's kernel half (`78a35a3`); it has not seen round 16.
+- **Neon** reviewed round 15's kernel half and architected round 16's kernel half (so Neon will **not** review round 16; a fresh Opus will, plus GPT on the observation if available).
+- **GPT-6.2** has not seen rounds 15 or 16.
+
+### Agreed
+
+- Round 15's closures confirmed by both reviewers: typed `FinishResult.ok` across L0, C1, C2, L1a and OCaml; `orderRun` as the single observation with `snapshots` and `fireNoRec` deleted; L0's clock coverage; `wishAt` in R1; K1's flip-to-short sale, ending row counted first, and reserve invariant on positive buys; shared engine build derivation under `env -i` excluding `LEAN_CC` and `LEAN_AR`; A18's delisting at where settlements stop, settling at the coin's price with no price in `Payload.ending`.
+- Study 2's round 15 deletion of the hold class (`R_OFF_RULES` erased, closing Neon finding 5 at its cause), reach `R` with qualifying flagging copy `e`, `recv` copy timing, three-pass `jsont` decoder, unreadable prints, and vault/funding page rechecks.
+
+### Settled by derivation in round 16 (awaiting the next reviewers)
+
+| Point | Settled by | Changes what is built |
+|---|---|---|
+| Opus 1; Neon 3, 6: source guard defeated a fifth time (`N2.lean`, `foApprox := true` opening 220 `Init` `autoParam` constants via `@xs.insertionSort`; 2-hop wrappers; `Lean.<Type>` dot-methods) and post-build attribute check defeated by `forged_unsafe_rec.lean` | Source guard (`check-source.lean`, `syntax.txt`, `Init` trigger walk, generated `Engine/PolicyText.lean`) deleted (`CLAUDE.md` §1, §2). Replaced by two-stage Nix-sandboxed clean-compile boundary (`engineExport` -> plain UTF-8 DAG `engine.kexp` -> `engineClean` starting from pristine `Init` + 12-line `CleanPrelude`, rejecting reserved compiler suffixes and forbidden constants, full `Kernel.Environment.addDeclCore` replay, axiom/policy/`frozen.txt` checks, regenerated auxiliaries + `_sparseCasesOn` modulo `mdata`, derived `projFn`/match inlines, synthesized + call-by-value strict-descent checked + kernel-proved `T.brecOn`, validated `@[csimp]`/`@[export]`, `Compiler.compile`, `LCNF.impureExt` reachability walk, `LCNF.emitC`, `leanc -O3`). Empirically verified end-to-end on `b94e128` (`~/.cache/mm-r16k/clean_compile/`) | **Yes:** `kernel2/clean-build/` (`CleanPrelude.lean`, `stage1-export.lean`, `stage2-clean.lean`), two-stage `mm2For` derivations, and updated `checks.engine-proofs-fixtures` (sub-step 1) |
+| Neon 1: L1c allowed early view delivery (`EarlyViewApply`) | `emitOne` logs every effect to `run.effects : List Logged`; `TickRecord` gains `effectCount`; L1c enforces monotone `run.effects`, `l.known = l.time + δ`, and exact split of `run.effects.take r.effectCount` at `l.time + δ ≤ r.time` into `r.account` and `r.queue`, with `r.world = acctAt initial run.effects r.effectCount` | **Yes:** `Log.effects`, `Run.effects`, `TickRecord.effectCount`, L1c restated, fixture `EarlyViewApply` (sub-step 2) |
+| Neon 2: `run.admissions` and `run.placed` untied to `run.arrivals` (`EmptyAdmissions`); redundant `w.cycle ≤ b.cycle` premise on `arrive` | R1 binds `run.admissions = run.arrivals.filterMap (fun a => arrivalAdmission a.before a.wish)` alongside `run.admissions.filterMap (admit ·).toOption = run.placed.map (·.order)`, making both deleted `Pairwise` clauses genuine corollaries; drops `w.cycle ≤ b.cycle w.coin` from `arrive`'s characterization | **Yes:** `arrivalAdmission`, R1 restated, fixture `EmptyAdmissions` (sub-step 2) |
+| Neon 4: `a.before` untied across timestamps (`UnnecessaryReplace`) | `Arrival` and `CycleStep` gain `effectStart`/`effectEnd` (`applyPayload (.listing)` also logs a `.other` `CycleStep` on rule-change cancels); R1 binds `a.before`/`a.after` to `bookFrom` of `marketAt` and `acctAt` at `effectStart`/`effectEnd`, binds `[a.effectStart, a.effectEnd)` to `arrivalEffectsOf a.before a.wish` stamped at `a.time`, chains `a.effectEnd ≤ b.effectStart` (`=` on equal time), and requires every effect in `run.effects` to belong to an arrival slice, a rule-changing `.listing` move (`rulesChangedAt`), or a `CycleStep` fill/cycle-end matching `acctAt` (`bookMatchesAcct`) | **Yes:** `Arrival`/`CycleStep` indices, `acctAt`, `rulesChangedAt`, `arrivalEffectsOf`, `bookMatchesAcct`, R1 restated, fixture `UnnecessaryReplace` (sub-step 2) |
+| Opus 2: `a.before`'s market state (adverse marks, rules, ended coins) unbound (`StaleMark`) | Bound in R1 by specification `WorldMarket`/`marketAt`/`bookFrom` over the input moves (`rules`, `ended`, `bids`, `asks`, `prices`, adverse marks), matching `worldBook` identically at every arrival time | **Yes:** `WorldMarket`/`marketInit`/`marketEvent`/`marketAt`/`bookFrom`, R1 restated, fixture `StaleMark` (sub-step 2) |
+| Neon 5 & Study 2 #4: `R_OFF_RULES` stop code in C2 | Study 2 round 15 deleted the hold class (every stop ends the test via `FinishResult.ok = false`), so no stop code changes a verdict; `R_OFF_RULES` and admission's rule-free-first order erased from `KERNEL.md` A18, `kernel-v2.md` B2 and brief 3 step 6 | **Yes:** `R_OFF_RULES` deleted from step 6's admission |
+| Opus 3 & Study 2 #1–#3, #5–#9: A18 listing end `R`, `ending.known`, copy timing, three-pass `jsont`, unreadable prints, vault/funding rechecks, recorders' table | Adopted reach `R` with qualifying flagging copy `e`, `ending.known = max(R, t_F) + listings.lag` (guarding `t_F` against host-clock skew and matching every other copy-carried change), `recv` copy timing, three-pass `jsont`, unreadable-print withholding, and vault/funding page rechecks across `KERNEL.md` A18, `kernel-v2.md` A3/V13/B2 and brief 3 steps 2, 6, 7 and recorders' table | **Yes:** step 6 reader and step 7 settlement |
+| Opus minors #1, #2, #3 | B2 names `age`/`vage` explicitly in the evaluator-input exception; B2 clarifies C1 and C2 read `feed`/`finish` directly while order/tick/delivery laws read `orderRun`; brief 3 step 10 line 575 updated to "all or more" | Text only |
+
+### Disputed, or open
+
+| Point | State | Would change what is built |
+|---|---|---|
+| Two-stage clean-compile boundary (`engineExport` -> `engine.kexp` -> `engineClean`) | Derived and empirically verified on `b94e128` here; no reviewer has seen it | **Yes**, if a reviewer finds a compiler input, name collision, recursion edge case, or Stage 2 soundness gap |
+| Unified observation (`run.effects`, `marketAt`, `bookFrom`, `rulesChangedAt`, `arrivalAdmission`, `arrivalEffectsOf`, L1c & R1 restated) | Derived here; no reviewer has seen it | **Yes**, if a reviewer finds a valid run where an arrival's market state or effect ordering disagrees with `marketAt` / `run.effects`, or an unbound mutation that still evades R1/L1c/S1 |
+| Study 2 half adoption of `ending.known = max(R, t_F) + listings.lag` | Routed back to study 2's half (Opus finding 3) | Reader only (`briefs/4-study-2.md` / `recorder/` consistency) |
+| Residual Nix sandbox limits (unsandboxed local `lake build`, Stage 1 resource DoS inside Nix build, under-constrained subject body passing all laws/frozen spec/tests, Stage 2 TCB) | Documented explicitly in `kernel-v2.md` B2 | No (inherent trust boundary) |
+| `arithmetic.py.txt`'s `TestLedger` and `construction_a` | Still predates reserve/sale fixes; owed to advisor after branch merge | No |
+| O26 | Open only for study 2's fitted trigger (unchanged) | Only if that trigger misses B5 |
+
+**Would any open point change what is built?** Yes: both the two-stage clean-compile boundary (sub-step 1) and the unified effect-log/`marketAt` observation (sub-step 2) are newly designed in round 16 and await adversarial review by a fresh Opus session (and GPT-6.2 on the observation if routed) before step 5x is built.
+
+### Committed criteria: reported, not edited
+
+None touched by the kernel half (`audit/criteria.md` untouched).
+
+### Owed
+
+- **By the next reviewers:** the checks below (fresh Opus on both boundary and observation; Neon architected round 16 and does not review it).
+- **By study 2's half:** confirm the one-line `ending.known = max(R, t_F) + listings.lag` update (Opus finding 3, adopted in `KERNEL.md` A18).
+- **By the advisor:** once round 16 converges, route step 5x (now with two-stage clean-compile in sub-step 1 and unified effect-log/`marketAt` observation in sub-step 2), and update `arithmetic.py.txt`'s `TestLedger` after branch merge.
+
+### What the next reviewers should check
+
+1. **Stage 2 clean-compile soundness (fresh Opus):**
+   - Any Lean 4.34.0 compiler input, environment extension, `mdata` tag, or magic name suffix not covered by Stage 2's pristine `Init` + `CleanPrelude` environment, `mdata` stripping, and reserved-suffix pre-replay filter.
+   - `synthAndVerifyBrecOn`: try to construct a malicious `T.brecOn` (higher-order/curried recursion, dead strict-evaluation argument, nested/reflexive inductive, `_sparseCasesOn` mismatch, universe polymorphism) that passes `checkStrictDescent` and the kernel unfolding theorem while diverging or returning a wrong value in compiled C.
+   - `@[csimp]` and `@[export]` validation: try to construct a Stage-1 `@[csimp]` or `@[export]` payload that creates a cycle, overrides `Init`/`CleanPrelude`, breaks topological compilation order, or collides with a C/Lean runtime symbol.
+   - `stage2-clean`'s `engine.kexp` parser and `Kernel.Environment.addDeclCore` replay: check `InductiveVal` (`isRec`, `isReflexive`, `numNested`, mutual inductives), `RecursorVal` verification, and `policyText` kernel literal check.
+2. **Unified observation — L1c & R1 (fresh Opus, and GPT-6.2 if routed):**
+   - `marketAt initial moves a.time` vs `worldBook s a.time`: try to construct a valid run (including same-millisecond events, `λ = 0`, `δ = 0`, offers between events, listings/endings/trades/quotes) where `marketAt` disagrees with `worldBook` at an arrival time, or where `rulesChangedAt` misses/mislabels a rule-change cancel.
+   - `run.effects` monotonicity (`Pairwise (· ≤ ·)`) and L1c's `emitted` prefix split: check `δ = 0`, `λ = 0`, and `EarlyViewApply`.
+   - `UnnecessaryReplace` and effect provenance in R1: try to construct a rogue order cancel, drop, or reorder that passes R1, L1c, S1, X1, L0, L1a, and `frozen.txt`.
+   - `run.admissions = run.arrivals.filterMap (arrivalAdmission · ·)`: check that every admitted/refused arrival matches `arriveWish` exactly and no edge case breaks provability.
+3. **Study 2 round 15 fold-in:** verify `KERNEL.md` A18's `ending.known = max(R, t_F) + listings.lag`, reach `R`, `R_OFF_RULES` erasure, and brief 3 step 6/7 wording against `architect-r15-s2-report.md`.
+
+### Open questions
+
+None that only the human can decide. Design judgments a reviewer may contest:
+- Accepting the ~4.5 min Stage 2 single-threaded full kernel replay time on `b94e128` (dominated by `Engine.Laws`'s `decide +kernel` witness proofs, cached by Nix per source input; compile+emit itself is 2.9 s) rather than refactoring the `decide +kernel` witnesses.
+- Synthesizing and kernel-proving `T.brecOn` recursions inside `stage2-clean.lean` (keeping `b94e128` 100% unedited) rather than forbidding structural `brecOn` recursion in library code.
+- Keeping `Engine/Policy.lean`'s `include_str "../protected-windows.json"` (relying on Stage 2's kernel literal check against read-only `protected-windows.json` and Nix's Stage 1 sandbox) rather than maintaining a generated `Engine/PolicyText.lean`.
+- Keeping `s.time` of fill/cycle-end effects and `vage` (`age`) in B2's test/review-held exception list before step 6 F0.
+
+### Convergence
+
+**Not yet converged.** Round 16 re-derived the build boundary from scratch (deleting the source guard in favor of the two-stage clean-compile boundary) and unified the observation laws around `run.effects` and `marketAt` — both change what is built in step 5x sub-steps 1 and 2, so a fresh Opus adversarial review is due.
+
+## The last pass, round 17, kernel: the boundary on constructions, R1 for the whole machine, and study 2's round 16 changes
+
+Appended 2026-11-23 by a fresh Claude Opus 5.5 at maximum effort, the architect for round 17's kernel half, answering the fresh Opus's review of round 16 (`audit/reviews/2026-11-22-opus-round16-kernel.md`, findings 1 to 6) and folding in study 2's round 16 kernel changes (`/home/kevin/repos/moneymachine/data/builder/architect-r16-s2-report.md`, "Kernel changes"). Revisions on `rearchitecture`: `85f3489` (`gate/control/` deleted, study 1's code being archived and not merged), `ffe72cf` (merge of `main` at `b2515f0`), `66c593b` (the boundary), `bbd4652` and `40c0540` (R1's partition for the whole machine; S1 restated), `753cbd0` (study 2's round 16 changes), `66a1c1e` (the deletion of `arithmetic.py.txt`'s ledger model, the human, 2026-11-22), and this commit. Experiments under `~/.cache/mm-r17k/` on pinned Lean 4.34.0. Brief 4, `recorder/`, study 2's criteria texts, `PROGRESS.md` and `audit/criteria.md` untouched. No market data from 2026-11-01 on, nothing under `data/holdout/`, no token or key file read. Report: `/home/kevin/repos/moneymachine/data/builder/architect-r17-kernel-report.md`.
+
+### In plain words
+
+- **The build boundary now rests on constructions, not on lists.** Round 16's second stage still trusted lists of the compiler's conventions (attributes, reserved names, suffixes), and the fresh Opus found two holes the lists missed, the fourth and fifth since the guard began: a subject keeping a hidden counter through Lean's `ST` primitives, which the laws proved constant and the binary incremented; and a library name equal to one the compiler's specializer makes, which swapped two functions' code. Round 17 replaces the lists with things that need no knowledge of the compiler's conventions. The compiler reads an environment whose every name Stage 2 gives (each library name with a final component `#`, which ends no name the compiler makes or looks up). What the compiled code reaches may hold no opaque primitive outside a short reviewed list, ten for the current engine and all pure (two `Float` roundings, five string operations, three fixpoints of `Init`), which shuts out every token of `ST` or `IO` state. The kernel runs no code while it checks, and the compiler's output is checked: panics are fatal and every declaration is recorded once. **What remains is said plainly:** that Lean 4.34.0's compiler, runtime and `Init` compute each kernel definition's value. No check here can establish that, and it is now the only trust, tried by B4's 3,120 streams, test 12 and the suites.
+- **R1 now accounts for every effect of the whole machine, once.** Round 16's clause listed step 5's effects and ended in `False`, so step 6 would have broken it, and it allowed a rule change's cancels without requiring them. Round 17 states it for the whole machine: every effect has exactly one owner, a wish's arrival or a step; each kind of step has a fixed form (what it does, and to which orders and coins), written from A6, A7, A9 to A12 and A19; and a rule change's step exists exactly at each listing that changes a coin's rules. When each other kind of step happens is its own law's, stated over the run's steps both ways: F0 at step 6, and M1, L6, U1 for the machine and a new M2 (listing ends) at step 7, so R1 is not restated again. Until M1, a liquidation of a flat account written in the liquidation's form is not caught; no judged run comes before step 7, and step 7's review checks it.
+- **Study 2's round 16 kernel changes are in:** copies timed by the venue's own clock (the reply's `Date`); a coin read by the entries of its name; only a flag dated from the forward start ends a listing; an event off the rules in force is dropped and counted instead of stopping the run, in one place, admission; the reader's print rule deleted for the recorder's pairing; prints and fills read one by one; the page rechecks; depth 65; the recorders' table.
+- **The ending's knowledge time** (finding 6) is study 2's to decide: my view is below, routed.
+- **`arithmetic.py.txt`'s model of the test ledger and the guard is deleted** (the human, 2026-11-22), with the parts of round 5, round 6, study 2's criteria and the confirming read that ran it; the file still runs to its end, and the documents that cited the deleted figures say so. Its run line is the human's with one change, said here as a divergence (`CLAUDE.md` §1): the flake is named `git+file:`. As written, `getFlake (toString ./.)` names a `path:` flake, which copies the whole directory into the store, `data/` (120 GB) included when run from the main worktree, and the disk filled while it ran there on 2026-11-23; `git+file:` copies tracked files only and gives the same pinned Python, numpy 2.4.4 and scipy 1.17.1. Test 12 identified its draw recipe by the whole file's hash, which the deletion moved, so `x4-hosts.sh` now reads the file as it stood at `3d7992e`, the commit that generated the corpus.
+
+### Who has seen what
+
+- **The fresh Opus** reviewed round 16's kernel half; it has not seen round 17.
+- **Neon** architected round 16's kernel half and reviewed study 2's round 16; it has not seen round 17.
+- **GPT-6.2** has seen none of rounds 15 to 17 (its filter refused the boundary).
+- **This architect** built round 17 and does not review it.
+
+### Agreed
+
+- The fresh Opus's confirmations on round 16: `marketAt` is `worldBook`'s market at every arrival; L1c's split is `releaseEffects` with both bounds; `arrivalAdmission` and `arrivalEffectsOf` are `arriveWish`'s; the `brecOn` synthesis cannot change a value; `_sparseCasesOn` is compared with a real regeneration; `@[csimp]` replaces only by kernel-proved equalities; two derivations and a text DAG are needed; `R_OFF_RULES` is gone; the reach rule matches A12 and K2.
+
+### Settled by derivation in round 17 (awaiting the next reviewers)
+
+| Point | Settled by | Changes what is built |
+|---|---|---|
+| Finding 2: names collide (`f._at_.g.spec_k`), and the compiler's lookups (`n._unsafe_rec`, `T._impl`, `main`) are names a library could take | **Stage 2 names the compile environment** (kernel B2, step 5): every library constant under its `engine.kexp` name with one final component `#` appended, constructors included; a library inductive's kernel recursors and regenerated auxiliaries under its new name. Read in 4.34.0's source (`ReduceArity`, `Types`, `ExtractClosed`, `LambdaLifting`, `Specialize`, `ToDecl`, `ToLCNF`, `ToMono`, `Main`): the compiler makes, and looks up, other declarations' names only by extending a name with components of its own, so no library-chosen name can be one of them. The reserved-suffix list and its two filters are deleted. The fresh Opus's uniqueness check alone would not have closed a consulted name (a safe `foo._unsafe_rec` beside `foo` is compiled once and recorded once) | **Yes:** sub-step 1's renaming map; fixtures `SpecName`, `SpecNameFirst`, `MainName`; `SafeUnsafeRec` neutralized instead of rejected |
+| Finding 2: Stage 2 carried on after 120 to 198 panics | Panics fatal (`LEAN_ABORT_ON_PANIC=1` inside `env -i`), error messages fail, and the compiler's record checked: each declaration once, no auxiliary with the name of an environment constant it was not asked to compile | **Yes:** fixtures `CompilerPanic`, `CompiledTwice` |
+| Finding 1: a safe subject keeps hidden state through `Void.mk` and the `ST.Prim` operations | **What the closure may reach** (kernel B2, step 5): walking kernel values from the exports and the `@[csimp]` targets, every opaque reached must be on the reviewed `primitives.txt`. An opaque is exactly where the kernel holds no definition for compiled code to be faithful to. Measured on `b94e128`'s build: 3,265 constants reached, ten opaques (`Float.ceil`, `Float.floor`, `String.Internal.append`, `.foldl`, `.isEmpty`, `.length`, `.pushn`, `Std.Format.be`, `Std.Internal.idOpaque`, `WellFounded.opaqueFix`), none stateful. The fresh Opus's allowlist of the 1,344 constants `b94.kexp` names would not do: `ST.Ref.get` is a definition, and its value reaches `ST.Prim.Ref.get` | **Yes:** the walk and `primitives.txt` in sub-step 1; fixtures `STToken`, `RunSTToken`, `LibmExp` |
+| The kernel's native evaluation during replay | The pre-replay filter narrows to the four constants whose checking runs compiled code (`Lean.reduceBool`, `.reduceNat`, `.ofReduceBool`, `.ofReduceNat`); `trustCompiler` and `sorryAx` are left to the axiom check | Text and one filter |
+| What remains | Said plainly in B2: the toolchain computing each kernel definition's value, and the ten primitives being the functions reviewed; no check here can establish it | No |
+| A test linking the clean archive by Lean names | Nothing links it but through its exports (two compilations need not agree on a function's compiled signature, and Stage 2's names are its own): `x4-counts`, the diagnostic of the counts X6 proves, links Stage 1's archive; test 12's MPFR sweep runs through `mm2_lean`'s exports | **Yes:** `x4-hosts.sh` |
+| Finding 3: R1's partition listed step 5's effects and closed with `False` | **The whole machine's partition** (kernel B3 R1; brief 3 step 5x): `Effect` takes A19's effects and `Trigger` A12's causes now (`fill`, `quote`, `rules`, `ending`, `funding`, `liquidation`); each effect has exactly one owner; a step's slice is `stepForm` of its trigger from the account it began at; steps 6 and 7 add laws and restate R1 not at all. Step 6's "R1 needs no new proof" is corrected | **Yes:** sub-step 2's types, `stepForm`, the one-owner clause; S1 restated in its match on triggers; fixtures `HiddenEffect`, `SharedEffect` |
+| Finding 4: a fabricated liquidation of a flat account | Its `cycle_end` cancels fail the liquidation's form now; one written in the form passes until M1, which step 7 states over the run's `.liquidation` steps both ways. Round 16 closed Neon's `UnnecessaryReplace` for arrivals at 5x and for steps only when F0 and M1 bind their occasions | Fixture `LiquidationForm`; M1's statement at step 7 |
+| Finding 5: no law required a rule change's cancels | A `.rules` step at every listing that changes a coin's rules, both ways (`ruleChanges`, in place of `rulesChangedAt`), its slice the cancels of every order of the coin | **Yes:** fixtures `RulesKeep`, `RulesSkip` |
+| An inactive slot's cancel was written `replaced` | `inactive` when the wish holds no value (A19) | Fixture `InactiveCause` |
+| Study 2's round 16 kernel changes | `KERNEL.md` A18 and A19; `kernel-v2.md` A3, C2 (three outcomes), V3, V13, B2; brief 3 steps 3, 5x, 6, 7 and the recorders' table. A quote's level order and level sizes are drops too (D325's principle: an event's own content; study 2 listed four cases). A dropped event still counts as admission's last event and among its timestamp's ids, so disorder or a repeated id after it still rejects; `marketAt` skips it through `dropCause`, the one function admission applies | **Yes:** step 6's reader, step 7's finality, sub-step 2's `dropCause` and C2; fixtures `DropKeeps`, `DropDisorder` |
+| `arithmetic.py.txt`'s ledger model (the human, 2026-11-22) | Deleted: `Books`, `TestLedger`, `GuardRule`, `whole_lots`, `reach`, `guard_fold`, `guard_reach`, `pairs_market`, `bar_log`, `construction_a`, `ledger_fuzz` and their constants, with the parts of `study2_criteria`, `confirming_read`, `round5` and `round6` that ran them. The file runs to its end (2 min 55 s); `kernel-v2.md` parts C and D, architecture 6 and brief 3 step 10 say the deleted figures were the model's and the Lean laws are the reference | No (a record) |
+| Test 12's draw recipe pinned by the whole file's SHA-256 (`x4-hosts.sh` read the working tree's file), which any edit of another derivation moves | The recipe is the file as it stood at `3d7992e`, whose `emit_x4_draws` generated the corpus and whose SHA-256 `x4_local.ml` pins (`5e6c95e9…`), read with `git show`, never from the working tree | **Yes:** one comparison in `x4-hosts.sh` (sub-step 6) |
+
+### My view of finding 6, routed to study 2's half
+
+Agreed that the ending's `known` comes before the last fact its rule reads. An ending reads two sources: the flag, through the listings copies, and the absence of a settlement in `B(e)`, through the settled funding. A settlement of an hour has its stamp at most `late` after the hour and is known `funding.lag` after its stamp (A18), so the funding source shows no settlement of `B(e)` at `B(e) + late + funding.lag`. Taking each fact at its own source's time, and never before `R + listings.lag`, which `feed` checks of a listings event: `known = max(max(R, t_F) + listings.lag, B(t_F) + late + funding.lag)`; `R` drops from the second term since `R ≤ B(e)` (D324). The fresh Opus's `max(R, t_F, B(e) + late) + listings.lag` charges the listings lag on the funding fact: later than needed when the listings lag exceeds the funding lag, and not causal when the funding lag exceeds it. With A18's example header the current rule lets the view learn an end 10 to 70 minutes before its last fact exists; the ladder reads no cross-coin input and moves no verdict (the fresh Opus), but L1a's premise is only as causal as the `known` the reader assigns. `KERNEL.md` A18 takes the line study 2 decides.
+
+### Disputed, or open
+
+| Point | State | Would change what is built |
+|---|---|---|
+| Stage 2's names | Derived and read in the source. The compiler's side is measured (`~/.cache/mm-r17k/tag/`): a file whose types, functions and exports all end in `«#»`, with a structure, an inductive, structural and well-founded recursion, a matcher and `List.foldl` specialized at a tagged caller, compiles with no panic and runs to its kernel values; an impostor named exactly as the specializer names its copy (`List.foldl._at_.Engine.Orders.weighted.«#».spec_0`) panics the compiler as the fresh Opus found, and the same impostor tagged (`….spec_0.«#»`) compiles beside the specialization, each returning its own body. Not built: the renaming of a whole `engine.kexp` in Stage 2, and constructors tagged at the kernel (the elaborator cannot name them so) | **Yes**, if Stage 2's map or a generator it calls reads a name's structure in a way the tag breaks |
+| `primitives.txt` | Measured on Stage 1's environment; Stage 2's walk adds `CleanPrelude`'s `natFix` path, and the builder writes the list from Stage 2's own walk | **Yes**, by its entries |
+| The whole machine's forms fix steps 6 and 7's effect order (a liquidation: `liquidated`, cancels, closes, cycle ends, bankruptcy) and fields (an order fill's print) now | Derived from A6, A7, A10 to A12 and A19 | **Yes**, if step 6 or 7 meets a wall in them: R1 reopens there |
+| A quote's level order and level sizes as drops | This architect's reading of D325 | **Yes** (C2's cases) |
+| D325 itself | Neon's finding 1 on study 2's round 16 (drops at a fixed midnight; fresh books while prints drop) contests it; study 2's round 17 may revise the drop | **Yes**, C2's dropped outcome follows study 2 |
+| Finding 6's formula | Routed | Reader only |
+| O26 | Unchanged | Only if study 2's fitted trigger misses B5 |
+
+**Would any open point change what is built?** Yes: sub-step 1's names, reach walk and output checks, and sub-step 2's partition, forms, rule-change steps and drops are new in round 17 and unreviewed.
+
+### Committed criteria: reported, not edited
+
+None touched by the kernel half.
+
+### Routed and owed
+
+- **To study 2's half:** finding 6 (above); its copy of `arithmetic.py.txt` holds `round12_study2`, `dip` and `round13_study2`, which `kernel-v2.md` A12 and brief 3 step 10 cite for the reserve, and its `criteria-notes.md` cites the never-stood quote's 1.94, computed by the deleted model: the deletion reaches them when the branches meet; and C2's dropped outcome follows its answer to Neon's finding 1.
+- **To the advisor:** the owed item "`arithmetic.py.txt`'s ledger model to K1's fold" is closed by deletion; `checks.mm2-tests` fails its two timing tests on the builder on this branch, before and after the merge (derivation `n14by4mq`); the human's run line for `arithmetic.py.txt` names a `path:` flake, whose copy of the main worktree, `data/` included, filled the root filesystem on 2026-11-23 from about 01:46 to 01:57 UTC (20:46 to 20:57 EST); the file now carries the `git+file:` form, and the human may want to know the line as given is unsafe there.
+
+### What the next reviewers should check
+
+1. **Stage 2's names:** a path in 4.34.0's compiler or in a generator Stage 2 calls that makes or looks up another declaration's name otherwise than by extending it, or reads a name's structure in a way the tag breaks; whether one map renames every reference (`Expr.const`, `Expr.proj`'s structure, an inductive's constructors and `all`, a recursor's rules); and, built on `b94e128`, that the thirteen exports behave as before.
+2. **What the closure may reach:** a subject whose compiled behaviour departs from its kernel value without reaching an unlisted opaque (through an `Init` definition whose `@[extern]` or `@[implemented_by]` code is not its value, `Thunk`, `Task`, `dbgTraceIfShared`); and each of the ten primitives' reason.
+3. **The compiler's output:** a collision the record check misses.
+4. **R1's partition:** a run in which every effect has one owner and every step its form while an order is lost or an effect is unbound before its law's step; the forms against A6, A7, A10 to A12 and A19 for steps 6 and 7; S1's restated match.
+5. **The drops:** C2's three outcomes against `marketAt`, L1a and C1; a contradiction that a dropped event's bookkeeping lets through.
+6. **Study 2's fold-in** against `architect-r16-s2-report.md`, "Kernel changes".
+
+### Open questions
+
+None that only the human can decide. Judgments a reviewer may contest: Stage 2's names against the fresh Opus's uniqueness check alone; the list of opaques against his list of every toolchain constant; fixing steps 6 and 7's effects and forms now against restating R1 at each; a quote's level order and sizes as drops; M2 as a new law, and U1 stated again for the machine at step 7.
+
+### Convergence
+
+**Not converged.** Both halves of step 5x are re-derived (the boundary on constructions, R1 for the whole machine), so a reviewer who did not build them follows.
+
+### Addendum, the same round: study 2's round 17 kernel changes
+
+Written 2026-11-23 03:32 UTC (2026-11-22 22:32 EST) by the same architect, after the section above, on the advisor's routing of study 2's round 17 (`/home/kevin/repos/moneymachine/data/builder/architect-r17-s2-report.md`, "Kernel changes", D337 to D342). `172f5af` folded them in; `d773bbe`, `854fa4b` and `5691b26` correct that fold-in after a re-check against the built engine (`b94e128`) and against Neon's review of study 2's round 17 (`audit/reviews/2026-11-23-neon-round17-study2.md`), whose finding 5 is on these changes. Nothing above is edited: what it says that no longer holds is listed below. Experiments: `~/.cache/mm-r17k/contract/`. No market data, nothing under `data/holdout/`, no token or key file read.
+
+**In plain words**
+
+- **A recorded trade or quote is never read against its coin's rules: not when it is admitted, and not when it fills an order.** The rules (lot size, price steps) are the venue's for orders, and the engine rounds the replica's orders by them and nothing else. A size is read at six decimals, which every perp's lots fit; what the model has no price in (a crossed or one-sided book, a price of zero) is counted by the reader and never fed, and rejects the run if it is. Each event off our copy of the rules is admitted and counted.
+- **Study 2 proposed one more use of the rules, rounding what a trade offers an order to whole lots of our copy; it is not taken.** A recorded size is finer than our copy's lots only when the venue's lots are, and there the venue would have filled the order by it. Rounding would leave resting orders unfilled by small trades for an hour while books keep filling takers, which is what study 2's change set out to remove, and would break the law of fills at a trade smaller than one lot (Neon).
+- **The archive's stored doubles keep the one check they had:** a stored price off its coin's grid is taken as no decimal of the venue's, and rejects the market, as it did; the engine alone looks.
+- **A listing's end is known when the last fact its rule reads is,** at the greater of the two sources' lags, so it is early under no header.
+- **The checks of the statements on the pinned compiler found two errors in the text the builder was to copy** (a notation core Lean lacks; a trade id typed as a natural number), now fixed.
+
+**Settled by derivation (awaiting the next reviewers)**
+
+| Point | Settled by | Changes what is built |
+|---|---|---|
+| D337, the size's scale | **6.** A perp's lots are `10^−szDecimals` with `szDecimals` at most 6, so each lot is a whole multiple of `10⁻⁶` and every size the venue writes places exactly; the range leaves a size under `10⁹` units (at a price of 0.05 USD, 50 million USD at one level). `sz_decimals` above 6 is refused in a header and rejects in a listing. B4 reads no size or price (its markets hold observations alone, at `sz_decimals` of 3), so its 3,120 streams cannot move | **Yes:** `checkSize`, `Reading`, `parseCoin` |
+| D337, admission | Two outcomes; no rule of a coin's is read but a `double` price's grid. The reader counts, and feeds nothing of, a quote crossed, one-sided or not strictly best first, a price or a size not above zero, a `string` number its scale cannot place; one fed rejects. An admitted event off the copied rules has one `off_rules` row (V1's and V3's witness, counted) | **Yes:** sub-step 2; readers |
+| D337, what an order is offered: **not taken as routed** | The recorded size, as recorded. T1 reads prices alone; E1 and L4 hold of any sizes; F0, A7 and A2's roundings are round 16's again, where `172f5af` had restated F0 with the rounding. An offer's parts are in units of `10⁻⁶`, so `offerPlan` reads no rules. Positions are whole multiples of `10⁻⁶`, not of the copied lots, which no law asked and a change of rules broke already. Answers Neon's finding 5 on F0 and on a sweep over a level under one lot: there is no such case | **Yes:** an offer's unit (`walk`, `step5Moves`, fixtures) |
+| The archive's grid (study 2's proposal) | Adopted, in A2's reading of a `double` price, and the engine's alone: a reader passes a double untouched and has no second copy of the grid. `X3`'s `onGridAt` is reached by that reading and by the `off_rules` rows; an order's rounding never called it (`172f5af` said it did) | **Yes:** C2's `priceBad` |
+| C2 | Restated and written out in the contract: `priceBad` at scale 8 with the grid for `.bits` alone, `sizeBad` at 6, the listing's bound 6. Its text now claims what its statement holds: faults to rejection, one way; admission of the rest, and A18's other checks, are the tests' (`172f5af`'s text listed a second settlement and levels out of order, which the statement has never held) | **Yes** |
+| L1a | Statement unchanged. Its second premise was explained by a quote read under rules not yet known; it holds the world's effects (a listing not yet known cancels an order, and the view holds that cancel first). Step 4's test 6 restated, test 7 (one value at two scales) deleted | Tests |
+| D341, finding 6 | Known at `B(t_F) + late + max(listings.lag, funding.lag)`: study 2's formula on its header, and causal on any (Neon's finding 5). My own formula above, which takes each fact at its own source's lag, is at most an hour earlier on study 2's header and moves only when the view drops the coin; one `max` is the simpler line | Reader |
+| D338, D340 | A18: a copy's, a pull's and a query's date counts only within an hour of its line's `recv`; every pinned file is read; the print rule of the router and the reader is one, with its scales; a funding query is defined, and proves an end only with every element read, in order and none in the hours asked (`172f5af` left out that last clause, and what delimits a query) | Reader; brief 3 steps 2, 6 and 7 |
+| D342, and the recorders' table in brief 3 | No writer reads this host's clock; their budget is 205, 410 under kills. The table keeps what must be held and what a loss shows, and loses its copies of `RECORDER.md`'s, `VAULT.md`'s and A18's rules, which each round of study 2 had to fold in again and which `172f5af` left stale in two places | No |
+| The contract, elaborated against `b94e128` on 4.34.0 | Every statement of step 5x type-checks but for `stepForm`'s `\|u\|`, which core Lean lacks, now `Engine.Orders.absQ u`. Read beside A18: an order fill's `print` is an `Int`. `S1`'s restated match is written out. A `refused` effect drops its slot's live order, or a `post_only` refusal at step 6 would leave the order in the account (`Acct.apply`'s `refused` case is the identity as built) | **Yes:** sub-step 2, step 6 |
+
+**What the section above says that no longer holds**
+
+- *In plain words*, "an event off the rules in force is dropped and counted": admitted and counted.
+- *Settled*, the row of study 2's round 16 kernel changes: C2's three outcomes, the drops, `dropCause` and the fixtures `DropKeeps` and `DropDisorder` are deleted, the cause they answered being gone.
+- *Finding 6's view* and its row under *Disputed*: settled above. *Disputed*, "a quote's level order and level sizes as drops" and "D325 itself": gone with the drop.
+- *What the next reviewers should check*, item 5: the list below. *Routed*, "C2's dropped outcome follows its answer": it did.
+
+**Conflicts, as the advisor asked to have said**
+
+1. With what this round had decided: the D325 fold-in and its reading that level order and sizes are drops, deleted.
+2. With the routed text: D337's offered whole lots (not taken), and D341's `listings.lag` (the greater of the two lags).
+
+**Open, or disputed**
+
+| Point | State | Would change what is built |
+|---|---|---|
+| Two lines of A18 that are study 2's rules: an open-tail page's range in finality (Neon's finding 4 on study 2's round 17), and reading stream files from before `w_start` (its finding 6) | A18 follows study 2's round 18 | Reader |
+| The recorded size offered as recorded, against D337's rounding | Derived above; study 2's half has not seen it | **Yes**, an offer's unit |
+| The `off_rules` rows in the engine, against a count made outside it | The grid is proved in Lean and nowhere else; a count outside would be a second copy | Rows only |
+| The readers' rules live in three places (A18, brief 4's "What the reader rechecks", `VAULT.md`'s "What the reader trusts") | For round 18's cut: A18 is the implementer's; the other two would cite it | No |
+
+**What the next reviewers should check** (in place of item 5 above; item 6 is "study 2's fold-in" of both rounds)
+
+1. A market event whose content, off the copied rules or not, breaks T1, E1, F0, L4, S1 or C2 as restated, or a fill of a finer size the venue could not have made; a position no order of the venue's could close, and whether it matters.
+2. C2's restated statement against A3, and what it leaves to tests; an event with no fault that the built admission would still reject (`known`, horizon, encoding) on a forward record.
+3. `off_rules`: an event off its rules with no row, or with one when it is on them; its place and count among the trace's lines.
+4. A18's query and finality, word for word, against `4-study-2.md` step 7 and `VAULT.md`; the print rule against `RECORDER.md`'s router.
+5. The ending's `known` under any header; `Acct.apply`'s `refused` case at admission and at a first quote.
+
+**Routed to study 2's half:** brief 4, step 7 says in three places that a resting order is offered a print's whole lots of the copied rules (test 10 "What stops a run", wall 2, wall 3 "What stops a run"): it is offered the recorded size, so Neon's construction's prints of 0.15 fill 0.15. Test 10's held delisting names 08:59:59.999: with study 2's header the end is known at 07:59:59.999, 3 h 20 min after the flag (Neon). `KERNEL.md` A18 now gives the print rule's scales, which recorder build step 1 waits for (`px` at most 8 decimals and below `10⁷`, `sz` at most 6 and below `10⁹`). The other routed items above stand. **To the advisor:** architecture 7 and 10 are pruned of the deleted pilot (`854fa4b`), as study 2's report asked.
+
+**Open questions:** none that only the human can decide.
+
+**Convergence:** not converged, as above: a reviewer who did not build round 17 follows, on the section and this addendum together.
+
+**Added 2026-11-23 03:41 UTC (2026-11-22 22:41 EST): Stage 2's names, built.** The section above left one part of the boundary unbuilt, the renaming of a whole `engine.kexp`, constructors included. Built now on `b94e128`'s closure, on the pinned toolchain, from round 16's Stage 2 prototype (`~/.cache/mm-r17k/stage2tag/`: `Regen.lean` lists what the generators regenerate, `tag_kexp.py` applies the map, `Stage2Tag.lean` compiles with panics fatal):
+
+- 4,747 constants renamed (91 inductives, 218 constructors, 59 recursors, 120 regenerated auxiliaries), replayed under the kernel and compiled with no panic: 1,396 compile calls, 3,535 auxiliaries, 5,040 declarations recorded once each. The untagged build's 67 sparse `casesOn`, 256 projections, 266 matchers and 18 kernel-proved recursions are found again, the C has the same 7,035 exported symbols, and the archive passes the OCaml suite through its thirteen exports (`state`, `exact`, `ledger`, `venue`, `events`, `archive_reader`, `eval`, `readings`, `strings_scale` at 90,800 quotes a second; `scale_test`, B4 and test 12 not run).
+- The fresh Opus's two impostors, and a safe `foo._unsafe_rec := 999` beside `foo := 4`, each return their kernel values beside the function they imitate. With the same text untagged, the output check names the last one (`compiling Engine.foo._unsafe_rec recorded the environment constant Engine.foo`).
+- **The output check as written would have failed on the library itself:** Stage 2's own generators compile each inductive's `ctorIdx` and `ctorElim` and each constructor's `elim`, 186 environment constants Stage 2 never asked the compiler for. It is now per call: a call to compile a declaration records no other constant of the environment (kernel B2, step 6; brief 3).
+- `primitives.txt`, walked inside Stage 2's own environment (values, and the `@[csimp]` replacement of each constant reached, `Init`'s and `CleanPrelude`'s among them): 3,362 constants and the same ten opaques, so that row under *Disputed, or open* is closed too.
+- **A claim of the section above is refuted:** that the fresh Opus's uniqueness check alone would not have closed a consulted name. With the names left untagged and that check alone, the same `foo._unsafe_rec` fails as `recorded twice: Engine.foo`, the compiler recording it under `foo`. So each guard closes every impostor built so far by itself: the names by construction, whatever the compiler's conventions, and the output checks by the compiler's record. Both stay, since each is short and neither rests on the other.
+- Two details a builder needs, now in the brief: the regenerated auxiliaries are learned by running the generators, not from a list, and Stage 2 reads a matcher's, a sparse `casesOn`'s, `brecOn`'s and `below`'s form from the `engine.kexp` name.
+
+So *Disputed, or open*'s row on Stage 2's names is closed but for the reviewers' eyes: item 1 of what they check stands, on this build.
+
+## The last pass, round 18, kernel: the run's one order, what each guard closes, the trust stated exactly, and study 2's rounds 18 and 19
+
+Appended 2026-11-24 by a fresh Claude Opus 5.5 at maximum effort, the architect for round 18's kernel half, answering the fresh Opus's review of round 17 (`audit/reviews/2026-11-24-opus-round17-kernel.md`: findings 1 to 3, the `STToken` fixture, the contract's namespaces), folding in study 2's rounds 18 and 19 kernel changes (`/home/kevin/repos/moneymachine/data/builder/architect-r18-s2-report.md`, "Kernel changes", and `architect-r19-s2-report.md`, its kernel list, round 19 superseding round 18 where they differ), and settling the side of the listing end's window that GPT-6.2's review of study 2's round 19 asked about (`audit/reviews/2026-11-24-gpt62-round19-study2.md`, section 2, first paragraph; with its section 1's second paragraph, which names the reader). Revisions on `rearchitecture`: `09bf9c0` (merge of `main`), `e958f32`, `2e23a76`, `436e8b1`, `32a39c5`, `875e85f`, `4cd4517`, `9e2e808`, `c34cf68` and this commit. Experiments under `~/.cache/mm-r18k/` on pinned Lean 4.34.0 against `b94e128`'s build. Brief 4, `recorder/`, study 2's criteria texts, `PROGRESS.md` and `audit/criteria.md` untouched. No market data, nothing under `data/holdout/`, no token or key file read. Report: `/home/kevin/repos/moneymachine/data/builder/architect-r18-kernel-report.md`.
+
+### In plain words
+
+- **Everything the engine does in one millisecond now has one order, and its laws hold it there.** The fresh Opus showed that the laws let the machine do a millisecond's work in any order: a change of a coin's rules could cancel the order a wish had just placed in that millisecond, a trade could fill an order at the old price steps before that order's cancel, and a fill could come before the hour's funding payment. Study 2 now times every rule change on a whole second, which is a tick's millisecond, so this would have met every rule change. The run's records are now one list in the machine's own order (each millisecond's events with what they cause, then the clock's tick, then the wishes that arrive), and the world's effects are those records' effects in that order. Three pieces of bookkeeping the laws carried go with it: where each record's effects sat in the log, a count that each effect had one owner, and the chaining of neighbouring records.
+- **Both guards on the compiler's names are needed.** One keeps a name the library chose from being taken for one the compiler makes; the other, a check that the compiler records each declaration once, catches two of the compiler's own names meeting, which the fresh Opus made happen from library names. Round 17's addendum said each guard was enough alone; that was wrong, and neither may be cut.
+- **What the build still trusts is said exactly:** that the compiler compiles each definition to its value; that the 112 runtime implementations from Lean's standard library the engine reaches (integer, float, string and array operations) compute their definitions' values; and that the ten listed primitives are what they were reviewed as. Lean's floats were called opaque to its kernel; they are not, and what is trusted is that the machine's float instructions equal Lean's own model of them.
+- **A delisted coin ends in two records:** its funding ends at the first hour it went quiet, so no later hour is owed, and its listing ends an hour after the delisting notice, settling any holding. The quiet window that decides it now closes just before that end, so the end is decided only by what came before it in the engine's order (GPT's finding on study 2's round 19).
+- **The reader takes the record in one fixed order,** by the venue's stamps, whatever order the files hold them in, so a month's replay and a longer one read the same events before any time (GPT's other finding on that round, which named the reader).
+- **Study 2's other changes are in:** each day's record fixed by the calendar, each machine's kept copy of a file under its own checksum, the two-machine packing scheme deleted, the forward run's identity by the month's table, and the vault's fills replayed from each coin's first position.
+- **How the record is read now has one home,** `KERNEL.md` A18; the copies in brief 4 and `recorder/VAULT.md` are routed to study 2's half to be cut to citations.
+- **The round ends shorter:** about 22 KB less across `kernel2/KERNEL.md`, `kernel-v2.md` and brief 3, most of it answered-review tables that copied this ledger.
+
+### Who has seen what
+
+- **The fresh Opus** reviewed round 17's kernel half; he has not seen round 18.
+- **GPT-6.2** reviewed study 2's round 19 (two of its points answered here); it has seen none of the kernel half's rounds 15 to 18.
+- **Neon** architected round 16's kernel half and reviewed study 2's rounds 16 to 18; it has not seen kernel rounds 17 or 18.
+- **This architect** built round 18 and does not review it.
+
+### Agreed
+
+- The fresh Opus's confirmations on round 17: round 16's constructions neutralized or failed under round 17's boundary (`spec/`, `spec2/`, `elam/` return their kernel values; `st/` fails at the walk); the walk on `b94e128` (3,265 constants, the same ten opaques, each a fixed function of its arguments; `Float.exp` an opaque, so `LibmExp` fails); the boundary proportionate, each piece answering a construction and failing closed; the forms (`stepForm`) against A6, A7, A10 to A12 and A19, effect for effect, and `refused` at both places; S1's restated match; the size scale of 6, the recorded size offered as recorded and admission's two outcomes; C2's text; step 5x's statements type-checking; X6 against X4.
+
+### Settled by derivation in round 18 (awaiting the next reviewers)
+
+| Point | Settled by | Changes what is built |
+|---|---|---|
+| Finding 1: R1 left the order inside a millisecond to the machine (a rule change's cancel after its arrival, an offer on the old grid before its cancel, a fill before its hour's payment, an arrival before its tick at `δ = 0`) | **The run's records are one list in A18's order of a millisecond** (kernel B3 R1; brief 3 step 5x; `KERNEL.md` A18): `Record` is a step, a tick or an arrival, each holding the effects it made, a step also its move's index; `run.records.Pairwise Record.precedes` (a millisecond's steps by their moves, then its tick, then its arrivals); `run.effects` is the records' effects in that order; a record's account is the fold of the effects before it; a step's time is its move's (`moveTime`); `ruleChanges` returns the listing's move. The fresh Opus's fix, three clauses over three lists, held one way only: an arrival with no effects placed after a later step's slice read a future account and passed them (round 17's L1c held a tick's place against other times' effects, and nothing held an empty arrival's). One list orders both ways by construction, and deletes the indices `effectStart`, `effectEnd` and `effectCount`, the count of owners, the chaining of consecutive arrivals and steps, and L1c's five clauses of order. The statements type-check against `b94e128` with stand-ins for what sub-step 2 restates (`~/.cache/mm-r18k/contract/`, `Contract.lean` and the brief's own blocks extracted, `Brief.lean`) | **Yes:** sub-step 2's `Log.records`, `Run`, `Record`, R1's clauses, L1c; fixtures `RulesAfterArrival`, `OfferBeforeRules`, `ArrivalBeforeTick`, and `HiddenEffect`, `SharedEffect` restated on the log; a behaviour test that the order an arrival places at a rule change's millisecond stands |
+| Which move a step belongs to | The machine's word for steps other than a rule change's until F0, M1, L6, U1 and M2, which steps 6 and 7 state over the steps by their moves, both ways (B2's exceptions; brief 3 steps 6 and 7); R1's order then puts a print's fills after its millisecond's listings and payments, and U1's position is the funding step's account | Steps 6 and 7's statements |
+| Finding 2: Stage 2's names do not make the compiler's names unique | B2 says what each guard closes: the names, a library name taken for a compiler name or looked up as one; the record check, the compiler's names meeting each other, which a join of two library names (`f._at_.g.spec_k`) can make. Both are load-bearing. Round 17's addendum's "each guard closes every impostor built so far by itself" is refuted by `coll/` | Fixture `SpecCollision` (the fresh Opus's `coll/`), which triggers the record check from a real library; the scratch `CompiledTwice` it replaces is deleted |
+| Finding 3: `Float` is not opaque to the kernel on 4.34.0 | B2 states the trust exactly: the compiler compiles each reached definition to code computing its value; each `Init` implementation the closure reaches computes its definition's value (112 for `b94e128`, measured by round 17's walk, `~/.cache/mm-r17k/reach/`); each listed primitive is the function reviewed. `Float`'s operations are definitions over `Float.Model`, which the kernel evaluates, and the trust is that the C operations equal the model under A13's environment. The list holds opaques alone because none of `Init`'s 491 safe definitions with an implementation keeps state the walk does not see (the fresh Opus: the 11 stateful ones are faithful or reach an `ST` opaque) | No (text) |
+| `STToken` must assert the failure | Stage 2 exits non-zero naming the opaque and its path, and writes no archive; `STToken` and `RunSTToken` assert it (round 16's prototype printed the walk and built the archive, whose counter ran) | The walk's exit; the fixtures' assertion |
+| The test writer's contract named X4's formulas in `Engine.Exact` | `Engine.Laws`, the frozen copies a count test uses; the engine's copies in `Engine.Exact` are no test's | Tests |
+| Study 2's round 19, item 2: the listing's end | Two records of the listing class, each known at `τ = e + 1 h` plus the greatest of the two lags and `δ`: the funding's end at `E`, from which no hour of the coin is due, moving nothing; the listing's end at `τ`, settling at the coin's price. `Payload.fundingEnd` (`a` = 2) is new; `marketEvent` and `slotKeysAt` read it not; C2's key puts it in the listing's class; the due-hour rule reads it. The reach `R`, `B(e)`, the ending's `known` at `B(t_F)`, and the finality query with its pages, rechecks and date are deleted | **Yes:** the payload, `decodeChunk`, `pack`, C2's key and fields, the reader, step 6's test 15, step 7's test 8 |
+| The window's side (GPT on study 2's round 19, section 2) | **It closes before `τ`:** the silence is of books, prints and settlements stamped at or after `e − 1 h` and before `e + 1 h`. The end is of the listing class, so first in its millisecond, and an event of the machine's order may be decided only by what precedes it; a window holding `τ` would end the coin by the absence of a book later in its own millisecond, after the settlement had released the cash that millisecond's other fills spend. The coin's events at `τ` come after the end and are counted like every later event of an ended coin; a coin settled every hour is never silent for two hours, so only a coin the record shows silent around its flag loses its event at `τ`. Moving the end after the millisecond's events (GPT's remedy) is the same rule one millisecond later, with a new place in the order; cash, the span's end and the guard are then at one instant, first in `τ`'s millisecond, before its funding, its prints and its tick, as the guard's own order at a timestamp has it (a day's end, a span's end, funding, the tick) | Reader; brief 4's wall 4 and test 12 (routed) |
+| GPT's finding 1 on study 2's round 19, second paragraph: one ordered prefix | The reader feeds the record's items in A3's order, ties in the order acquired (run, hour file, line, place in the line), whatever order its files hold them in, so the events a replay feeds before a time are the same at every horizon, and a file's disorder is no fault; the round-19 record of a time already makes the reader place items received months after their stamps, so this states the order it places them in | Reader; step 6's test 13 |
+| Study 2's round 19, items 3 and 6: the record of a time; kept lines under their own checksum; every hashed file read whole; a failed checksum feeding nothing | `KERNEL.md` A18; brief 3 step 6 test 13, step 9 test 11 and wall 2, the recorders' table | Reader; tests |
+| Study 2's round 18, item 5: the seekable packs | `mm2 pack`, `mm2 unpack-verify`, the seekable reader and test 14 deleted, with A13's and step 9's pins of packed hours | **Yes:** three builds fewer |
+| Study 2's round 19, item 4: the forward identity | The registration, the start, the capture's table (whose rows hash every file read and give its `since`), the build and the windows (kernel A13; step 9's test 11 and wall 2) | Identity text |
+| Study 2's round 19, item 5: the replay of given fills from a position | Brief 3 step 2: from a starting position for each coin, layer 1's at zero; `chained` is brief 4's | **Yes:** step 2's entry point |
+| One home for the readers' rules | `KERNEL.md` A18 states them all, the vault's fills pull (a fill's identity, one whole pull, unreadable elements with their time or place) moved there from `recorder/VAULT.md`'s "What the reader trusts of a pull": the reader that applies them is the kernel's (brief 3, step 2), and A18 is the spec beside it. Brief 4 keeps the derivations and CS2.3's judging rule, which pull judges and what withholds it | Reader spec; routed |
+| `kernel-v2.md` parts C to G | Deleted as copies of this ledger's sections of the same names (round 5, round 6, the confirming read, layer 1's wall, GPT's read of layer 1 and O12), with their three notes on walls since answered; each changed lines of parts A and B, which say it; citations re-pointed or dropped where the reason stands inline | No |
+| A19's `bid` row said a listing's end moves the price | It moves none, holding no price (study 2's round 14) | No |
+
+### Deleted this round, and why each claim survives
+
+| Deleted | Why the claim survives |
+|---|---|
+| `effectStart`, `effectEnd`, `effectCount`; R1's count of owners, its chaining of consecutive arrivals and of steps and its clause on a step's effects' times; L1c's clauses on the log's order and on each tick's prefix | The one list in A18's order with the log as its effects gives each: every effect one record's, a record's account the fold before it, consecutive arrivals of a millisecond adjacent records, every effect before a tick of an earlier time or its millisecond's steps |
+| The reach `R`, `B(e)`, the ending's `known` at `B(t_F)`, the finality query and step 7's finality cases | An end is decided by the fixed record's silence around the flag, which study 2's calendar fixes before any replay uses it, and it removes no event but those after it |
+| The seekable packs, `mm2 pack`, `mm2 unpack-verify`, test 14 and their pins | Each host reads a hashed file once and keeps what some run reads under a checksum of its own, read as the file is |
+| Reading a file to a length | Files are hashed only once at rest and read whole |
+| `CompiledTwice` | `SpecCollision` reaches the record check from a real library |
+| `kernel-v2.md` parts C to G | This ledger holds each answer; parts A and B hold what changed |
+| The forward identity's packed hours, `State_{k−1}`, `settled/events`, fee copy and pull events | The capture's table hashes every file read and gives its `since`; no replay reads an earlier one's state (study 2's round 19) |
+| B2's history of the source guard and of the observation's rules, round 16's untagged measurement, R1's narrative | The arguments stay; the history is in this ledger and in git |
+
+### Disputed, or open
+
+| Point | State | Would change what is built |
+|---|---|---|
+| The one list of records, against the fresh Opus's indices with three clauses | Derived above; his clauses held one way only | **Yes**, the observation's shape, before sub-step 2's statements are committed |
+| The window closing before `τ`, and the reader's one order | Derived; study 2's round 20 takes them | Reader |
+| A18 as the one home, the whole pull moved there | Routed; study 2's half has not seen it | Reader spec, text |
+| GPT's other points on study 2's round 19 that reach the reader: copies backdated within the hour, a pull's request time, duplicates in the 10,000 count, the same-millisecond chain | Study 2's round 20 decides them; A18 follows | Reader, once decided |
+| The funding's end writes no trace row | A judgment: it moves nothing, and the listing's end that pairs with it has its row | Rows only |
+| O26 | Unchanged | Only if study 2's fitted trigger misses B5 |
+
+**Would any open point change what is built?** Yes: sub-step 2's observation is re-derived again and unreviewed, and the reader's end rule and order are new.
+
+### Committed criteria: reported, not edited
+
+None touched by the kernel half.
+
+### Routed and owed
+
+- **To study 2's half (round 20):**
+  1. Brief 4, step 7, wall 4: the listing's silence window closes before `e + 1 h` (`KERNEL.md` A18, with the reason above); test 12 gains a book stamped exactly at the end, which stops nothing and is counted.
+  2. The reader's one order (A18): brief 4's wall 3 lists "an event out of order" among the stops of a run, which an honest reader no longer makes; GPT's finding 1, second paragraph, is answered by it.
+  3. One home: `recorder/VAULT.md`'s "What the reader trusts of a pull" becomes a line citing `KERNEL.md` A18 (its paging premise, the collector's, stays); brief 4's walls 2, 4 and 5 keep their derivations and cite A18 for the rules they restate (the record of a time, kept lines, a copy's two clocks, the end, a whole pull).
+  4. Brief 4, step 4's V8 measurement cites "kernel part G", deleted: its record is this ledger's "GPT's read of layer 1 and O12".
+- **To the advisor:** `checks.mm2-tests` failing its two timing tests on the builder (round 17's note) was not rerun this round.
+
+### What the next reviewers should check
+
+1. **R1's one order:** a run that meets `Record.precedes`, the log clause and every record's form while an order is lost, an effect is misplaced, or a step precedes its millisecond's tick wrongly; whether the honest machine's records are sorted under every interleaving of offers, ticks and arrivals; whether any step can follow an arrival in a millisecond; the order within one move's steps, left to F0 and M1.
+2. **L1c over the records:** a view early or late that the split over the records' prefix admits.
+3. **The two guards:** a collision of compiler names that neither the names nor the record check catches.
+4. **The trust as stated:** an `Init` implementation or a path through `Float.Model` by which compiled code departs from its kernel value without reaching an unlisted opaque.
+5. **The listing's end:** wealth, a bar or a guard state set at or before `τ` by anything after it in the order; a live coin ended within the clocks' premise; the funding's end moving anything; its `known`.
+6. **The reader's one order:** two replays feeding different events before a time; ties across files; the cost of placing items by stamp against B5.
+7. **A18 as the one home:** a rule of brief 4 or `VAULT.md` that A18 lacks or states otherwise.
+8. **Study 2's fold-in** against both reports' kernel lists.
+
+### Open questions
+
+None that only the human can decide. Judgments a reviewer may contest: one list of records against indices with order clauses; the window closing before the end against GPT's batch-closing remedy; the reader's canonical order against a stop at a file's disorder; the vault's fills pull read by A18 against `VAULT.md`; the deletion of `kernel-v2.md`'s parts C to G.
+
+### Convergence
+
+**Not converged.** Sub-step 2's observation is re-derived and the reader's listing end and order are new, so a reviewer who did not build them follows; Neon or GPT, since the fresh Opus has reviewed the last two rounds.
+
+## The last pass, round 19, kernel: the machine is specification and the laws its properties, GPT-6.2's read of round 18 at its cause, and study 2's round 20
+
+Appended 2026-11-24 by a fresh Claude Opus 5.5 at maximum effort, the architect for round 19's kernel half, answering GPT-6.2's review of round 18 (`audit/reviews/2026-11-24-gpt62-round18-kernel.md`: points 1 to 4 of "What the laws still permit or prohibit"; its listing-end, run-id and stream-state points as study 2's round 20 answered them) and folding in study 2's round 20 kernel items (`/home/kevin/repos/moneymachine/data/builder/architect-r20-s2-report.md`, "Kernel changes this half needs", items 1 to 9; `rearchitecture-s2` at `86aa583`). Revisions on `rearchitecture`: `23a890b` (merge of `main`), `0a7ecaa`, `e2004ee`, `e217db9`, `f36a130`, `9a7e46c`, `419f755`, `bbfef25`, `88ff82a`, `148c0e8`, `9fdbba1`, `98b8611` (this section), `95c5de9`, `c130916`, `572ea90`, `586f26d` and the commit of this line. Experiment: the restated contract (records, R1's order, L1c, L0's clock, S1's match, C2's key with the unsettled hour) type-checks against `b94e128`'s build with stand-ins for what sub-step 2 restates, and `moveTime` past the moves is proved `none` (`~/.cache/mm-r19k/contract/Contract.lean`, pinned Lean 4.34.0, no message). Brief 4, `recorder/`, study 2's criteria texts, `PROGRESS.md` and `audit/criteria.md` untouched. No market data, nothing under `data/holdout/`, no token or key file read. Report: `/home/kevin/repos/moneymachine/data/builder/architect-r19-kernel-report.md`.
+
+### In plain words
+
+- **The engine's rules are now its own code, frozen and reviewed, and the laws prove what the study's claims need of that code.** For six rounds the design tried to pin the engine down from outside: each round added a law checking one more part of what the engine recorded about itself against a second, hand-written description of what it should have done (the book at each order's arrival, the effects of each step, each rule change), and each next reviewer found a run that passed every law while the engine did something else. GPT's read of round 18 found three more such runs (a strategy handed a missing first-fill price, a liquidation "rescued" by a later quote of the same millisecond, a funding line dropped from the trace) and proposed the next patch: describe every move's effects from scratch. Finishing that description means writing the engine twice. Instead the engine's code is now the specification itself, printed in full and frozen, so nothing it does can change without a reviewed restatement, and its rules are checked against the design by review and by tests written from the design by a session that has not read the code, as the strategy language, the readers and the evaluator already are. This is what the paper already says the kernel is: an executable Lean program whose every computational law a judged number depends on is a theorem about the code that runs.
+- **The laws keep what the study's 5% rests on:** nothing decides on what it could not know (no look-ahead; the view's account the world's, a delay late; every order a strategy's wish arriving a delay after it was sent), no fill beats the tape, cash is conserved, the floor holds, the report is the world's books, cutting the input into chunks changes nothing, a faulty market publishes nothing, and the confirmer's ledger and bar are exact.
+- **What goes:** the second description and the laws over it (the market at each arrival, each step's form, the causes of rule changes, laws F0 for fills, M1 for margin, M2 for listing ends, and the machine's versions of U1 and L6); ten fixtures that attacked them, whose cases become ordinary tests; round 18's separate effect log; and, at step 6, the test-only way of handing the engine a fill, so the fill laws speak only of fills the record caused.
+- **What stays from round 18:** the one ordered list of what the engine did in each millisecond, which GPT accepted, and the law already proved that every order is a wish sent by the strategy a delay earlier.
+- **GPT's smaller points:** after a bankruptcy no wish places anything, a zero-price order included; a funding payment in the millisecond of an earlier liquidation is on the position the liquidation left, so a coin it closed pays nothing; a step's move index past the moves names no time.
+- **Study 2's round 20, folded in:** a reply placed by its two clocks; what a funding reply covers; an hour the venue's replies show unsettled pays nothing and holds nothing; a delisting ends only on the venue's evidence, after the last millisecond of its two-hour span; a corrupt stream feeds nothing; a duplicate's place in the one order; and the assumption V23, that the venue's funding history leaves out no settlement it made.
+- **The round ends shorter:** about 11.5 KB less across `kernel2/KERNEL.md`, `kernel-v2.md` and brief 3, though `KERNEL.md` grew 2.6 KB with study 2's new reader rules.
+
+### Who has seen what
+
+- **GPT-6.2** reviewed round 18's kernel half and study 2's round 19; it has not seen round 19's kernel half or study 2's round 20.
+- **The fresh Opus** reviewed round 17's kernel half; not rounds 18 or 19.
+- **Neon** architected round 16's kernel half and reviewed study 2's rounds 16 to 18; it has seen none of kernel rounds 17 to 19.
+- **This architect** built round 19's kernel half and does not review it.
+
+### Agreed (GPT-6.2 on round 18)
+
+- The single ordered record list: R1's rule-change and arrival ordering, an extra or dropped effect failing, L1c's prefix split (kept: R1's order and L1c); deleting the slices, ownership counts and chaining; the test writer's use of `Engine.Laws`' frozen formulas.
+- Whole-file capture hashes, the kept-lines checksum, the calendar cutoff, the forward identity and the packs' removal; A18 as the home of the readers' rules; a starting position for each coin of the given fills; the end's cash and span at one instant.
+
+### Settled by derivation in round 19 (awaiting the next reviewers)
+
+| Point | Settled by | Changes what is built |
+|---|---|---|
+| **The cause of GPT's points 1 and 2:** the laws constrained the machine without determining it | **The machine is specification** (kernel B2): `feed`, `finish`, `offer`, the transitions, the clock, the view and its inputs, `arrive`, `Acct.apply`, the state and the records leave `frozen.txt`'s subject list and are printed in full, so no machine does otherwise than its text unseen. A subject is now only a function a law determines at every argument (the numeric readings and twins, `prepare` and `admit`, `Ledger.step`, `bind`, `check`). The laws are the properties the claims rest on, each with its witness, and those characterizations; a law reads any specification, records included. Rounds 13 to 18 bound record after record to a second, partial machine and each review found a run outside it; GPT's remedy, each move's effects bound to the transition from its own market and account, completes that second machine, whose union is a reference transition no simpler than the machine. One transition is smaller, and it is the one B1 already says the engine is. That its rules are part A's rests on review of each restatement and on the tests each step writes from part A, as for the readings and the evaluator; a restatement of the tick, the view or the evaluator's inputs reruns B4. A faster form of any part of the machine is a twin proved equal, as X3's and X6's are | **Yes:** sub-step 2's frozen surface and contract; steps 6 and 7's laws |
+| GPT 1: a tick hands the evaluator an undefined `first_price` and skips an exit while every law holds | The tick's inputs are the machine's text (A5's table, printed in full), so that trace is a restatement, which the print shows and step 5's test 2 fails (a first fill at 10 gives the ladder's five wishes at their prices); fixture `FirstPrice`. B2's exception "the evaluator state a tick records ... the machine's word" is deleted with the rest of that list | **Yes:** fixture |
+| GPT 2: each cause read from the millisecond's end market (a liquidation rescued by a later quote); the span boundary and trace rows unbound | No law reads a millisecond's end market: `marketAt` and the per-move cause laws (F0, M1, M2, U1's and L6's machine statements) are deleted unbuilt. Each cause is the machine's sequential text, every check of its own event on what came before it (A10, A12), and step 7's test 1 gains GPT's case (cash −95, maintenance 5%, an adverse mark of 98, then 105 in the same millisecond: liquidated). The span change and the `end` and `funding` trace rows are A19's text, which step 9's tests 4 and 5 hold, a never-held coin's settlement row included; P1's span clause stands | **Yes:** steps 6 and 7's laws; tests |
+| GPT 3a: F0's domain (the step 5 witness's `Move.offer` gives lots no tape awards) | F0 deleted. From step 6 a run is its fed events: `Move.offer` is deleted with the step 5 tests and fixtures that offered a fill, which run through prints and quotes (step 6, test 12), `step5Moves` and so R1's and S1's witnesses restated; the fill laws E1, L4, T1 and L1b speak only of fills events caused | **Yes:** step 6 |
+| GPT 3b: funding after a same-time liquidation (A9 and B3 against step 7's move prefix) | A9: the position the world holds at the event, after every earlier event of A3's order and all each caused, so before the fills of its millisecond's prints and quotes and after a liquidation an earlier funding event of it caused; "before any fill at that time" read a liquidation's closes, which are fills, the wrong way. The due-hour check stays A18's, on events before the hour. U1 is the ledger's law; V21's text; step 7's test 3 gains GPT's case | Text; a test |
+| GPT 4a: R1's forced arrival against A11 (a zero-price order after bankruptcy at a minimum of zero) | A6: an arrival does nothing for a bankrupt account, one decision with its other cases. `arrive`'s four-clause characterization, which forced the arrival through A6's conditions, is deleted; R1 keeps `prepare`'s and `admit`'s, which speak of admission alone | **Yes:** `arrive` at step 7; R1's statement |
+| GPT 4b: `moveTime`'s out-of-range index read as the last event's time | `moveTime` is `none` past the moves (proved in the experiment) | **Yes:** contract |
+| What of R1 stays | `b94e128`'s universal clause, proved: at each deciding tick one wish a slot and coin in view (`slotKeysAt`), none between, each arriving `λ` later, once, a slot's in order, and the admitted orders the placed ones; it is the bridge from L1a's views to the world's orders. With it, round 18's order of the records (`Record.precedes`, each step at its move's time), which GPT accepted. Fixtures `ViewSkip`, `ArriveTags`, `RulesAfterArrival`, `OfferBeforeRules` and `ArrivalBeforeTick` stay with them | **Yes:** R1's restatement adds the order clauses |
+| Round 18's separate effect log | Deleted unbuilt: each effect `emitOne` makes is appended to the record being made, one path, which is GPT's own condition for dropping the equality; L1c's `r.world` holds what it held | **Yes:** sub-step 2 |
+| Study 2's items 1 to 7 (A18) | A reply's two clocks (made after `min(date, recv) − 30 s` and before `max(date + 1 s, recv)`; a copy in force from the later; its reach the earlier less 30 s; the hour check deleted); what a `fundingHistory` reply covers; an **unsettled hour** (`Payload.unsettled`, funding's class and kind, `a` = 2, timed `H + late`), replacing round 19's `Payload.fundingEnd`, which pays nothing, is no price event, writes no `funding` row and names its hour for funding's lateness; a listing's end at `e + 1 h + 1 ms` on the venue's evidence over `[e − 1 h, e + 1 h]`; four stream states, a corrupt one feeding nothing; duplicates' place and the reader's own records in the order; the vault's pull judged and counted as brief 4 says | **Yes:** reader, payload, C2's key, tests 13 and 15, step 7 test 8 |
+| Study 2's item 8 (V23, V18) | V23 new; V18's assumed pull is the earliest whole one asked 30 days after the 61 days by its first reply's clocks, under 10,000 distinct fills | Text |
+| Study 2's item 9 (brief 3) | Step 2's replay in `chained`'s order, each row's `before` its fill's `startPosition` (GPT's `0→1`, `0→2`, `2→0`); test 13's corrupt and malformed streams and a duplicate's place; test 15 restated; the recorders' table | Tests |
+
+### Deleted this round, and why each claim survives
+
+| Deleted | Why the claim survives |
+|---|---|
+| R1's content clauses of rounds 15 to 18 (an arrival's books by `marketAt`, `marketInit`, `marketEvent`, `WorldMarket`, `bookFrom`, `bookMatchesAcct`; its effects by `arrivalEffectsOf` and admissions by `arrivalAdmission`; each step's effects by `stepForm`; the rule changes' steps by `ruleChanges`), all unbuilt | The machine is specification: what each arrival and step does is its text, printed in full. Their protection was always partial (B2's list of "the machine's word"), and every gap it left was already review's and the tests'; the cases their fixtures built are behaviour tests (sub-step 2) |
+| `arrive`'s four-clause characterization, built at `b94e128` | It forced an arrival A11 forbids; `arrive` is specification, R1 keeps admission's conditions (`admit`) and the schedule |
+| F0, M1, M2, and U1's and L6's statements for the machine, unbuilt | Their content is A7's, A10's and A12's text in the machine, tried by steps 6 and 7's tests (each sell written out, the threshold by one unit, GPT's cases); E1, L4, T1 and L1b keep what the 5% needs of fills, L6 the floor, A1 and U1 the ledger |
+| Round 18's `Log.effects` and its equality with the records' effects | One emission path into the records; L1c's `r.world` |
+| 10 fixtures (`EmptyAdmissions`, `UnnecessaryReplace`, `StaleMark`, `RulesKeep`, `RulesSkip`, `InactiveCause`, `LiquidationForm`, `ArrivalOrder`, `WishInactive`, `WishCycle`) | Each changes the machine, which the print refuses; each one's case is a behaviour test of sub-step 2 or of steps 5 to 7 |
+| `Move.offer`, at step 6 | A device for a machine without fill rules; from step 6 every fill is an event's, and the fill laws are of those |
+| B2's four rules and its list of exceptions "each the machine's word alone" | Nothing is the machine's word: two lines remain, completion one typed value and the laws' moves those that survive the wire |
+| `Payload.fundingEnd` and the funding's end at `E` (round 19 of study 2), unbuilt | Each hour is settled or shown unsettled on its own (study 2's round 20; V23) |
+| The hour check between a copy's `Date` and `recv` | A copy is in force from the later clock, so an off clock only delays it |
+| B2's copy of the decoder's three passes; a chunk row; history clauses in A18's listing bullets | A18 holds the decoder; the unsettled hour's row replaces the funding's end's |
+| `kernel-v2.md`'s tombstone of parts C to G, and its header's promise of them | Round 18 moved their answers to this ledger, which the header now names |
+
+### Disputed, or open
+
+| Point | State | Would change what is built |
+|---|---|---|
+| The machine as specification, against laws per effect, and against a reference transition with a refinement proof (the paper's table names one as what would close the second level for a conventionally written engine) | Derived above. A refinement proof is the way to a second, independent formalization if one is wanted; it is not needed while the engine is its own plain specification and speed comes from twins | **Yes:** sub-step 2, steps 6 and 7 |
+| Keeping R1's schedule and the records' order as laws while deleting the content bindings | A judgment: the schedule is the bridge from the view to the world's orders, which the 5% rests on, and the order GPT accepted is a cheap property of the text; the content bindings were the second machine | R1's statement |
+| The unsettled hour writes no trace row | A judgment: it pays nothing, the guard folds nothing for it, and the reader counts it | Rows only |
+| A restatement of the tick, the view or the inputs reruns B4 | A rule for the failure it names: a restated machine feeding the evaluator otherwise than the build B4 judged | B4's schedule |
+| GPT-6.2's "derive the order-fill and placement projections from the records where possible" | Not done: `run.placed`, `run.admissions` and `run.fills` are made by the transition that makes the record, as specification, so they cannot disagree with it unseen; deriving them restates S1 and P1, which read their indices and books, for no protection. A later cut, the builder's to propose | No |
+| O26 | Unchanged | Only if study 2's fitted trigger misses B5 |
+
+**Would any open point change what is built?** Yes: sub-step 2's frozen surface and contract, and steps 6 and 7's laws, which no reviewer has read.
+
+### Committed criteria: reported, not edited
+
+None touched by the kernel half.
+
+### Routed and owed
+
+- **The merge of `rearchitecture` and `rearchitecture-s2`, before a builder reads either alone.** Brief 4 and `recorder/VAULT.md` cite `KERNEL.md` A18 as round 18 left it, and this round's A18 states study 2's round 20 rules they rely on. `git merge-tree` of the two tips shows one conflict, `audit/program/ledger.md`, where each branch appended its own half's sections after round 11 (the kernel half's rounds 12 to 19, study 2's rounds 12 to 20); every other file merges cleanly, `architecture.md` included (6.4's citation here, 6.6 and 6.8 there). Resolve it by keeping both sides' sections whole, editing no line of either, the audit record being append-only.
+- **To study 2's half:** nothing in brief 4 rests on a deleted law (it cites none); an unsettled hour writes no `funding` trace row, which the guard's fold needs nothing from; architecture 6.4 now cites A7's `optimistic` rule where it cited F0.
+- **To the advisor:** `checks.mm2-tests` failing its two timing tests (round 17's note) was not rerun; the recorder build's run numbering and four stream states are owed before the freeze (study 2's round 20); a later cut could make brief 3's step 5x sub-step 1 a citation of kernel B2's boundary, which it nearly restates (not done: out of this round's points).
+
+### What the next reviewers should check
+
+1. **The machine as specification:** a claim of study 2 that rested on a deleted law and now rests on nothing; a restatement that every remaining law and test admits while it breaks A6, A7, A10 or A12 in a way that changes a verdict; a property law that reads a record the machine's text could make unfaithful while the law holds.
+2. **R1:** whether its kept schedule and the records' order hold of steps 6 and 7's machine, and whether the move index can be set wrongly while `moveTime` agrees.
+3. **GPT's cases:** the bankrupt arrival, funding after a same-millisecond liquidation, the two-quote liquidation, `moveTime` past the moves.
+4. **`Move.offer`'s deletion:** a step 5 test or fixture that prints and quotes cannot reproduce.
+5. **The fold-in** against study 2's nine items: the two clocks' bound, a reply's cover at 500 rows and across files, the unsettled hour's place in the order, the end's span at both ends, a corrupt stream's kept form, a duplicate's place, V23.
+6. **The B4 rule** and the unsettled hour without a trace row.
+
+Neon first, which has seen none of kernel rounds 17 to 19, then GPT; findings in parts.
+
+### Open questions
+
+None that only the human can decide. Judgments a reviewer may contest: the machine as specification against laws per effect or a refinement proof; keeping R1's schedule and order; deleting `Move.offer` at step 6; the unsettled hour without a trace row; B4's rerun at a restatement of the tick, the view or the inputs.
+
+### Convergence
+
+**Not converged.** The design changed at its cause, so reviewers who did not build it follow.
+
+## The last pass, round 20, kernel: a listing's end at a midnight on a day that paid nothing, the coins' rules the registration's, hours shown unsettled a day past, and Neon's two reads answered at their causes
+
+Appended 2026-11-25 01:45 UTC (2026-11-24 20:45 EST) by a fresh Claude Opus 5.5 at maximum effort, the architect for round 20's kernel half, answering Neon's read of kernel round 19 (`audit/reviews/2026-11-24-neon-round19-kernel.md`, findings 1 to 6) and its read of study 2's round 20 (`audit/reviews/2026-11-24-neon-round20-study2.md`, findings 1 to 8, most of them of A18). The listing ends, funding lateness, the copies' clocks and the replies' coverage are treated as one region and re-derived, findings on it having landed on patches since round 15 (`CLAUDE.md` §1). Revisions on `rearchitecture`: `2f672b0` (merge of `main`), `e128c6d`, `7687c0f`, `f34ebe3` and the commits of this section. K1 to K6 are the findings of Neon's read of kernel round 19, S1 to S8 those of its read of study 2's round 20. Experiments under `~/.cache/mm-r20k/` (scratch, left there: its removal was refused by a safety check on this host). A model of the new reader rules on random records (deaths whose rows go to zero, or stop; relistings; skipped hours; venue-wide halts; collector outages of up to 50 days; files listed late; clock errors up to 60 days), 250 records and 1,000 monthly replays, and 300 records before the rows could go to zero: no hour read differently by two replays whose tables differ, the fed end the same in every replay whose horizon is past it and fed by none whose horizon is it, the horizon never moving back, the end the first midnight after the first whole day that paid nothing with nothing of the coin read and another coin's book, computed from the truth, no settled hour shown unsettled while V24 holds, every due hour below the horizon named and nothing fed after an end. It is not vacuous: with ends only on a row missing, the premise of rounds 14 to 20, 44 of 80 ends do not come (the deaths whose rows went to zero); dropping the calendar cut breaks the first property 38 times in 100 records; dropping the other-coin clause ends coins in venue-wide halts; both clocks 40 days ahead break the settled hours 5,810 times in 15 records; and, worked by hand, the old month gate feeds an end in one replay and not the next, and a margin of an hour with both clocks three hours fast shows hours the engine had not finished. (A first model had given every replay the same replies and was too weak; it is replaced, and the sentence above is what ran.) A reproduction of the reviewers' constructions: an hour due while its record falls after its end (1 in 6 of the flags at a lateness of 10 minutes, all but one millisecond of the hour at 59:59.999), the stale copy's rollback and 8.5227%. The restated trigger, S1's match and U1's machine clause type-check against `b94e128`'s build on Lean 4.34.0 (statements only, unproved). Brief 4, `recorder/`, study 2's criteria texts, architecture 6.6 and 6.8, `PROGRESS.md` and `audit/criteria.md` untouched. No market data, nothing under `data/holdout/`, no token or key file read, no request to the venue. Report: `/home/kevin/repos/moneymachine/data/builder/architect-r20-kernel-report.md`.
+
+### In plain words
+
+- **No reading of the venue's listing page enters a judged run any more.** The coins' lot sizes, price steps and leverage tiers are fixed in the registration, the same copy the replay before the freeze used, and a delisting is recognised by what the venue charges the coin, never by a flag. Every round since 15 had tried to place these hourly copies among market events by some pair of clocks, and every review found a third clock or a boundary.
+- **A coin ends at a midnight:** the first one after a whole UTC day in which the record holds no book and no print of it, another coin traded, and each of the coin's 24 hours paid nothing. All of that is over before the midnight, so no decision looks ahead, no month has to be named, and no two monthly replays can read it differently.
+- **What rounds 14 to 20 assumed of a delisting is false on this venue, and the project's record has said so since 2026-10-19.** A delisted coin does not stop settling: its hourly funding rows go on at a rate of zero and its book is empty (`audit/criteria.md`, stage 0, its revision of 2026-10-19; the pilot cut a delisted coin's interval at its last traded bar because of it, commit `7d65e5f`; FTM, delisted 2025-01, has none of its 17,520 hours missing in `audit/stage0/ingest-1792385868856.json`). So 'the venue's replies are silent of it', on which those rounds ended a coin, never happens, and no end they define would ever have come; and my own first cut of this round had the same fault. TON, one of the seventeen, is the case in our data: its book is empty from 2026-06-16 and its rows run to 2026-10-31 (facts §6), which rounds 9 to 20 took for a coin that stays listed, and the catalog of 2026-11-16 flags it.
+- **An hour is the venue's word only a day after it:** a reply counts as saying "not settled" when both of its clocks, ours and the venue's, are a day past the hour. So clocks can disagree by hours in any direction and nothing changes.
+- **A dead coin's holding is closed at its last bid or price, whichever is less,** as the study's wealth is valued, and not at a price one side of a thin book had made.
+- **A held coin's funding payment is now a law of the engine, not only of its ledger,** because a payment left out, with the coin's return kept, would have passed every other law and given the copied strategy free carry.
+- **Smaller:** a coin with no quote yet pays no funding and enters no sum (it has no price); the law about the order of records no longer claims to keep a rule change before an arrival, a promise it never proved; a rule change of a coin, which no reader made, is deleted from the engine; two versions of one of the vault's fills are reported as that before any chain is checked.
+
+### Who has seen what
+
+- **Neon** read kernel round 19 and study 2's round 20; GPT read the rounds before. Nobody has read this round.
+- **This architect** built round 20's kernel half and does not review it; a fresh session wrote round 19's and study 2's 20.
+
+### Agreed (Neon on kernel round 19)
+
+- The machine as its own frozen specification, with the content bindings, `marketAt`, F0, M1 and M2 deleted; R1's schedule and L1c's prefix split; `Move.offer` deleted at step 6; funding on the world's position at the event; `moveTime` none past the moves; four stream states and a duplicate's place; the calendar cutoff; B4's rerun rule; the unsettled hour without a trace row. One thing added where it was missing: U1's machine clause (below).
+
+### Settled by derivation in round 20 (not yet reviewed)
+
+| Point | Settled by | Changes what is built |
+|---|---|---|
+| The region (K1, K2, K3, K4; S1, S2, S3, S4, S5, S7): what each claim needs of it | **CS2.1** needs that nothing in the run be set by what the venue did after it, in the engine's order, and that every later replay of a day be fed the same events; **CS2.2** and **CS2.3** need the second and fidelity; nothing needs a rule change or an end before it can be known, and everything may be late; a hole of ours may hold the test | Text |
+| **Rules:** a copy of the listings in force from its clocks (K4; S4, S5; S3.1's `E_HEADER`) | **No copy is read.** The header's rules are the registration's copy of `meta`, taken at the freeze, for the whole run, as the replay before the freeze runs on one; the same copy says which of the universe's coins are in the market, those it lists unflagged. **TON, one of the seventeen, is flagged in the tracked copy of 2026-11-16** (`venue/hyperliquid/meta-2026-11-16.json`: names, lots, leverage and the flag, no price), so S3.1's day-0 refusal was certain and not a rare case, and a design that asked the venue about a coin already dead would have rested on its answer. A18's copies bullet, `E_HEADER` at `w_start`, the two-clock placement of copies, the `+1 s`, the null date of a copy and the engine's rule-change event are deleted. A change of the venue's is seen as `off_rules` rows (V3). Fidelity: at most what a stale lot rounds | **Yes:** A18; the engine loses `Payload.listing`, the `rules` trigger and cause |
+| **Ends:** at `e + 1 h + 1 ms` on a window of copies, books, prints and replies (K1 to K3; S1, S2; the month gate; the two clocks on flags) | **At a midnight `M`** whose day before holds in the record no book or print of the coin, a book or print of another coin, and 24 hours each of which paid nothing: settled at a rate of zero, as the venue writes them after a delisting (above), or shown unsettled (A18; V25 is the assumption). The evidence is wholly before `M`; it reads no copy, no flag and no clock; it is fed only past `M` (`M < w_end`) and first in its millisecond, so a run cut at `M` and one that runs on agree on every day; the last-whole-month input, the `copy's day and the next` gate, the hour window and the flag are deleted. The archive's record takes the same rule (TON). A rate other than zero keeps a coin listed whatever its book shows, which TON's empty book through a listed spell would have ended by silence alone. The engine's due hour stands by `H + late`, so an end inside an hour's lateness leaves it undue wherever an end stands | **Yes** |
+| **What a hole is, and coverage by partial hours** (S3.2, S7.1; `date` null) | An hour is settled, shown unsettled by a whole reply, or a hole. Only a missing whole hour needs a reply, which the collector asks for again every day: a settled hour, a 500-row page's edge and the 00:17 pull leave nothing to show. A reply with an unreadable `Date` shows nothing | **Yes** (A18); none in the collector |
+| **The third clock** (S4) | Copies gone, no reply's content orders an event. The reach is deleted: a reply shows an hour when both its clocks are a day past it, so the remaining assumption is one sentence, V24: the host's clock and the venue's `Date` are not both a day ahead of the matching engine's | **Yes** (V24; A18) |
+| **K3, S6.1's T_730 and the kept form** | The end reads no pre-`w_start` line. The kept form holds every universe coin's item stamped at or after `w_start` in the record of its time, whatever horizon reads it, so a witness past the last midnight is in it, and a witness is an item (routed) | **Yes** (A18; brief 4's wall 3) |
+| **S2, K1: an end and the hour it stood in** | `R_SETTLEMENT_MISSING` is of hours whose coin's listing has not ended by `H + late` (A18) | **Yes** (the engine's check) |
+| **K5:** funding or an end before a coin's first quote | It is no price event and enters no sum; its `funding` row's `unit` is `-`; the coin's end row `-`; K2 takes the coins that have a first price | Text; step 9 and step 10's tests |
+| **K6A:** a machine that skips a held coin's payment keeps every law | **U1's machine clause** (kernel B3; brief 3, step 7): over an observed run a fed settlement with `q ≠ 0` has one step of its event, with `paid c q (−q·u)` and the cash-flow row, one with `q = 0` none, and no other step pays; the move index it reads is why R1 keeps one. Fixture `PaymentSkip` | **Yes** (step 7) |
+| **K6B:** R1's prose, and `admit` against `run.admissions`; step 7's L6 | R1 says the orders the arrivals submit that `admit` accepts are the placed ones; the list's order places records and says nothing of their content; `RulesAfterArrival` and `OfferBeforeRules` become `EndingAfterArrival` and `OfferBeforeEnding`; L6 is the state invariant and was never deleted | Text; two fixtures |
+| **S8.1:** two versions of one fill | A18: elements of one key alike in the read fields are one fill, and two that differ are a conflict of the pull, reported wherever in it they stand, before any chain | **Yes** (the pull's reader; brief 4) |
+| **The end's price** (raised here) | A coin's end closes a holding at its adverse price (A10, the lesser of last bid and price for a long), the price staying: the wealth at the bid is the same before and after it, and a last mid made by an ask pulled up is not turned into cash | **Yes** (step 7) |
+
+### Deleted this round, and why each claim survives
+
+| Deleted | Why the claim survives |
+|---|---|
+| A18's two-clock placement, reach, listings copies (in force, entries, flags), end window and its lateness rule, the end's last-month input, `E_HEADER` at `w_start` | Nothing of a copy reaches a run; the end is a past day's nothing paid; unsettled hours are the venue's, a day late (V23 to V25) |
+| The engine's change of a coin's rules: `Payload.listing`, its chunk and checks, the state's `rules`, the `.rules` trigger, the `rules` cause, step 4's test 6, step 5's test 9 and its rule clauses | No reader makes it: the archive's market has none, the forward market's is the header's |
+| `RulesAfterArrival`, `OfferBeforeRules` | Their cases are an end's: `EndingAfterArrival`, `OfferBeforeEnding` |
+| R1's claim that no restatement can let a rule change's cancel follow its arrival | It proved only the list's order; the cases are the fixtures' |
+| `settlement` as the price of a listing's end (own price) | A holding closes at its adverse price; the bid wealth is continuous |
+
+### Disputed, or open
+
+| Point | State | Would change what is built |
+|---|---|---|
+| Rules fixed at the registration, against copies at midnights a day late (the advisor's hypothesis) | Derived: the copies need a monotone rule against a clock ahead and V24-like assumptions; a fixed copy needs none, and the replay already ran on one | **Yes**, if reopened |
+| Ends in the engine against a coin that merely goes stale and is dropped by the reader | Kept: a stale coin's cash would stay spent, and spans (CS2.1's bar) would change what the committed definition computes | **Yes**, if reopened |
+| V24 | A clock off by a day in both places is assumed away; an operator's check of the collector host's clock and of `Date` is owed (brief 4's acceptance) | No, unless a reviewer finds a clock that leads the engine by a day |
+| The venue's answer for a coin that dies inside the run (S3.3) | The record answers it: `fundingHistory` serves delisted coins (`venue/sources.toml`, certified; FTM's rows through 2026-09-30, above), so a dead coin's hours are settled at zero and hold nothing. V25 is what the record cannot show of every coin | The advisor's check of TON's stored rows before 2026-11-01 (V25) |
+| O26 | Unchanged | Only if study 2's fitted trigger misses B5 |
+
+**Would any open point change what is built?** Yes: this round's review, and the routed items of brief 4 and the criteria drafts.
+
+### Committed criteria: reported, not edited
+
+None touched. The drafts of CS2.1's and the shared revision's sentences that quote copies, ends and two clocks are routed (report, "Routed to study 2's round 21").
+
+### Owed and routed
+
+- **The merge with `rearchitecture-s2`** conflicts only in `ledger.md`: keep both sides whole, edit no line.
+- **Study 2's round 21:** the registration's copy of `meta` at the freeze (the universe's coins it flags, TON now, are no coin of the forward market, which the report names; the vault's list of seventeen names is unchanged); brief 4, steps 6 and 7 (walls 2 to 5 and the tests), the criteria drafts, architecture 6.6 and 6.8 (and 6.1's two clauses at an end, still true as written), `VAULT.md`'s date handling and the delisted-name probe, `RECORDER.md`'s "Listings change" and "the venue's time" (no change needed but for who reads a `Date`), and the recorder build plan's items unchanged by this round.
+- **Not done:** `checks.mm2-tests`' two timing tests (round 17's note) and the two branches' merge.
+
+### What the next reviewers should check
+
+1. The end rule and the hour rule as one: a live coin ended; a dead coin never ended while its name trades again; an hour shown unsettled that the venue settled; a replay that reads an end another lacks; a day of nothing that a venue-wide stop makes (one coin's and no other's).
+2. Rules fixed at the registration: a verdict CS2.2 or CS2.3 that moves; any path by which a rule enters the run from what came after.
+3. Deleting rule changes from the engine: a claim that rested on them.
+4. U1's clause: a restatement that passes it and omits or doubles a payment; whether `PaymentSkip` is the only class it must exclude; whether T1, K1 and the bar's funding need more.
+5. The end at the adverse price against T1, K1, CS2.2 and the bar.
+6. V24 and the day: a clock or cache pattern that shows a settled hour unsettled; V25 against any record of a listed coin at a rate of zero for a day, or of a delisted one whose rows are not zero.
+7. The kept form and the witness (brief 4, wall 3), which the criteria's T_730 uses.
+
+Neon first, then GPT; findings in parts.
+
+### Open questions
+
+None that only the human can decide. For the advisor: the delisted-name probe, the deletion of the engine's rule changes, the fixed rules and the adverse price (each a design decision of this round, reversible by restoring the text), and the bound on the trace's `off_rules` rows if the venue makes a coin's lots finer (one row for nearly each of its quotes, some 57 million a year).
+
+### Convergence
+
+**Not converged.** The region was re-derived and its findings' constructions can no longer be stated, but nobody who did not write it has read it.
+## The last pass, round 12, study 2
+
+Appended 2026-11-21 21:22 UTC (16:22 EST) by the Opus 5.5 architect (maximum effort) for round 12's study 2 half, on branch `rearchitecture-s2`, beside the kernel half on `rearchitecture` (`CLAUDE.md`, Orchestration; the human, 2026-11-21). Reviews answered: GPT's read of round 9 (`audit/reviews/2026-11-21-gpt-round9.md`), GPT-6.2's read of study 2 as a whole (`audit/reviews/2026-11-21-gpt62-study2-whole.md`) and GPT-6.2's audit of the live recorders (`audit/reviews/2026-11-21-gpt62-recorder-audit.md`). Report: `/home/kevin/repos/moneymachine/data/builder/architect-r12-s2-report.md`, with the drafted criteria texts and the recorders' build plan. The ids D250 to D261 leave room for the kernel half's; the advisor renumbers at the merge if they meet. No market data, no `data/holdout/`, no token or key file; `PROGRESS.md` and `audit/criteria.md` untouched.
+
+### In plain words
+
+- **One cause under most findings:** the design read what the record covers from proxies (a listing's host-clock time, a majority of quoting coins, a file's clean end, a healthy connection, a marker written before its data was safe), and let steps that only optimize block the capture. Now each source states its own coverage in the bytes a capture pins, each verdict waits for the coverage it needs, steps that only optimize fall back, and the end is a date.
+- **The horizon** needs every listed coin's settled funding past the midnight, or the coin let go once its listing ended and its rows stood still over a month of asking, and one coin's book line past it. No host clock, no majority, no refusal for a horizon that went back.
+- **The capture never refuses:** the month's pull and the packing fall back to what is on disk.
+- **CS2.3 waits for the vault's fills to be covered** over its 61 days, read from completed pull files; the deployed collector must first stage its pulls atomically.
+- **A coin is recorded only while both its channels are:** a dead `trades` subscription under healthy books is a gap, not an absence of prints.
+- **The registration is authenticated once** into the first state and carried; the stake is chosen among those no settlement can end; the bootstrap's shares are no operating power; the held-back months are a development set; and the three verdicts claim a positive control on a frozen replica, not the vault's edge.
+- **Nobody declares a record ended:** the last firing, 62 days after the 730th judged day, is final. The human's word of 2026-11-21 (enough disk) fixes the horizon at 730 judged days.
+
+### Who has seen what
+
+- GPT read round 9; GPT-6.2 read study 2 as a whole at `e6c971e` and the recorders at `9bf37ad`.
+- Nobody has read this round's commits (`eb420e7` to the one that appends this).
+
+### Agreed
+
+- **From GPT's read of round 9, unchanged:** the removal of `D_capture`; the stream-ended packing closure (D222); raw ≡ packed by routing, purity and `_order` (D223); the pinned windows and environment (D225); the post-capture sealed majority (D205); D228's algorithm and its independent reference; the absence of a further holdout leak through the pack refusal.
+- **From GPT-6.2:** the event-level ledger, the bid's crossings, the joint 5% under the two nulls and V16, the guard as a refusal of rung 2, the entry count, and once-only judging of CS2.2 and CS2.3.
+
+### Settled by derivation in round 12, study 2 (not yet reviewed)
+
+| ID | Point | Settled by | Changes what is built |
+|---|---|---|---|
+| D250 | The horizon (GPT's round 9 disputes 1 to 3; replaces D221) | `T_k` the later of `T_prev` and `T_raw`, capped at `w_start + 730 d`; `T_raw` the largest midnight with every header coin's funding row in `[T + 1 h, T + 25 h)` or the coin let go (its listing ended in the latest copy, its settled hours unchanged since `State_{k-1}`, a completed pull since), and one universe coin's book line of any book in the same window. A short page before a delisting keeps the coin in until the venue serves the rest; listings give a membership, never a time; one line suffices because funding bounds `T` by the venue's clock. `R_HORIZON_REGRESSION` and the monotonicity theorem deleted | **Yes** (brief 4, step 7, wall 3 and test 10; architecture 6.6) |
+| D251 | Nothing before a capture refuses (dispute 5; revises D224's pre-capture half) | The capture follows the month's pull whatever it ends in; a file without a pack two hosts agree on is pinned raw; what is left is a changed closed file and the release wait | **Yes** (brief 4, step 7) |
+| D252 | Exclusive funding pages (dispute 4) | The next `fundingHistory` page starts at `last_time + 1`; each row is asked for once in a pull; `stuck` deleted for funding; the wording "as first served" made true within a pull; a re-stamped row named as the record's error | **Yes** (`VAULT.md`; brief 4, step 7) |
+| D253 | The last firing (GPT-6.2's finding 3) | The first monthly firing at least 62 days after the 730th judged day ends is final; nobody declares a record ended; the human's dated stop ends the test at the last published day and leaves only "not judged"; disk assumed for 730 days (the human) | **Yes** (brief 4, step 7; architecture 6.6, 6.8; CS2.1's drafted revision) |
+| D254 | CS2.3's vault coverage, and the collector's pulls (finding 6; audit 1 to 4, 9) | CS2.3 judged at the first replay with 61 days run whose capture's completed fills pulls cover `[w_start, w_start + 62 d]`; `VAULT.md`: one completed pull one file named by its start, pages checked against their range, durability before the watermark and `stop`, fees and orders checked, funding resumed from the last pull, alarms by identity; the staging collector deployed before the freeze | **Yes** (`VAULT.md`; brief 4, steps 6, 7; CS2.3's drafted revision) |
+| D255 | A coin is recorded while both its channels are (finding 7; audit 5) | The recorder makes a subscription live from its acknowledgement, decides `unacked` at its deadline and re-sends it on its connection; the capture pins `events`; the reader feeds a coin's quotes only while its `trades` subscription is live (routed to the kernel's architect) | **Yes** (`RECORDER.md`; brief 4, step 7; `KERNEL.md` A18, brief 3 step 6, routed) |
+| D256 | The registration authenticated once (finding 5) | `State_0` holds the commit id, the file's hash and `w_start` from the remote's push record, logged and reviewed; every state carries them; a replaced file is a changed closed file; the replay's identity, the fit's export and report kept with the registration | **Yes** (brief 4, step 6) |
+| D257 | The months held back are a development set (finding 4) | No verdict depends on their blindness; the check is never called out of sample; the registration lists what touched them; the rule against material from 2026-11-01 on persists past the release until the freeze | Text, and the registration's list (brief 4, steps 3, 6; architecture 6.4) |
+| D258 | Operating power, and the stake (finding 2) | The bootstrap's shares are conditional and never called power; the registration gives the reference model at the chosen pair's replay volatility and Sharpe as an upper reference; the choice is among `φ` with `(1 − φ)^17 ≥ 1/26` (1/16, 1/8), which no capped settlement ends with every coin in a cycle; GPT-6.2's figures reproduced (`round12_study2`) | **Yes** (brief 4, step 5; architecture 6.3; `arithmetic.py.txt`) |
+| D259 | The three verdicts' claim (finding 1) | Narrowed to a positive control of the confirmer on a frozen replica of a rule with a live record; no verdict says the confirmer detected the vault's edge | Text (architecture 6.1; `paper-changes.md` A5 item 8, rewritten from revision 4's stale list) |
+| D260 | CS2.1's note and CS2.2's revision redrafted, CS2.3's drafted (round 9's provenance; D215, D227) | Every retained verdict stated as its judging replay's, on its capture's record; the last firing and the human's stop folded in; "adds no way to pass" holds against judging each day once at first publication, not against re-judging on the latest record, and the drafts say so; CS2.3's adds a way to be judged, not a false "met" | Advisor's criteria commit only |
+| D261 | The recorders' specs and build plan (GPT-6.2's audit) | A listings read that is not whole changes nothing; a response is whole or the request failed; `check` reports whole gaps, subscription gaps and missing hours; `stop` after durable data; cut and malformed files; one writer a file; a failed write ends the run; refused coins reconsidered; the style gate and named handlers. Nine steps, the listings and HTTP fixes first | **Yes** (`RECORDER.md`, `VAULT.md`) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| D250 to D261 | This round | Settled by derivation; not yet read by GPT | **Yes**, if GPT breaks them |
+| Routed | The reader's liveness rule and the listings copy rule (`KERNEL.md` A18), brief 3's recorders' table, A13's identity, V13 | For the kernel's architect, through the advisor | **Yes** (the frozen reader) |
+| O22, O24, O26 | As round 9 left them | Open until their measurements | As before |
+
+**Would any open point change what is built?** Yes: GPT's read of this round, and the routed reader rules, which the frozen build carries.
+
+### Committed criteria: reported, not edited
+
+- CS2.1's revision (replacing D215's draft), CS2.2's (replacing D227's) and CS2.3's (new) are drafted in full in the report, item 3, for two fresh reviewers and the advisor's commit.
+
+### Assumptions only the human can choose
+
+- **A second copy of the recordings** is a spend: the design assumes enough disk (the human, 2026-11-21) and still recommends a second copy on another node.
+
+### Owed
+
+- **By the advisor:** route the kernel changes; route the recorders' build plan (steps 1 and 2 at once); the disk measurement; deploy the staging `mmvault` before the freeze; the three drafted revisions to two fresh reviewers, then commit them alone.
+- **By GPT:** the read below.
+
+### What GPT, the next reviewer, should attack first
+
+1. **D250's let-go rule:** a coin let go while the venue still has rows for it (listings copies misordered by a host clock, a relisting, pulls that complete for the other coins and return `[]` for it through a whole interval), or held across its delisting.
+2. **D250's one-line recorder clause:** a day run while lines the recorder will still write are not yet on disk.
+3. **D255's reader rule:** `recv` compared across the files of one run (flush order, a stepped clock, a killed run's `events`), one frame on two connections, raw against packed.
+4. **D254's coverage:** a covered record that still misses a round trip (page checks, retention, late indexing, a collector's clock), and the 62nd day.
+5. **D258's eligible stakes:** a ledger at `φ` of 1/8 that ends within 212 days on a plausible market, or a better rule fixed before the replay.
+6. **D253 and the drafted revisions:** any lever in the last firing or the human's stop, and a run that passes while each claim is false, or fails while it holds.
+7. **D256:** a deployment that substitutes `State_0` itself.
+8. **D261:** anything in the audit's ten findings the revised specs still permit.
+
+### Convergence
+
+**Not converged.** Every finding of the three reviews is answered at its cause, and none landed on a patch; GPT has read none of it, and two reader rules are routed to the kernel's architect.
+
+## The last pass, round 13, study 2
+
+Appended 2026-11-22 02:07 UTC (21:07 EST) by the Opus 5.5 architect (maximum effort) for round 13's study 2 half, on branch `rearchitecture-s2`, beside the kernel half's round 13 on `rearchitecture`. Reviews answered together: GPT-6.2's read of round 12's study 2 half (`audit/reviews/2026-11-21-gpt62-round12-study2.md`) and Neon's (`audit/reviews/2026-11-21-neon-round12-study2.md`). Report, with the four drafted criteria texts, the kernel changes to route and the revised recorder plan: `/home/kevin/repos/moneymachine/data/builder/architect-r13-s2-report.md`. Ids D270 to D284 leave room for the kernel half's; the advisor renumbers at the merge if they meet. No market data, no `data/holdout/`, no token or key file; `PROGRESS.md`, `audit/criteria.md`, `kernel2/`, `kernel-v2.md` and brief 3 untouched.
+
+### In plain words
+
+- **The one cause under both reviews:** round 12 still read some things through stand-ins (funding past a midnight for the funding before it, one book's timestamp for the recorder's progress, one pull for a month of asking, a pull's completion for the fills the venue had shown, clocks compared across files, cycles opening one at a time), and let one transition mean two (a missing row ended the test like a bad one; "no new day" named nothing). Each now reads the thing itself, and each transition says one thing.
+- **The horizon** needs every coin's funding present for every hour before the midnight (a hole waits for its row), a book received when it was stamped, and a delisted coin let go only after thirty pulls found nothing more. A missing settlement holds the month; a bad item ends the test.
+- **A coin's books count only while its trades are recorded,** decided by the recorder from its one socket's order, so no clock is read.
+- **Every month's run names whatever its capture allows,** even with no new day; the last reading is fixed; the human's budget stop is reported as an operator stop.
+- **CS2.3 waits for the vault's fills to be asked for again a month after each moment,** by pulls that cannot have been cut by the venue's retention: about a month later than before.
+- **The test ledger never buys into the cash its funding needs** (a twenty-fifth at cost), instead of round 12's filter on the stake, which seven of its twelve pairs failed in one dip.
+- **Every report prints the registration's four identifiers;** the runner cannot authenticate its first state, so the check is against the remote.
+- **The urgent recorder fixes changed once, early** (`0a38f6b`): only the venue's flag delists a coin, and the HTTP tests carry valid JSON.
+
+### Who has seen what
+
+- GPT-6.2 and Neon read round 12 at `f67812b`. Nobody has read this round's commits (`0a38f6b` to the one that appends this).
+
+### Agreed
+
+- **From GPT-6.2:** the narrowed claim and development-set designation (D257, D259); the fixed calendar; capture-specific verdicts; the raw fallback (D251) and exclusive pagination for unchanged stamps (D252, now refined); the two urgent recorder fixes; the Brownian figures.
+- **From Neon:** D251; D252 (with the span-end guard, now in); D257; D259; the power arithmetic; the deletion of `R_HORIZON_REGRESSION` and of host-clock listing times; round 12's core recorder fixes.
+
+### Settled by derivation in round 13, study 2 (not yet reviewed)
+
+| ID | Point | Settled by | Changes what is built |
+|---|---|---|---|
+| D270 | The horizon's funding clause (GPT's D250; Neon's 3B; replaces D250's clause 1) | Each coin's reach, the first hour without a row; every coin not let go has its reach after `T`, and some coin has; a coin let go once flagged and 30 queries from its reach came back empty; `T_k` the later of `T_prev` and `T_raw` | **Yes** (brief 4, wall 3, test 10) |
+| D271 | The horizon's recorder clause (Neon's 3A) | A book line witnesses its stamp only when received within an hour of it; the host's clock can only take a witness away | **Yes** (brief 4) |
+| D272 | Absence and rejection (GPT) | `R_SETTLEMENT_MISSING` holds the month at the last midnight before it; every other engine error ends the test | **Yes** (brief 4) |
+| D273 | Books paired with prints at routing (Neon's 2; GPT's plan 4; replaces D255's reader rule) | `l2Book-fast` only while the coin's `trades` is live on that socket, the rest in `l2Book-fast-unpaired`; the reader reads no `events` | **Yes** (`RECORDER.md`; brief 4; kernel's rule withdrawn) |
+| D274 | The capture (GPT's D251) | Packing a job as hours close, attempts killed at 30 minutes; Step 1 pins only, and `fsync`s all it pins first | **Yes** (brief 4; `RECORDER.md`) |
+| D275 | What a run names (GPT; Neon's 5) | Every settled run names what its capture allows on the days through its last matching midnight; `continue`, `end_study` with its cause, halts; the last firing's capture the last admitted, settled after any outage | **Yes** (brief 4) |
+| D276 | The operator stop (GPT; Neon's 5) | Kept, reported as made with the reports visible, with each unjudged condition's figures; a non-final "earned" not forfeited (Ville at any stopping) | Text and report (brief 4; CS2.1's draft) |
+| D277 | CS2.3's coverage (GPT; Neon's 4; replaces D254's union) | An instant covered by a completed pull made 31 days after it, run to its making, under 5,000 fills; the daily re-read 32 days; judged about day 93 | **Yes** (brief 4; `VAULT.md`; CS2.3's draft) |
+| D278 | The ledger's reserve (GPT's D258; Neon's 1; replaces D258's filter) | A buy leaves cash at least 1/24 of what the ledger paid for its units; all 30 pairs eligible; `round13_study2` | **Yes** (`kernel-v2.md` A12, routed; brief 4, step 5; architecture 6.1; CS2.1's draft) |
+| D279 | The registration (GPT's D256; Neon's 6e) | `State_0` pushed; every report prints commit id, file hash, `w_start`, `State_0`'s hash; checked against the remote outside the runner; fit export and candidate programs kept | **Yes** (brief 4, step 6) |
+| D280 | Pages and storage (GPT's D252; Neon's 6d) | Funding pages cut at whole hours, a span done at its `endTime`, each coin stored when its own queries completed; the vault's watermark never back; fee rates decimal strings | **Yes** (`VAULT.md`) |
+| D281 | The urgent listings and HTTP lines (GPT's plan 1, 2; Neon's 6a) | Only its flag delists a coin; each listings line holds its request; framing fixtures with valid JSON, trailers, a close-delimited body complete when its array or object parses (`close_notify` refuted) | **Yes** (`RECORDER.md`, `VAULT.md`, `0a38f6b`) |
+| D282 | Progress evidence and late items (GPT) | The horizon is evidence, the capture the input; a late item behind a published midnight ends the test at `T*`, every verdict standing as its capture's | Tests (brief 4) |
+| D283 | The recorder plan (GPT's plan 3 to 9; Neon's 6b, 6c) | Shutdown before style and subscriptions; `route.ml`'s handlers; the added tests of each step | **Yes** (report; `RECORDER.md`, `VAULT.md`) |
+| D284 | The criteria drafts (replacing D260's) | CS2.1's ends and what stands; CS2.1's reserve; CS2.2's sentence corrected; CS2.3's coverage and its later `T*` | Advisor's criteria commit only |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| D270 to D284 | This round | Settled by derivation; read by neither model | **Yes**, if broken |
+| Routed | The ledger's reserve (A12, K1, `confirm`), the listings copy rule (A18), the withdrawn liveness rule, V13, brief 3's recorders' table | For the kernel's architect, through the advisor | **Yes** (the frozen build) |
+| Noted | The kernel's ordering of listings copies by `recv` | Not acted on: needs a host clock stepped back past two differing copies | No |
+
+**Would any open point change what is built?** Yes: the reviews of this round, and the routed kernel changes, which the frozen build carries.
+
+### Committed criteria: reported, not edited
+
+- Four drafted revisions, in full in the report: CS2.1 (ends and what stands, replacing round 12's draft), CS2.1 (the ledger's reserve, new), CS2.2 (replacing round 12's draft), CS2.3 (replacing round 12's draft). For two fresh reviewers, then the advisor's commit.
+
+### Assumptions only the human can choose
+
+- **The operator stop:** kept as the human's budget authority and labelled; the human may give it up for the two years.
+- **A second copy of the recordings** (round 12's, still open).
+
+### Owed
+
+- **By the advisor:** route the urgent lines' change (`0a38f6b`) to the builders if not already; route the kernel changes; the recorder plan in its new order; the four drafts to two fresh reviewers, then commit them alone.
+- **By GPT and Neon:** the read below.
+
+### What GPT and Neon should attack first
+
+1. D270 and D271: a day published whose record still changes with every reach past it and an on-time witness; a coin let go after thirty empty answers that the venue still owed; a skew that freezes `T` for good.
+2. D272: an absence that is not `R_SETTLEMENT_MISSING`, or a rejection a later capture removes.
+3. D273: a book routed as paired while its prints were not recorded, from the server's ordering of acknowledgements and data.
+4. D275 and D276: a verdict named on a capture that a later one contradicts beyond what the drafts say; an operator-stop lever beyond leaving conditions unjudged.
+5. D277: a covered instant whose fill is missed under V18 without an alarm.
+6. D278: a ledger that keeps the reserve and still ends within 212 days on a plausible market; a way the cut is not a scale fixed before its buy.
+7. D279: a substitution the four printed values do not show.
+8. D280, D281, D283: anything in both reviews' recorder findings the revised specs still permit.
+
+### Convergence
+
+**Not converged.** Every finding of both reviews is answered at its cause; three round 12 rules are deleted rather than patched (the stake filter, the reader's interval rebuild, the capture's packing step); neither model has read this round, and the kernel changes are routed.
+
+## The last pass, round 14, study 2
+
+Appended 2026-11-22 08:20 UTC (03:20 EST) by the Opus 5.5 architect (maximum effort) for round 14's study 2 half, on branch `rearchitecture-s2`, beside the kernel half's round 14 on `rearchitecture`. Answered: GPT-6.2's read of round 13's study 2 half (`audit/reviews/2026-11-22-gpt62-round13-study2.md`); the urgent recorder fix's second pass (`recorder-urgent` `65232d3`, carried into the specs and then replaced); GPT-6.2's hold of that fix (`audit/reviews/2026-11-22-gpt62-recorder-urgent-fix-2.md`) and the advisor's question whether the recorders should use a vetted HTTP client and one strict JSON decoder; and the shared request budget (`audit/decisions.md`, 2026-11-22). Report, with the four drafted criteria texts, the kernel changes to route and the recorder build plan: `/home/kevin/repos/moneymachine/data/builder/architect-r14-s2-report.md`. Ids D290 to D305 leave room for the kernel half's, which uses none. No market data, no `data/holdout/`, no token or key file; `PROGRESS.md`, `audit/criteria.md`, `kernel2/`, `kernel-v2.md` and brief 3 untouched.
+
+### In plain words
+
+- **A delisted coin's market ends where the venue stopped paying funding on it,** not at our hourly copy of the listings, which comes later on our own clock: a coin held across its delisting is closed there and the run goes on, and anything a relisting brings afterwards is set aside. We wait thirty days after the delisting before trusting that its last payments are all in.
+- **A stop is a pause when more of the record could undo it, an end when nothing could:** a missing payment, or a trade that crossed a rules change between copies, pauses; two different values for one thing end the test.
+- **The vault's fills count as complete for a moment only when asked for again a month later, up to the present, in a reply small enough that the venue's 10,000-fill memory cut nothing,** and the daily re-read starts wherever that is not yet true.
+- **The recorders stop writing their own web client and JSON reader:** libcurl does the web requests and one strict JSON library reads every reply, the forward reader included. Two reviews of our own client kept finding edge cases; these are solved problems.
+- **The venue's request budget is shared out in fixed, enforced allocations,** each request reserving its largest possible cost before it is sent.
+- **The study is complete when its three questions are answered; every month's verdicts count only after their registration identifiers are checked against GitHub;** the monthly capture no longer pulls anything itself.
+
+### Who has seen what
+
+- GPT-6.2 read round 13 at `d79a8ca`, and the urgent fix's second pass at `91bb08c`. Nobody has read this round's commits (`43116ed` to the one that appends this).
+
+### Agreed
+
+- **From GPT-6.2's read of round 13:** the narrowed claim and capture provenance; verdict-only settlement and the disclosed operator stop; judging on an unchanged prefix; the cost-basis buy clamp and the conditional size bound; whole-hour funding paging; socket-local routing; background packing with the raw fallback; the reach for every coin through the cutoff.
+- **From its review of the urgent fix:** the close-delimited path deleted, one reader for both callers, whole wrong-shaped listings kept with their request, omission changing no subscription, the old ten-second retry gone, a failed vault page leaving the watermark.
+
+### Settled by derivation in round 14, study 2 (not yet reviewed)
+
+| ID | Point | Settled by | Changes what is built |
+|---|---|---|---|
+| D290 | A listing's end (GPT-6.2's coarse delisting and relisting rows; replaces round 13's end at the copy) | A flagged coin ends at the whole hour after its last settlement before its first flagging copy, settled at its price there; its events from then on counted and not fed; its end's hour not due | **Yes** (brief 4, wall 3; `KERNEL.md` A18, routed) |
+| D291 | Finality of an end, and holes (D270; replaces round 13's thirty asks) | Final once a completed query covering end to flag came back empty from a pull begun 30 days after the flag (premise: the venue serves a delisted coin's settlements within 30 days of its flag); asks before the flag never count; holes are never let go | **Yes** (brief 4) |
+| D292 | Coverage over the modeled intervals, and the receipt clock (D270's day-212 case; D271's premise) | Clause 1 each coin's reach after `T` or at its final end; the witness only while a coin is listed, the "some coin has" bound deleted; the receipt clock's premise stated, its failure counted in each report | **Yes** (brief 4) |
+| D293 | What stops a run (D272; replaces round 13's absence and rejection) | A stop an added line could undo holds the month (`R_SETTLEMENT_MISSING`, `R_OFF_RULES`, routed); one none could ends the test; a stop below `T_prev` is `T*`; test 10's contradictory bullet deleted; wall 2 holds instead of ending; test 2's crossed quote replaced | **Yes** (brief 4) |
+| D294 | Acquisition order (D272's backward `recv` step) | `<run>` the later of the start and one past the largest under the root; copies in acquisition order, each timed no earlier than the one before | **Yes** (`RECORDER.md`; `KERNEL.md` A18, routed) |
+| D295 | The capture (D274) | Length read, then the file and every directory up to the root `fsync`ed, then hashed; what a compressor still holds belongs to a later capture; the capture's own pull deleted, with `--from-ms`, the 15-minute kill and the lock's wait | **Yes** (brief 4; `VAULT.md`) |
+| D296 | CS2.3's coverage (D277; replaces round 13's) | Pulls with no `endTime`, fewer than 10,000 fills, begun 31 days after each instant; the re-read from the earliest uncovered instant, a freeze dependency; the claim of the observed fills | **Yes** (`VAULT.md`; brief 4; CS2.3's draft) |
+| D297 | Admission and the exit (D275) | A month's capture the first committed at or after its firing, fixed through replay outages; `end_study` with five causes, `complete` among them | **Yes** (brief 4) |
+| D298 | The registration gates each verdict (D279) | Every settled report's verdicts the study's only after its four identifiers are checked against a fresh clone of the remote; a mismatch voids them and halts for the human | **Yes** (brief 4, step 6) |
+| D299 | The reserve (D278) | As a rule at the buy, `max(0, (24C − B)/25)`, basis by the ledger's own fraction sold; text: a capped hour only to 25/24 of cost; power moved both ways; one ledger in replay and forward | Text, and A12's wording (routed) |
+| D300 | The REST client (the advisor's question; GPT-6.2's two holds) | libcurl through `ocurl` in the pin, one call owning each request; curl's framing relied on and tested; status, an announced length or chunking, 16 MiB and the error events ours; the urgent fix's reader and syntax rules deleted; `cohttp-async` refused (its readers end a cut body without error) | **Yes** (`RECORDER.md`, `VAULT.md`) |
+| D301 | One JSON decoder (finding 3) | `jsont` for every JSON the recorders and the forward reader read, one decode into the fields used; Yojson out of `mmrec`; jsonm refused (its numbers are `float_of_string`'s) | **Yes** (`RECORDER.md`; `KERNEL.md` A18, routed) |
+| D302 | The request budget (the advisor; finding 6) | Allocations `hl` 480, `ws` 40, `vault` 120, `settled` 45, one-off 300, each request reserving its largest weight and settling to the counted; cursors strictly advancing | **Yes** (`CLUSTER.md`; `RECORDER.md`; `VAULT.md`) |
+| D303 | The criteria drafts (replacing D284) | CS2.1's ends with the hold and the exit; CS2.1's reserve with both-way power; CS2.2 while not judged; CS2.3's coverage and observed-fills claim | Advisor's criteria commit only |
+| D304 | What the reader rechecks (the advisor's question) | One decoder; a line holding no item counted and fed nothing; `R_MALFORMED_FRAME` deleted; the collector's stored hour the reader's present one | **Yes** (brief 4; `VAULT.md`; `KERNEL.md`, routed) |
+| D305 | The listings read and memory (findings 4, 5) | The main dex's `meta` first; no `:` on the main dex, a dex not named twice; at most 100,000 perps kept; grown buffers released; websocket messages bounded at 16 MiB | **Yes** (`RECORDER.md`) |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| D290 to D305 | This round | Settled by derivation; read by no model | **Yes**, if broken |
+| Routed | A18's end and due hour, acquisition order, `R_OFF_RULES`, the reader's decoder and rechecks, A12's wording, brief 3's table | For the kernel's architect, through the advisor | **Yes** (the frozen reader) |
+| Advisor's | `hl`'s 480 against the half-rate practice | The allocations fit the venue's limit; lowering or retiring `hl` is the advisor's | No study outcome |
+
+**Would any open point change what is built?** Yes: this round's review, the routed reader changes, and the recorders' rebuild on libcurl and jsont, which the builders follow from the report.
+
+### Committed criteria: reported, not edited
+
+- Four drafted revisions, in full in the report: CS2.1 (ends and what stands), CS2.1 (the ledger's reserve), CS2.2, CS2.3, replacing round 13's four. For two fresh reviewers, then the advisor's commit.
+
+### Assumptions only the human can choose
+
+- **The operator stop** (round 13's, still open).
+- **A second copy of the recordings** (round 12's, still open).
+
+### Owed
+
+- **By the advisor:** route the recorder build plan (steps 1 and 2 first: the client and decoder, replacing `recorder-urgent`'s `rest.ml` and `strict_json.ml`); route the kernel changes; the four drafts to two fresh reviewers, then commit them alone; decide on `hl`'s allocation.
+- **By GPT-6.2 and Neon:** the read below.
+
+### What GPT-6.2 and Neon should attack first
+
+1. D290 and D291: an hour after a coin's last settlement before its flag that is not the venue's end; the 30-day premise; the due-hour clause.
+2. D293: a stop on the wrong side of the classification; the holds' crossings against Ville.
+3. D294: copies or runs the new numbering still misorders.
+4. D300 to D302 and D305: a reply curl passes whole that is not the server's framed body; a jsont decision that changes a stored line or a verdict; a leaked socket or exception; any sequence of retries, pages or dexes over an allocation.
+5. D296: a covered instant whose fill was lost, under V18.
+6. D297 and D298: a substitution the gate passes; a capture whose content depends on more than its commit.
+7. D303: a run that passes while a drafted claim is false, or fails while it holds.
+
+### Convergence
+
+**Not converged.** Every finding of GPT-6.2's read of round 13 and of its second hold of the urgent fix is answered at its cause; the recorders' patch loop is ended by deleting the code that drew it; neither model has read this round, and the reader changes are routed.
+
+### Neon's read of round 13, answered in the same round (appended 08:21 UTC, 03:21 EST)
+
+Neon's review (`audit/reviews/2026-11-22-neon-round13-study2.md`) arrived after the table above. It accepts D271 to D276, D278, D279 and D281 to D284 as round 13 specified them; its three findings meet GPT-6.2's at their causes, and round 14's re-derivations close them:
+
+| Neon's finding | Closed by | Changes what is built |
+|---|---|---|
+| 1. The 32-day re-read against 31-day coverage has no slack: a midnight run 10 s late, or one failed and run an hour later, leaves a seam no later re-read covers, and CS2.3 is withheld for good | D296: the re-read starts at the earliest instant no stored pull covers, read from the files, with no `endTime`; a seam cannot outlive the next run. Neon's two constructions added to `VAULT.md` test 3 and brief 4's CS2.3 tests | Already, by D296 |
+| 2. Thirty empty answers can be thirty hourly retries within thirty hours | D291: finality is an empty answer from a pull begun 30 days after the flag, not a count; D295 deletes the capture's own pull and its hourly retries. Added to brief 4's horizon tests | Already, by D291 and D295 |
+| 3. `VAULT.md`'s funding test 1 kept round 12's `last_time + 1` | `43116ed`: the test pages at the whole hour after each page's last row | Text, done |
+
+**Who has seen what, corrected:** Neon read round 13 at `d79a8ca` (its bundle); neither model has read round 14.
+
+## The last pass, round 15, study 2
+
+Appended 2026-11-22 17:09 UTC (12:09 EST) by the Opus 5.5 architect (maximum effort) for round 15's study 2 half, on branch `rearchitecture-s2`, beside the kernel half's round 15 on `rearchitecture`. Answered: GPT-6.2's read of round 14's study 2 half (`audit/reviews/2026-11-22-gpt62-round14-study2.md`), Neon's (`audit/reviews/2026-11-22-neon-round14-study2.md`, findings 1 to 10), and the human's decision of 2026-11-22 retiring the `hl` recorder (`audit/decisions.md`). Report, with the criteria drafts in full, the kernel changes to route and the recorder build plan's changes: `/home/kevin/repos/moneymachine/data/builder/architect-r15-s2-report.md`. No market data from 2026-11-01 on (the one count taken, the vault's most fills in one millisecond, read times only of its fills before that date), nothing under `data/holdout/`, no token or key file; `PROGRESS.md`, `audit/criteria.md`, `kernel2/`, `kernel-v2.md` and brief 3 untouched.
+
+### In plain words
+
+- **A delisted coin ends where its funding payments stop,** read from the payments alone; the flag, on our clock, only says which gap is the end.
+- **Any stop of the engine ends the test,** as the committed criterion says: the waiting state round 14 added could never be left, since no later data can undo a stop.
+- **No month publishes a day that had not happened when the month began; each month's report counts only if it was computed from the last accepted one, recorded on GitHub.**
+- **The recorders judge a reply whole by its complete JSON, which catches every cut reply, and read ids and times from their exact text;** all our framing rules are gone.
+- **Vault coverage uses the exact retention condition, and the reader re-checks every pull; an unreadable trade makes its coin stale and an unreadable fill withholds the entry match.**
+- **Without `hl`, the recorders use 505 of the venue's 1,200 a minute, and at worst 725;** nothing of study 2 or the recorders read `hl`'s data.
+
+### Who has seen what
+
+- GPT-6.2 read round 14 at `be858e5`; Neon read round 14 (its bundle). Nobody has read this round's commits (`1a1b796` to the one that appends this). By the human's decision of 08:52 UTC (03:52 EST), this round goes to Neon and a fresh Opus.
+
+### Agreed
+
+- **From GPT-6.2's read of round 14:** elapsed delisting grace, holes preserved, acquisition order for files, durable file pins, fixed monthly admission, the successful exit, gap rereads to the venue's now, the reserve's arithmetic, capture-specific claims, whole-hour funding paging, flag-only removal; single-owner cleanup, informational responses, keep-alive, main-dex-first polling, ownership checks, released buffers, the vault run stopping at its first failure; deleting the second JSON parser and counting unreadable stream items; the cold-start fixture.
+- **From Neon's read of round 14:** its round 13 findings closed; D292, D295, D297, D299, D305; libcurl and jsont in place of our own client and parser; the drafts' structure.
+
+### Settled by derivation in round 15, study 2 (not yet reviewed)
+
+| ID | Point | Settled by | Changes what is built |
+|---|---|---|---|
+| D306 | A listing's end (GPT-6.2's finality hour; Neon 1; replaces D290) | The coin's reach `R`, when a flag timed `e` has `B(e)` (the first whole hour after `e + 1 h`) and every hour from `R` to it without settlement; any flagging copy may qualify; a reach at `w_start` ends the coin there; a modeled settlement at the last price | **Yes** (brief 4, wall 3; `KERNEL.md` A18, routed) |
+| D307 | Finality (replaces D291's query) | A completed query from a pull begun 30 days after `e` asked every hour from `R` to `B(e)` and returned none; finality is the horizon's, the reader cuts at every end; the ending `known` as the kernel half derived it, with the qualifying copy | **Yes** (brief 4) |
+| D308 | The calendar bound (GPT-6.2) | Clause 0: `T` at or before the first midnight of the day of the firing the capture answers, written into `Capture_k` | **Yes** (brief 4) |
+| D309 | What stops a run (GPT-6.2's permanence; Neon 4; replaces D293) | Every stop ends the test, the hold deleted: events fed before `T_raw` are fed in every later run, `R_SETTLEMENT_MISSING` cannot occur there, no copy timed before an event comes after the fact; the lot-size change's cost stated in wall 2; the union admission considered and not taken | **Yes** (brief 4; `KERNEL.md` A18's sentence, routed) |
+| D310 | Copy timing (Neon 3; replaces D294's clamp) | Each copy timed by its own `recv`, ties in acquisition order; a clock fault stays in its copy | **Yes** (brief 4; `KERNEL.md` A18, routed) |
+| D311 | The state chain (GPT-6.2; Neon 5; extends D298) | Reports print the hashes of the state read, the capture read and the state written; acceptance requires the state read to be the last accepted one written, then pushes the link to `audit/study2/accepted.tsv` | **Yes** (brief 4, step 6) |
+| D312 | Halts (Neon 10) | Each ends the study at its last accepted report; a changed file's halt resumes once restored; no halt voids an accepted verdict | **Yes** (brief 4) |
+| D313 | The capture (GPT-6.2) | The manifest committed durably; a capture is a cut of each file at its read, not an instant | **Yes** (brief 4) |
+| D314 | Whole replies (GPT-6.2's framing; Neon 9; replaces D300's framing check) | Whole when the body decodes as one JSON array or object, which no cut or mixed-in framing does; the framing check and `head` stage deleted; `MAXFILESIZE` at 16 MiB; `SIGPIPE` ignored; curl's head limit documented | **Yes** (`RECORDER.md`, `VAULT.md`) |
+| D315 | JSON (GPT-6.2's exact fields; Neon 7; amends D301) | jsont in three steps: depth 64, `Jsont.ignore`, the typed decode with every integer read from its own bytes; duplicates decoded each and the last kept; CR and LF as spaces in the vault's lines | **Yes** (`RECORDER.md`, `VAULT.md`; `KERNEL.md` A18, routed) |
+| D316 | Coverage (Neon 2.1; GPT-6.2's page exhaustion; amends D296) | Covered when fewer than 10,000 of a pull's fills are at or after `t`; the re-read past what retention took; the paging premise stated (the vault's most in one millisecond, 6) | **Yes** (`VAULT.md`; brief 4; CS2.3's draft) |
+| D317 | What the reader rechecks (Neon 2.2 and 6; GPT-6.2's usable rows; amends D304) | Covering pulls and finality queries by their own pages; an unreadable fill in the chain's span withholds CS2.3, and a failed judging is the one; an unreadable print withholds its coin's books until a readable one | **Yes** (brief 4; `KERNEL.md` A18, routed) |
+| D318 | The budget without `hl` (the human; GPT-6.2; Neon 8; replaces D302's numbers) | `ws` 40, `vault` 120, `settled` 45, one one-off script 300 (a lock): 505; holds from sending to 60 s after the end; failures keep the largest; CronJobs at `backoffLimit: 0`; the worst minute 725 | **Yes** (`CLUSTER.md`; `RECORDER.md`; `VAULT.md`; `ingest/hl.py` and `ops/live.py`, builder) |
+| D319 | The catalog's memory (GPT-6.2; amends D305) | Names kept to 64 bytes, a longer one refused as past the subscription maximum | **Yes** (`RECORDER.md`) |
+| D320 | Day 1 (Neon 6.3) | Per coin, as `KERNEL.md` A18 already reads; brief 4 said "the copy" | Text and a test |
+| D321 | The criteria drafts (replacing D303) | CS2.1's ends without the hold, with halts and the one-path argument for the 5%; the reserve's unchanged; CS2.2 with halts; CS2.3 by the exact retention condition, rechecked pages, unreadable fills and one judging | Advisor's criteria commit only |
+| D322 | `hl`'s data (the human) | Nothing of study 2 or the recorders reads it; the 30-day comparison sentence deleted; the infrastructure's references are the builder's | No |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| D306 to D322 | This round | Settled by derivation; read by no model | **Yes**, if broken |
+| Routed | A18's end, copy timing, stop codes, the decoder's steps, unreadable prints, the reader's fills and pages, brief 3's table | For the kernel's architect, through the advisor | **Yes** (the frozen reader) |
+| Advisor's | The union admission between two differing copies | Not taken: it removes wall 2's cost (a lot-size change ends the test) at the price of a pending-rules record and a restated admission law | Only the forward test's survival |
+
+**Would any open point change what is built?** Yes: this round's review, the routed reader changes, and the recorder build plan's steps 1, 2 and 8.
+
+### Committed criteria: reported, not edited
+
+- Three drafts in full in the report (CS2.1's ends, CS2.2, CS2.3), replacing round 14's; CS2.1's reserve draft stands as round 14 wrote it. For two fresh reviewers, then the advisor's commit.
+
+### Assumptions only the human can choose
+
+- **The operator stop** (round 13's, still open).
+- **A second copy of the recordings** (round 12's, still open).
+
+### Owed
+
+- **By the advisor:** route the kernel changes; the recorder build (steps 1 and 2 first) with the changes listed in the report; the builder task removing `hl` from `ops/live.py`, `ops/diskguard.py`, the mirror and `CLUSTER.md`'s table, with `ingest/hl.py`'s 300 and lock; the drafts to two fresh reviewers; whether to send the union admission to the kernel's architect.
+- **By Neon and a fresh Opus:** the read below.
+
+### What Neon and a fresh Opus should attack first
+
+1. D306 and D307: a flag that qualifies a gap that is not the venue's end, within the premise; a delisting that never qualifies; `B(e)`'s hour; the ending `known`.
+2. D309: a stop in a run to `T_raw` that a later capture could undo.
+3. D308, D311, D312: a capture's month that publishes a day early; a substitution the chain passes; a halt that adds or keeps a verdict wrongly.
+4. D314 and D315: a cut body that decodes as an array or object; a disagreement between the depth count and jsont, or a location that does not give an integer's bytes.
+5. D316 and D317: a covered instant whose fill was lost; a page sequence the recheck passes that no writer completed; a coin withheld long on readable prints.
+6. D318: any minute over 1,200.
+7. D321: a run that passes while a drafted claim is false, or fails while it holds.
+
+### Convergence
+
+**Not converged.** Every finding of both reads of round 14 is answered at its cause: three by deleting a rule round 14 added (the hold, the clamp on copy times, the framing check), the rest by stating the exact condition an earlier rule approximated (the end at the reach, the retention condition, integers by their bytes, holds to a request's end); neither reviewer has read this round, and the reader changes are routed.
+
+## The last pass, round 16, study 2
+
+Appended 2026-11-22 23:20 UTC (18:20 EST) by a fresh Opus 5.5 architect (maximum effort) for round 16's study 2 half, on branch `rearchitecture-s2`, beside the kernel half's round 16 on `rearchitecture`. Answered: the fresh Opus's read of round 15's study 2 half (`audit/reviews/2026-11-22-opus-round15-study2.md`, F1 to F5 and its text points), Neon's (`audit/reviews/2026-11-22-neon-round15-study2.md`, findings 1 to 6), and the human's decisions of 2026-11-22: the operator's budget stop kept, no second copy of the recordings, `hl` and the Oracle VM's recorders retired. The kernel half's ending `known` (`a503574`) is carried into brief 4. Report, with the criteria drafts in full, the kernel changes to route and the build plan's changes: `/home/kevin/repos/moneymachine/data/builder/architect-r16-s2-report.md`. Ids D323 to D336. No market data, nothing under `data/holdout/`, no token or key file: one request's head was read at 23:02 UTC (18:02 EST), its body discarded, to see that the venue sends `Date`; curl 8.22.0's source was read from the pinned tarball. `PROGRESS.md`, `audit/criteria.md`, `kernel2/`, `kernel-v2.md` and brief 3 untouched.
+
+### In plain words
+
+- **The venue's own clock dates every listings copy and every pull,** from the time each reply states; our host's clock, which nothing checked, no longer decides when rules change, when a delisting is final, or when a fill was re-read a month later.
+- **A delisting flag ends only a gap it can belong to,** and a market listed again under a second entry is read as listed.
+- **A trade or quote that breaks its coin's rules as last copied is set aside and counted, not the end of the test:** a lot-size change costs about an hour of one coin's record.
+- **Whether prints are being recorded readably is the recorder's decision, made in its socket's order;** the reader's own rule for it is deleted.
+- **The reader checks every page of a pull and reads fills one by one.**
+- **The fee check is reported, not a stop; a refused report is run again; each month's capture is on GitHub before anything runs on it;** two halts are deleted.
+- **A program sending requests waits a minute when it starts,** so our worst minute is 505 of the venue's 1,200.
+- **The 5% argument names the one place the record is read with hindsight,** a delisting's last hours, and the report counts what that cut.
+
+### Who has seen what
+
+- The fresh Opus and Neon read round 15 at `2bf7ad4`. Nobody has read this round's commits (`1735b99` to the one that appends this).
+
+### Agreed
+
+- **From the fresh Opus's read of round 15:** D306 to D311, D313 to D316, D318 to D320 and D322; D317 but prints; D321 but end (6); the hold, the clamp and the framing check deleted; the reserve's draft. D306 and D310 are since amended on Neon's findings (D324, D323).
+- **From Neon's read of round 15:** D308, D309, D311, D313, D315, D316, D319, D320, D322; D314's completeness rule; D318 but sequential scripts; the reserve's and CS2.2's drafts.
+
+### Settled by derivation in round 16, study 2 (not yet reviewed)
+
+| ID | Point | Settled by | Changes what is built |
+|---|---|---|---|
+| D323 | Clocks (the fresh Opus F5; Neon 1.2, 1.3; replaces D310's `recv` and coverage's host-clock day) | Each REST line keeps the reply's `Date` (IMF-fixdate, else `null`); copies and pulls timed by it; coverage 30 days after an instant, over the 61 judged days; finality's query dated 30 days after the flag | **Yes** (`RECORDER.md`, `VAULT.md`, brief 4; `KERNEL.md` A18, routed) |
+| D324 | The flag's bounds (Neon 1.1; amends D306) | A flag dated at or after `w_start`, and `R` at or before `B(e)`; a coin read by the entries of its name; the ending `known` `max(R, t_F)` plus the lag | **Yes** (brief 4; `RECORDER.md`; A18, routed) |
+| D325 | Single-event faults (the fresh Opus F2; replaces wall 2's end) | Dropped and counted, read against copies dated before them; stops only at contradictions, order faults and refused dates; a lot-size change costs about an hour of the coin | **Yes** (brief 4; `kernel-v2.md` A3, C2, routed) |
+| D326 | Readable prints (the fresh Opus F1; Neon 2; replaces D317's print rule) | The router pairs books with live and readable prints in socket order; frames go to their channel's file whatever they hold; an unplaceable frame unpairs its connection; the reader withholds nothing | **Yes** (`RECORDER.md`; brief 4; A18, routed) |
+| D327 | Rechecks (Neon 3; the fresh Opus's depth) | Every page's request; fills and prints read one by one; finality queries bounded and dated; a line's depth 65 | **Yes** (`VAULT.md`; brief 4; A18, routed) |
+| D328 | The fee witness and ends (Neon 4; the fresh Opus's two ends) | `halt_fee_witness` deleted, the witness reported; a run's verdicts named through its earliest end; `complete` only on what then stands | **Yes** (brief 4; brief 3's table, routed) |
+| D329 | Refused reports (the fresh Opus F3) | `halt_substitution` deleted; a refused report names nothing and its month is run again from the last accepted state, read by its remote hash | **Yes** (brief 4, steps 6 and 7) |
+| D330 | The capture's identity (the fresh Opus F4) | Step 1 pushes each capture's row to `audit/study2/captures.tsv`; the month's capture is the first on the remote after its firing; nothing runs before it; acceptance checks it | **Yes** (brief 4) |
+| D331 | The budget across processes (Neon 6.1; the fresh Opus's 725) | No request in a process's first 60 s; `hl.py` on the recorders' hold rule; the worst minute the allocations' 505 | **Yes** (`CLUSTER.md`; `RECORDER.md`; `VAULT.md`; `ingest/hl.py`, builder) |
+| D332 | Whole replies (the fresh Opus; Neon 6.2) | The false framing sentence deleted; the overflowing length fails under the maximum size (curl's `lib/http.c`), test 21 restated | Text and a test |
+| D333 | The 5% at a listing's end (Neon 5) | Conceded as a named assumption with a count in the report; an exact rule (no event between `R` and `B(e)`) not taken for its survival cost on unseen venue behaviour | The CS2.1 draft and the report |
+| D334 | Texts (the fresh Opus) | Holes before the end; Day 1's omission deleted; distinct fills and retention by time | Text, and a kernel line (routed) |
+| D335 | The criteria drafts (replacing D321's CS2.1 ends and CS2.3) | CS2.1's ends with drops, three halts, the earliest end, acceptance of state and capture, the two assumptions; CS2.3 by the venue's date over the 61 days; CS2.2 and the reserve stand | Advisor's criteria commit only |
+| D336 | The human's decisions of 2026-11-22 | Phase 2 and the second copy deleted from `RECORDER.md`; architecture 6.8 and 12; the open questions closed | No study outcome |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| D323 to D336 | This round | Settled by derivation; read by no model | **Yes**, if broken |
+| Routed | A18's dates, entries, flag bounds, prints and rechecks; A3 and C2's drops; brief 3's table | For the kernel's architect, through the advisor | **Yes** (the frozen reader and admission) |
+| D333 | The listing end's look ahead | A stated assumption with a count, not a rule | Only if a reviewer shows the exact rule costs no survival |
+
+**Would any open point change what is built?** Yes: this round's review, the routed kernel changes, and the recorder build plan's steps 1 to 7.
+
+### Committed criteria: reported, not edited
+
+- Two drafts in full in the report (CS2.1's ends and CS2.3), replacing round 15's; CS2.2's round 15 draft and CS2.1's reserve (round 14's) stand. For two fresh reviewers, then the advisor's commit.
+
+### Assumptions only the human can choose
+
+- None open. The operator stop (round 13's) and a second copy (round 12's) were decided on 2026-11-22.
+
+### Owed
+
+- **By the advisor:** route the kernel changes; the recorder build with this round's changes; the builder task for `ingest/hl.py`; the capture host's push credential; the drafts to two fresh reviewers; this round to its reviewers.
+
+### What the reviewers should attack first
+
+1. D323: a copy or pull whose venue date misleads within the premise and moves a verdict; a margin the 30 days or the 61-day span still needs.
+2. D324: a true delisting no flag qualifies; a false end left open; a relisting the per-name rule misreads.
+3. D325: a drop that changes across captures or reads a later line; a contradiction now dropped; a crossing a drop makes likelier under the venue's null.
+4. D326: books fed while prints go unread; books withheld on readable prints beyond the stated cost.
+5. D327 to D330: a page sequence or finality query that passes wrongly; a run whose verdicts depend on which end applies; a substitution acceptance passes.
+6. D331: any minute over 505.
+7. D335: a run that passes while a drafted claim is false, or fails while it holds; whether the 5% paragraph's two assumptions are all the reading needs.
+
+### Convergence
+
+**Not converged.** Every finding of both reads of round 15 is answered at its cause. Four answers delete a rule: `halt_fee_witness`, `halt_substitution`, the reader's print rule, and the restart arithmetic. The others state the exact condition the old one approximated: the venue's clock for the host's, the flag's bounds, drops for single-event faults, every page for the first. One finding (Neon 5) is conceded as a stated assumption. Neither reviewer has read this round.
+
+**Corrected at 23:21 UTC (18:21 EST), before anyone read this section:** D324's second bound, `R` at or before `B(e)`, follows from the first. Every hour from `w_start` to `R` holds a settlement, so an unsettled `B(e)` at or after `w_start` lies at or after `R`. So D324 is one bound, a flag dated at or after `w_start`, beside the per-name rule. Brief 4's end rule (`rearchitecture-s2`, the commit after this) states that bound alone.
+
+## The last pass, round 17, study 2
+
+Appended 2026-11-23 01:53 UTC (20:53 EST) by a fresh Opus 5.5 architect (maximum effort) for round 17's study 2 half, on branch `rearchitecture-s2`, beside the kernel half's round 17 on `rearchitecture`. Answered: Neon's read of round 16's study 2 half (`audit/reviews/2026-11-22-neon-round16-study2.md`, findings 1 to 6), the fresh Opus kernel review's finding 6 (`audit/reviews/2026-11-22-opus-round16-kernel.md`: the ending's `known` preceded the last fact its rule reads), and the human's decisions of 2026-11-22 as carried. Neon's review of round 16's criteria drafts was lost, so both drafts are given again whole and unreviewed. Report, with the criteria drafts in full near its top, the kernel changes to route and the build plan's changes: `/home/kevin/repos/moneymachine/data/builder/architect-r17-s2-report.md`. Ids D337 to D344. No market data, nothing under `data/holdout/`, no token or key file, no request to the venue; `arithmetic.py.txt` neither called nor extended. `PROGRESS.md`, `audit/criteria.md`, `kernel2/`, `kernel-v2.md` and brief 3 untouched.
+
+### In plain words
+
+- **No trade or quote is checked against the coin's rules as last copied;** those rules govern the replica's own orders. Setting events aside by their content, round 16's way of surviving a lot-size change, could tilt the 5% at midnight (Neon). A lot-size change now costs nothing of the record.
+- **The 5% argument names, once, the three ways the record can differ from what the venue did,** assumes none depends on where prices go next, and the report shows at each crossing whether it leaned on that.
+- **No clock is trusted alone:** a time a verdict reads is the venue's, and a reply's date counts only when our receipt agrees within an hour, the check the recorder's quotes already had. The vault collector keeps no clock between runs.
+- **A file already pinned keeps its first fingerprint;** a flipped bit is caught, not certified.
+- **Counts are of what the venue sent, read or not,** for the vault's retention and for a delisting's finality.
+- **A delisting is known only after the last hour its rule checks has passed.**
+- **The one-off script's budget left with the retired `hl` recorder:** 205 of the venue's 1,200 a minute, 410 at most under kills.
+
+### Who has seen what
+
+- Neon read round 16 at `7982cbe`, without the criteria drafts' tail. Nobody has read this round's commits (`453c0c8` to the one that appends this).
+
+### Agreed
+
+- **From Neon's read of round 16:** D324 (the flag's bound, the per-name rule, the ending's `known` but for the kernel review's point, now D341), D328, D329, D332, D333, D334, D336; D326 in structure; D330 in mechanism (its condition, finding 3, is D339); D325's aim, the test's survival of a rules change (its means are replaced: D337).
+- **From the fresh Opus's kernel read of round 16:** that `R_OFF_RULES` is gone from every live text and the reach rule matches A12 and K2.
+
+### Settled by derivation in round 17, study 2 (not yet reviewed)
+
+| ID | Point | Settled by | Changes what is built |
+|---|---|---|---|
+| D337 | Events off the copied rules (Neon 1; replaces D325's drop) | No quote or print read against its coin's rules: market sizes at a rules-free scale, no grid or lot check on market events, a resting order offered whole lots of the copied rules; what the model cannot read is no item, counted, and the router's print rule is the reader's; the drop outcome deleted; the 5% stated on the venue's events as the model prices them, with one assumption on the record's three differences and a count at each crossing | **Yes** (brief 4; `RECORDER.md`; `kernel-v2.md` A2, A3, A7, C2 and `KERNEL.md` A18, routed; the CS2.1 draft) |
+| D338 | Clocks (Neon 2 and 5; amends D323) | The venue's stamps and servers' dates, the remote's push, and this host's clock as their witness: a venue time a line holds counts only where its `recv` is within an hour; this host's clock decides nothing alone and no program keeps it (`mmvault`'s `state.json`, hourly pull, watermark, overlap and daily trigger deleted; one pull a run from what is uncovered); no reader chooses a file by its name (the skip before `w_start − 24 h` deleted) | **Yes** (`VAULT.md`; `RECORDER.md`; brief 4; A18, routed) |
+| D339 | Re-hashed closed files (Neon 3) | A pin, once made, is carried and never made again; Step 1 reads nothing of a file pinned closed; the hosts' `E_HASH` against the first pin settles `halt_storage_corrupt`; Step 1's length check deleted | **Yes** (brief 4, the capture) |
+| D340 | Unreadable elements (Neon 4) | Retention and page counts by what the venue returned, read or not; an element of a coin's query is a row for an absence; a finality query delimited by coin, `endTime` and chain, its rows read and in order | **Yes** (brief 4; `VAULT.md`; A18, routed) |
+| D341 | The ending's `known` (the fresh Opus's kernel F6) | `B(t_F) + late + listings.lag`, after the last fact the rule reads | **Yes** (brief 4; A18, routed) |
+| D342 | The budget (Neon 6) | `ingest/hl.py` deleted on `main` with `hl`, its 300 and lock leave; sum 205; a kill can double a writer's minute, 410 | Text (`CLUSTER.md`) |
+| D343 | Texts (Neon 6) | The re-pairing quantifier; a relisting within two hours of its delisting holds `T` to the last firing, stated; Month 1's wait for a coin delisted before `w_start`, noted | Text and a router test |
+| D344 | The criteria drafts (replacing D335) | CS2.1's ends with end (1)'s list re-derived and the 5% paragraph re-derived; CS2.3 with retention by what the venue returned and the date witnessed by receipt; CS2.2 and the reserve stand | Advisor's criteria commit only |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| D337 to D344 | This round | Settled by derivation; read by no model | **Yes**, if broken |
+| Routed | A2, A3, A7, C2 and A18 for D337; A18 for D338, D340, D341; brief 3's table | For the kernel's architect, through the advisor; the size scale (6 proposed) is the kernel architect's | **Yes** (the frozen reader and admission) |
+| D337's limit | An event the model cannot read that foretells a move (bids all pulled before a fall) makes the null false whatever the rule | Stated in the claim's paragraph, as rung 2's limit is | No, unless a reviewer shows a reading that removes it at no cost |
+| D343 | A relisting within two hours of its delisting holds `T` to the last firing | A stated cost; settlements are by name, so no record tells it from a withdrawn flag | Only if a reviewer finds a record that does |
+
+**Would any open point change what is built?** Yes: this round's review, the routed kernel changes (D337's above all), and the recorder build plan's two steps.
+
+### Committed criteria: reported, not edited
+
+- Two drafts in full near the top of the report (CS2.1's ends and CS2.3), replacing round 16's, which no model read whole; CS2.2's round 15 draft and CS2.1's reserve (round 14's) stand. For two fresh reviewers, then the advisor's commit.
+
+### Assumptions only the human can choose
+
+- None open.
+
+### Owed
+
+- **By the advisor:** route the kernel changes; the recorder build's two steps (routing; `mmvault`); the drafts to two fresh reviewers; this round to its reviewers.
+
+### What the reviewers should attack first
+
+1. D337: a record on which reading off-rule events changes a verdict the null does not cover; a kernel law a market size off the copied lots breaks; whether "an event the model cannot read moves no price" belongs in the null or in the assumption.
+2. The 5% paragraph: a run that passes while the drafted claim is false, or fails while it holds; whether a crossing at a day's end valued at the venue's own prices needs no assumption, as claimed.
+3. D338: two clocks within an hour of each other that still move a verdict; any decision left that reads this host's clock.
+4. D339 and D340: a corruption the carried pins miss; a pull or a query that passes wrongly under element counts and delimitation.
+5. D341: a fact the rule reads that `B(t_F) + late + lag` still precedes.
+
+### Convergence
+
+**Not converged.** Every finding of Neon's read of round 16 and the kernel review's sixth is answered at its cause, and three causes cover them: a choice of the record by content (D337), a clock taken alone (D338), and a reading that trusted what it computed over what it holds (D339 to D341). Each answer deletes what round 16 had added or kept: the drop outcome and the rules check on market events, `state.json` with the hourly pull, its watermark and the daily trigger, the stream files' skip by name, Step 1's length check, `ingest/hl.py`'s allocation. Nobody has read this round.
+
+## The last pass, round 18, study 2
+
+Appended 2026-11-23 07:07 UTC (02:07 EST) by a fresh Opus 5.5 architect (maximum effort) for round 18's study 2 half, on branch `rearchitecture-s2`, beside the kernel half on `rearchitecture`. Answered: Neon's read of round 17's study 2 half (`audit/reviews/2026-11-23-neon-round17-study2.md`, findings 1 to 6), the kernel half's two routed corrections (offered whole lots; test 10's time), and the advisor's brief to cut the spec rather than grow it. Report, with the criteria drafts in full, the kernel changes to route and the build plan's changes: `/home/kevin/repos/moneymachine/data/builder/architect-r18-s2-report.md`. Ids D345 to D352. No market data, nothing under `data/holdout/`, no token or key file, no request to the venue. `PROGRESS.md`, `audit/criteria.md`, `kernel2/`, `kernel-v2.md` and brief 3 untouched.
+
+### In plain words
+
+- **A day, once replayed, is never read differently:** a line written about it afterwards is counted and ignored. So a verdict named one month is named again every later month, as the committed criteria always said, and the machinery six rounds built to catch a changed day (re-checking published days, ending the test there, a chain of states, withdrawals, halts) is deleted.
+- **Each month's snapshot fingerprints a file once, after it has sat unchanged a month;** each machine reads each file once. Packing goes. Results come a month later.
+- **A delisted coin ends only where the record is silent around its flag, and nothing recorded is thrown away;** the thirty-day finality wait goes.
+- **The 5% claim says only what it shows.** The vault collector runs daily, reads none of its own files, and asks for everything from November 1st; the entry check waits for one complete download a month after its 61 days.
+- **Nothing halts;** a month two machines cannot agree on is skipped and logged.
+- **Brief 4 halved** (169,783 bytes to about 79,000), `VAULT.md` and `RECORDER.md` shorter.
+
+### Who has seen what
+
+- Neon read round 17 at `1457cb3`, without `RECORDER.md`'s tail and `CLUSTER.md`. Nobody has read this round's commits (`bacabdb` to the one that appends this).
+
+### Agreed
+
+- **From Neon's read of round 17:** D337's core (no market event read against its coin's rules), D338's two-clock witness in principle (kept for the horizon's book line; the copies' and pulls' dates are now read by nothing), `state.json`'s deletion, D340's element counts (kept for the whole pull), D339's direction for closed files, D342, D343.
+- **From the kernel half's round 17:** the recorded size offered as recorded, with T1, E1, L4 and F0 as they stood.
+
+### Settled by derivation in round 18, study 2 (not yet reviewed)
+
+| ID | Point | Settled by | Changes what is built |
+|---|---|---|---|
+| D345 | The cause under every finding: a later replay read a record grown behind published days | **A line added behind is not read:** a line of a file first listed by capture `s`, stamped before the horizon of capture `s`'s replay where that replay ran a day, is counted and not fed. The record of every time a replay ran is the same in every later replay, so "what a day's end showed stands" holds as committed. Deleted: the prefix check, `T*`, the state chain and `accepted.tsv`'s links, withdrawals, carried verdicts, the three halts | **Yes** (brief 4, steps 6 and 7; A18 and A13, routed; the CS2.1 draft) |
+| D346 | Files re-hashed into captures (Neon 1); pre-start files re-read (Neon 6a) | One table a month, a file hashed once after a month at rest and its hash carried; a replay reads hashed files only; a host reads each once and keeps its lines. Deleted: closed-file tests, open-file pins, the `fsync` chain, Step 1's lock, the two-host packs, `mmrec cat`'s length | **Yes** (brief 4, wall 2; `RECORDER.md`; brief 3, routed) |
+| D347 | How far a replay runs | To the midnight that began the capture before's day, every coin settled through it or ended, a book received on time past `T + 1 h`; each horizon at least the one before, by D345 | **Yes** (brief 4, wall 3) |
+| D348 | A listing's end (Neon 5b, 4b; replaces D306, D307, D324's finality and D341's `known`) | A flag at `e` with the coin silent from `e − 1 h` to `e + 1 h` ends it at `E`, the first whole hour after its last event before `e − 1 h`, used only past `e + 1 h`; no event cut; known at `e + 1 h` plus the greatest lag. Deleted: the cut between `R` and the flag's bound and its count, `B(e)`'s check, the 30-day query and its rules, Month 1's wait. Cost: a held coin whose book came after its last settled hour stops the run | **Yes** (brief 4, wall 4; A18, routed) |
+| D349 | CS2.3's coverage (Neon 4a, 4c; replaces coverage by instants) | One whole pull from at or before `w_start`, not listed by the capture of a firing 30 days after the 61st day, with fewer than 10,000 elements from `w_start` on, counted as returned; the clock the captures'. Cost: about six months; a vault three times busier leaves it "not judged" | **Yes** (brief 4, wall 5; `VAULT.md`; the CS2.3 draft) |
+| D350 | `mmvault` (Neon 3) | Daily and stateless: fills and funding from 2026-11-01 with no `endTime`, funding paged at its last row's time inclusive, fees and orders; no stored file read. Deleted: pulls from what is uncovered, the identity rebuild, `new`, the 5,000 alarm, the vault pulls' directory `fsync`s | **Yes** (`VAULT.md`) |
+| D351 | The 5% paragraph (Neon 2); clocks (Neon 6b) | The null on the record as the model prices it; the assumption over the whole path; a crash shown only as one-sided books is a move the record does not make; what the record lacks reported, certifying nothing. The crossing diagnostics and the venue's-wealth sentence deleted. Copies by receipt; the reply's `Date` deleted from the recorders and readers | **Yes** (the CS2.1 draft; `RECORDER.md`; A18, routed) |
+| D352 | The criteria drafts (replacing D344); texts | CS2.1's ends (final, complete, the last firing at 31 days, the operator stop), the record read once and the 5%; CS2.2's operator stop; CS2.3's whole late pull; the reserve's stands. Brief 4's offered sizes as recorded (the kernel half's correction); the fee witness and layers 1 and 2 in `study2 measure`, outside the build; brief 4's header cut to a pointer here | Advisor's criteria commit; text |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| D345 to D352 | This round | Settled by derivation; read by no model | **Yes**, if broken |
+| Routed | A18 (copies by receipt, the end, lines added behind, a failed checksum, kept lines), A13's identity, brief 3's step 6, step 9 and table | For the kernel's architect, through the advisor | **Yes** (the frozen reader and identity) |
+| GPT's round-4 objections | A lever in when the first reading is made; a wait that avoids a stop; the first of a key | Met in the report ("The cause"): the capture's time is the calendar's and the remote's; the wait adds crossings only inside the one bound; a second settlement of an hour is never fetched (H16) | **Yes**, if GPT finds a lever the capture leaves |
+
+**Would any open point change what is built?** Yes: this round's review, and the routed kernel changes, which the frozen reader carries.
+
+### Committed criteria: reported, not edited
+
+- Three drafts in full near the top of the report (CS2.1's ends, CS2.2's operator stop, CS2.3), replacing round 17's; CS2.1's reserve draft (round 14's) stands. For two fresh reviewers, then the advisor's commit.
+
+### Assumptions only the human can choose
+
+- None open.
+
+### Owed
+
+- **By the advisor:** route the kernel changes; the recorder build's changes (`mmvault` daily and stateless first); the drafts to two fresh reviewers; this round to Neon, then GPT.
+
+### What the reviewers should attack first
+
+1. D345: two replays that read one time differently; a lever in a capture's timing; a line not read whose absence moves a verdict outside the null.
+2. D347: an honest record whose horizon never passes; one that passes a missing settlement.
+3. D348: a live coin ended; a delisted coin never ended; the end's `known`.
+4. D349: a pull that passes while retention cut a fill of the 61 days.
+5. D346: kept lines that read otherwise than the file.
+6. D352: a run that passes while a drafted claim is false, or fails while it holds.
+
+### Convergence
+
+**Not converged, and re-derived rather than patched.** Every finding of Neon's read of round 17 is answered at one cause, a later replay reading a record grown behind published days, which rounds 2 to 17 handled by machinery around it. D345 removes the cause, and the machinery goes with it: the prefix check, `T*`, the state chain, withdrawals, halts, finality, coverage by instants, the reply's date, packs and the capture's durability rules. Nobody has read this round.
+
+## The last pass, round 19, study 2
+
+Appended 2026-11-24 06:36 UTC (01:36 EST) by a fresh Opus 5.5 architect (maximum effort) for round 19's study 2 half, on branch `rearchitecture-s2`, beside the kernel half on `rearchitecture`. Answered: Neon's read of round 18's study 2 half (`audit/reviews/2026-11-24-neon-round18-study2.md`, findings 1 to 6, "still larger than its cause" and "what the deletions lost"), and the advisor's two questions: whether what a replay reads for a day can be fixed by that day alone, and whether the monthly verdicts are worth what "a published day stands" costs. Report, with the criteria drafts in full, the kernel changes to route and the build plan's changes: `/home/kevin/repos/moneymachine/data/builder/architect-r19-s2-report.md`. Ids D353 to D360. No market data, nothing under `data/holdout/`, no token or key file, no request to the venue. `PROGRESS.md`, `audit/criteria.md`, `kernel2/`, `kernel-v2.md` and brief 3 untouched.
+
+### In plain words
+
+- **Each day's record is fixed by the calendar, not by history:** a line counts for its day only if its file was on disk by the start of the second month after the day's month, and a day is first judged in the third month after its own. Every month's report then agrees with every other about every day they share, and no replay needs to know what an earlier one did, which round 18's rule needed and nothing recorded (Neon's first finding).
+- **The cost is a month of delay; the gain is a month of margin:** a collector down for up to a month loses nothing (Neon's third finding).
+- **A delisted coin is cashed out an hour after the delisting notice,** once the silence that proves it is past, so the test never spends money it could only know it had by looking ahead (Neon's second finding, a fair market on which round 18 passed the 5%).
+- **The entry check is judged on one download of the vault's fills,** the first complete one made a month after its 61 days, and on those 61 days' fills alone; the vault collector no longer stops for one odd fill (Neon's fourth finding).
+- **Listing copies are timed by the venue's clock again, checked against ours** (Neon's fifth finding); **two machines agreeing on rows that contradict an accepted month end the test there** (Neon's sixth).
+- **The monthly verdicts are kept:** they are what make the visible reports and the human's budget stop harmless.
+
+### Who has seen what
+
+- Neon read round 18 whole at `652900a` and accepted its direction. Nobody has read this round's commits (`e4dd658` to the one that appends this).
+
+### Agreed
+
+- **From Neon's read of round 18:** the capture that hashes a file once at rest (D346's core); the daily, stateless `mmvault` with inclusive funding pages (D350's core); the 5% paragraph's null on the record and its path-wide assumption (D351's core); CS2.2's operator stop; the recorded size offered as recorded; `study2 measure` outside the build; `CLUSTER.md`'s weights and `RECORDER.md`'s routing and `mmrec cat`.
+
+### Settled by derivation in round 19, study 2 (not yet reviewed)
+
+| ID | Point | Settled by | Changes what is built |
+|---|---|---|---|
+| D353 | What a replay reads depends on the history of captures and replays (Neon 1; replaces D345's rule and D347's bound) | **The record of a time is fixed by the calendar:** an item is read only where its file's `since` is at most the second month after its time's; the replay of month `k` runs the days of months up to `k − 3`, whose records its table holds whole. No date, earlier horizon or first-settled replay is read. One missing capture loses no file written on time; two running stop the test. Cost: a day first judged two to three months after it | **Yes** (brief 4, step 7, walls 1 to 3; A18 3a, routed) |
+| D354 | The listing's end settled before the silence that decides it (Neon 2; replaces D348's timing) | The listing ends at `e + 1 h`, after every fact it reads, settling at the coin's price there and beginning the span there; the funding ends at `E`, which moves no wealth and only makes the hours from `E` undue | **Yes** (brief 4, wall 4; A18, routed) |
+| D355 | A delisted coin's funding; walls 3 and 4 deciding each other (Neon 3) | Every hour before a coin's funding end needs its settlement, held or not; a backfill within the month of margin is read; an end is decided from fixed records and used by the horizon only where they are fixed. Deleted: the exemption "for every hour before its last settlement". The settled collector reads its files as the reader does, no longer stopping for good at one corrupt file | **Yes** (brief 4, walls 3 and 4; `VAULT.md`) |
+| D356 | CS2.3's judging replay and its union of pulls (Neon 4.1) | One pull judges: the earliest whole late pull by `since` then path, the same in every table; its fills of the 61 days alone, each coin chained from its first there at the venue's `startPosition`; an unreadable element withholds only where its place in the pull's order may fall in the 61 days. Deleted: the first settled replay, the union, the copy before 2026-11-01 as input, the chain from the vault's first fill | **Yes** (brief 4, steps 1 and 7; the replay of given fills, routed; the CS2.3 draft) |
+| D357 | `mmvault`'s fail-stop (Neon 4.2) | A page is checked only for what asking the next needs, the rest stored as served; a reply that fails its check fails its own pull, and only a failed request stops the run | **Yes** (`VAULT.md`) |
+| D358 | Copies by receipt alone (Neon 5.1); GPT's round-4 objections (Neon 5.2) | Copies timed by the reply's date within an hour of their `recv` again (D338 restored; round 18's routed item 1 withdrawn); the capture's lever stated as an assumption and shown by a test; "What it adds" says plainly that a backfill within the months adds passing paths | **Yes** (`RECORDER.md`; the CS2.1 draft) |
+| D359 | Kept lines, the cost before `w_start`, the halts (Neon 6) | Kept lines hold what some replay reads, with the counts of the rest and the stream's end, under their own checksum; every host reads each file in the month it is first hashed; a settled report whose rows of a day differ from an accepted one's ends the test at the accepted one | **Yes** (brief 4, walls 2 and 6; A18 3c, routed) |
+| D360 | The criteria drafts (replacing D352) | CS2.1's record fixed by the calendar, the last firing in the third month after the 730th day's, a fifth end (a build fault), the listing's end after its facts, the lever stated, "What it adds" both ways; CS2.2's operator stop; CS2.3 on one pull with a chain of the 61 days; the reserve's stands | Advisor's criteria commit; text |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| D353 to D360 | This round | Settled by derivation; read by no model | **Yes**, if broken |
+| Routed | A18 (the listing's end and the funding's end, the record of a time, kept lines; copies' date kept, whose whole seconds meet every tick, so the order of a millisecond the fresh Opus's finding 1 on the kernel's round 17 asks R1 to state decides every rule change), A13's identity, the replay of given fills from a given position, brief 3's step 6, step 9 and table | For the kernel's architect, through the advisor | **Yes** (the frozen reader and identity) |
+| The capture's lever | A capture made late can bring a file written in its delay into the record of the month two before | An assumption, stated in the CS2.1 draft like the registration's push time; the acceptance logs every delay | No, unless a reviewer finds a way to close it at no cost |
+
+**Would any open point change what is built?** Yes: this round's review, and the routed kernel changes, which the frozen reader carries.
+
+### Committed criteria: reported, not edited
+
+- Three drafts in full near the top of the report (CS2.1's reading and ends, CS2.2's operator stop, CS2.3), replacing round 18's; CS2.1's reserve draft (round 14's) stands. For two fresh reviewers, then the advisor's commit.
+
+### Assumptions only the human can choose
+
+- None open.
+
+### Owed
+
+- **By the advisor:** route the kernel changes; the recorder build's changes (the listings `date` built again, `mmvault`'s page checks and run stop, the settled collector's scan); the drafts to two fresh reviewers; this round to Neon, then GPT.
+
+### What the reviewers should attack first
+
+1. D353: two replays that read one time differently; what a late, a missing or two missing captures change; a day run before its record is whole.
+2. D355 with D353: an honest record whose horizon never passes where it should, or one that passes a hole; whether each horizon is at least the one before where an end becomes decidable later.
+3. D354: any wealth, bar or guard state set before `e + 1 h` by what follows it; a live coin ended.
+4. D356: a pull that passes while retention cut a fill of the 61 days; the placement of an unreadable element; what the chain of the 61 days lets through.
+5. D359: a kept form that reads otherwise than its file; the end at a build fault where the accepted report was the wrong one.
+6. D360: a run that passes while a drafted claim is false, or fails while it holds.
+
+### Convergence
+
+**Not converged, and re-derived where round 18's mechanism patched.** Neon's three findings on round 18's mechanism (1, 2, 3) had one cause: what a replay read for a day hung on the history of captures and replays, which no table holds. D353 fixes the record of a day by the calendar, which needs no history, and the patches Neon proposed for it (each table carrying every capture's date, a sequential horizon algorithm, a post-`E` funding query) are not needed. Findings 4 to 6 are answered at their causes (CS2.3 judged on what no later pull changes; a collector checking only what it needs; a clock check deleted too soon; a cache with no check). Nobody has read this round.
+
+### Open questions
+
+- **For the human:** none. **For the advisor:** routing the kernel changes (the report's list: the listing's end as two records, the record of a time, kept lines, the replay of given fills from a given position; round 18's routing of copies by `recv` withdrawn), and whether the month of delay this round adds (a day first judged two to three months after it, the last firing in the third month after the 730th day's) goes into the plain summary as a cost of the design.
+
+## The last pass, round 20, study 2
+
+Appended 2026-11-24 15:32 UTC (10:32 EST) by a fresh Opus 5.5 architect (maximum effort) for round 20's study 2 half, on branch `rearchitecture-s2`, beside the kernel half on `rearchitecture`. Answered: GPT-6.2's read of round 19's study 2 half (`audit/reviews/2026-11-24-gpt62-round19-study2.md`, sections 1 to 6) and, routed by the advisor mid-run, the part of GPT-6.2's read of kernel round 18 that is this half's (`audit/reviews/2026-11-24-gpt62-round18-kernel.md`, "Listing ends and reader order"). Report, with the criteria drafts in full, the kernel changes to route and the recorder build's changes: `/home/kevin/repos/moneymachine/data/builder/architect-r20-s2-report.md`. Ids D361 to D370. No market data, nothing under `data/holdout/`, no token or key file, no request to the venue. `PROGRESS.md`, `audit/criteria.md`, `kernel2/`, `kernel-v2.md` and brief 3 untouched.
+
+### In plain words
+
+- **A delisted coin is ended only on the venue's own word:** its flag, and its funding history showing it settled nothing for the two hours around the flag. Our recorder stops recording a coin at its flag, so the silence of our own record proved nothing (GPT).
+- **An hour the venue says it did not settle pays nothing and no longer stops the test;** an hour we failed to ask about still does. A coin delisted before the start whose flag the venue later dropped no longer stops the test on its first hour (GPT).
+- **No rule change is read before the venue could have written it:** a reply counts from the later of its two clocks, the venue's and ours, so either clock alone keeps it safe (GPT rebuilt Neon's 8.52% false passes from a reply dated early).
+- **The vault download that judges the entry check is dated by its own first request;** fills repeated across its pages count once; fills of one millisecond may chain in any order (GPT).
+- **A contradiction between two accepted months ends the test without keeping any verdict it touches,** and only the engine's rows are compared.
+- **The criteria drafts share one statement of the reading and the ends,** and each condition has one judgment rule.
+
+### Who has seen what
+
+- GPT-6.2 read round 19 at `93b1c4e` and kernel round 18 at `5dedbc6`; Neon read round 18. Nobody has read this round's commits (`bad3522` to the one that appends this).
+
+### Agreed
+
+- **From GPT's read of round 19:** the calendar cutoff; monthly reports on one path; the operator's budget stop on one adapted path; cash release and the span change at the listing's end, with `E` only of funding (now deleted, D362); full hourly coverage before an end, held or flat; the restored `Date`'s cure of a host step-back with a truthful venue date; one vault pull, a bounded matching window, payload isolation, rescanning corrupt funding files; the reduced cache, its checksum and early population; ending on a genuine prefix contradiction; fixed valuation and variance thresholds; strict entry majorities.
+- **From GPT's read of kernel round 18:** A3's canonical sort and deleting the honest-reader stop for disorder; whole-file capture hashes, the kept-lines checksum, the forward identity, the packs' deletion; A18 as the readers' one home; per-coin starting positions for given fills.
+
+### Settled by derivation in round 20, study 2 (not yet reviewed)
+
+| ID | Point | Settled by | Changes what is built |
+|---|---|---|---|
+| D361 | A copy dated before its state (GPT on round 19, 2: Neon's 8.52% rebuilt); replaces D358's "by the `Date`, within an hour of `recv`" | **A reply is placed by its two clocks:** if either is right it was made after `min(date, recv) − 30 s` and before `max(date + 1 s, recv)`. A copy is in force from the later, `w_start`'s rules included; a reply's reach runs to the earlier. The hour check is deleted: an off clock only delays. Every REST line keeps `date` | **Yes** (brief 4, wall 4; `RECORDER.md`; `VAULT.md`; A18, routed) |
+| D362 | Absence in our record read as the venue's (GPT on round 19, 3: a pre-start delisting whose flag is gone held every horizon) | **An hour is settled, shown unsettled, or a hole:** shown unsettled where whole replies cover its span of lateness and no settlement names it; it pays nothing and holds nothing. A failed pull leaves no reply, so no failure of ours shows an hour unsettled. Round 19's funding end at `E` (`Payload.fundingEnd`) deleted. V23 (the venue's funding replies omit nothing) routed, as V18 is of fills | **Yes** (brief 4, walls 3 and 4; `VAULT.md`; A18 and V23, routed) |
+| D363 | A live coin ended by a flag and our own unsubscribe's silence; an event at the window's end; an unflagged copy before the end (GPT on round 19, 3; GPT on kernel round 18); replaces D354's end | **A listing ends on the venue's evidence, after all of it:** a flag in force at `e`; from `e − 1 h` to `e + 1 h`, both included, no book, print or settlement of the coin, and whole replies covering the span; no copy within the hour after giving it rules. The end is at the millisecond after the span. Our unsubscribe can only remove a blocker. Missing replies end nothing, and their hours hold the horizon | **Yes** (brief 4, wall 4 and test 12; A18, routed) |
+| D364 | CS2.3's pull dated by other files' `since` (GPT on round 19, 4); replaces D356's lateness | **Late is the pull's own:** its first reply made 30 days or more after the 61st judged day ended, by its two clocks. The earliest is still by `since` and then path. The other-file proxy deleted | **Yes** (brief 4, wall 5; `VAULT.md`'s lines with `date`) |
+| D365 | Retention's conclusion and the count (GPT on round 19, 4) | Stated conditional on V18's "returns every fill it keeps"; the count is of distinct fills, each unreadable element one | **Yes** (brief 4, wall 5 and test 5) |
+| D366 | The chain's greedy order within a millisecond rejects a valid chain (GPT on round 19, 4) | **`chained` tries every order** and returns one for the replay of given fills; M4 states existence; the search is millisecond by millisecond | **Yes** (brief 4, step 1; brief 3's replay of given fills fed that order, routed) |
+| D367 | An endpoint-local failure withholds the day's fees and orders (GPT on round 19, 4); refines D357 | A failed request fails its own pull, the run going on; a sixth 429 ends the run, its limit being the IP's | **Yes** (`VAULT.md`) |
+| D368 | The third host's cache, persistent no-output runs, the build fault's comparison and its kept verdict (GPT on round 19, 5); refines D359 | Every host keeps each month's files whether or not it runs; retries end at the next firing; the acceptance compares the engine's rows only; a build fault ends the test with both reports kept and a verdict standing only on rows both give | **Yes** (brief 4, walls 2 and 6, test 13) |
+| D369 | The run id's order and a decoder's error read as a cut (GPT on kernel round 18) | `RECORDER.md`'s run numbering stands (test 22); the build (`writer.ml`) owes it. A stream is complete, cut, malformed or corrupt; `mmrec cat` exits 2 on corrupt; nothing of a corrupt stream is read or kept; the build (`recording.ml`) owes it | **Yes** (`RECORDER.md`; the recorder build; A18, routed) |
+| D370 | The criteria drafts (GPT on round 19, 6; replacing D360) | One shared revision beneath the definitions (the reading, the reports, the ends); CS2.1 with "outgrew"'s conservatism; CS2.2 by an accepted report, with the backfill's added "held"; CS2.3 with one judgment rule and its added "met" paths; the missing-capture guarantees stated as they hold (GPT 1) | Advisor's criteria commit; text |
+
+### Disputed, or open
+
+| | Point | State | Would change what is built |
+|---|---|---|---|
+| D361 to D370 | This round | Settled by derivation; read by no model | **Yes**, if broken |
+| Routed | A18 (a reply's two clocks and reach, what a reply covers, the unsettled hour, the listing's end, a stream's four states, a duplicate's place), V23 and V18's cell, brief 3's step 2, tests 13 and 15 and its table | For the kernel's round 19, through the advisor | **Yes** (the frozen reader) |
+| The recorder build | Run numbering and the decoder's states, specified and not built | Owed before the freeze | **Yes** (the deploy) |
+| The captures' lever | A late capture can bring a file written in its delay into the record of the month two before | An assumption, stated in the CS2.1 draft; GPT accepts the cutoff under it | No |
+| V23 | The venue's funding replies leave out no settlement it made | An assumption of the kind V18 is, witnessed on the vault's held days | No, unless a reviewer finds the silence can depend on prices |
+
+**Would any open point change what is built?** Yes: this round's review, and the routed kernel and recorder changes.
+
+### Committed criteria: reported, not edited
+
+- Four drafts in full near the top of the report: a shared revision beneath "The days run", CS2.1, CS2.2 and CS2.3, replacing round 19's three; CS2.1's reserve draft (round 14's) stands. For two fresh reviewers, then the advisor's commit.
+
+### Assumptions only the human can choose
+
+- None open.
+
+### Owed
+
+- **By the advisor:** route the kernel changes and V23; the recorder build's two defects (run numbering, the decoder's states) and its changes (every REST line's `date`, per-pull failures); the drafts to two fresh reviewers; this round to Neon, then GPT.
+
+### What the reviewers should attack first
+
+1. D361: a reply both clocks misplace the same way while each passes; whether the two bounds hold of a reply's content (a cached body, a `Date` set before the body, a timeout anywhere longer than 30 s).
+2. D362: a record on which our own failure shows an hour unsettled; a reply credited with more than it covers; whether a reply's silence can depend on where prices go next (V23 as a lever).
+3. D363: a live coin ended; a dead coin never ended where a relisting under its name is then fed; anything set at the end by what follows it.
+4. D364 to D366: a pull late by its clocks and not by its asking; a chain an order passes where the record is wrong; the distinct count against V18.
+5. D368: a build fault the engine-row comparison misses; a contested verdict the rule keeps.
+6. D370: a run that passes while a drafted claim is false, or fails while it holds.
+
+### Convergence
+
+**Not converged, and re-derived where round 19 patched.** GPT's two points that the advisor flagged as our own doing and the venue's dates had one cause each. The silence: rounds 18 and 19 read the absence of a settlement, book or print in our record as the venue's; only the venue's reply can say what it did not do, so D362 and D363 rest every silence on a reply, which deletes the funding end and answers both directions of GPT 3 (a live coin ended, a dead one never) and the kernel review's boundary and unflagged-copy cases with one concept. The dates: rounds 18 and 19 each trusted one clock and fell to the other's fault; D361 places a reply between its two clocks, using the bound that is safe for each use, which answers the backdated copy and the pull's dating (D364) with one rule and deletes the hour check. The rest are fixes at their causes: a greedy rule where existence was meant (D366), a stop wider than its failure (D367), a comparison of rows no prefix fixes and a verdict kept past its contradiction (D368), and two build defects against a spec that is right or now says so (D369). Nobody has read this round.
+
+### Open questions
+
+- **For the human:** none. **For the advisor:** routing the kernel changes and V23 (the report's list), the recorder build's owed fixes, and whether the plain summary says that an hour the venue's own reply shows unsettled now pays and holds nothing, a trust in the venue's funding history like the one already placed in its fill history.
+
+
+## Project Reset and Spec Freeze (2026-11-25 06:48 UTC / 2026-11-25 01:48 EST)
+
+**Convergence: FROZEN.** Under the **honest-but-buggy** threat model and the <=2-round materiality-capped review rule, this entry closes the 20-round specification loop and freezes the consolidated specifications across `audit/program/kernel-v2.md`, `kernel2/KERNEL.md`, `audit/program/briefs/3-kernel-v2.md`, `audit/program/briefs/4-study-2.md`, `audit/program/architecture.md`, `audit/program/arithmetic.py.txt`, and `audit/program/python-extinction.md`.
+
+### What is consolidated and frozen
+
+1. **Kernel v2 (`kernel-v2.md`, `kernel2/KERNEL.md`, `briefs/3-kernel-v2.md`):**
+   - **Compiler-sandbox dropped:** replaced the 8-round two-stage clean-compile boundary (`engineExport`/`engineClean`/`engine.kexp`/`CleanPrelude.lean`/`stage2-clean.lean`/`primitives.txt`/`frozen.txt`) with the honest-but-buggy proof gate (`kernel2/lean/check-proofs.sh`): offline Lake build + Lean `collectAxioms` admitting only `{propext, Classical.choice, Quot.sound}` + static allowlist scan banning unapproved `@[implemented_by]`, `@[extern]`, `unsafe`, `partial`, and bare `axiom`, verified by `checks.engine-proofs-fixtures` (`BadImplementedBy.lean` etc.).
+   - **Pinned MPFR (`pkgs.mpfr`) adopted for `exp`/`log`:** `Engine.Exact.exp` and `Engine.Exact.log` bind via `@[extern]` to `kernel2/lean/c/mpfr_ops.c` (`mm2_mpfr_exp`/`mm2_mpfr_log`), rounded once to 53-bit binary64 with IEEE subnormalization (`mpfr_subnormalize`) and canonical quiet NaN. Deleted exact-rational series `X4` formulas, `@[csimp]` incremental `expFast`/`logFast`/`nearestBitsFast` twins (`X6`), the `x4-counts` 15-CPU-day sweep, and `O26`. Step 5 Test 12 verifies pinned MPFR bit-for-bit across boundaries, all four IEEE rounding modes, and CORE-MATH hardest inputs (plus `nearestBits` `X5` against `mpfr_set_q`) and asserts production `mm2` links pinned `libmpfr` while forbidding glibc `libm` `exp`/`log`.
+   - **Decoupled `kernel2/` sub-flake:** documented `kernel2/flake.nix` + `kernel2/flake.lock` (sha256 `415c302c51d5ef65241ba0c845256bceca418b90da4df45cc0d71e4eb139153b`), pinning Lean 4.34.0, OCaml 5.4.1, and `pkgs.mpfr`/`pkgs.gmp` independently of root and live recorders.
+   - **Step 5x trimmed:** reduced to the decoupled sub-flake, pinned MPFR, `check-proofs.sh`, and Round 19/20 machine/observation alignment on Step 5, ready to merge into `kernel2-build` and execute Steps 5a → 6 → 7 → 8 → 9 → 10 immediately.
+
+2. **Study 2 (`briefs/4-study-2.md`, `architecture.md`, `kernel2/KERNEL.md`):**
+   - **Kernel Round 20 simplifications folded in:** universe coin rules (`sz_decimals`, `figures = 5`, `decimals = 6 − sz_decimals`, `tiers`) and active (unflagged) flags fixed at registration from one hashed copy of `meta` (`TON` flagged out in `meta-2026-11-16.json`, verified emitting 0.0 funding rows for 1,117 hours after delisting, V25); midnight coin-end rule on a quiet zero-funding UTC day (`KERNEL.md` A18); day-late `unsettled` hour rule (V24); Hierholzer linear-time `chained` and pre-chain conflict rejection; zero `Payload.listing` / hourly listings-copy baggage in judged code.
+   - **Single-host deterministic replay:** forward capture/replay simplified to deterministic single-host monthly replay over a hash-verified capture manifest (`audit/study2/captures/<YYYY-MM>.tsv`, verified by SHA-256 and checked for determinism under A13/D1 plus prefix consistency against the previous accepted report), dropping multi-host 2-of-3 consensus.
+   - **Branch reconciliation:** `mm-program-s2`'s stalled Round 21 merge (`MERGE_HEAD = e9f2e8c` over `844bd06`) left zero committed Round 21 changes and is superseded by this freeze. Committed `CS2.1`–`CS2.3` in `audit/criteria.md` remain completely untouched (minor wording alignment owed only if criteria text is ever formally revised is noted in `briefs/4-study-2.md`).
+   - **Honest power expectation:** Study 2 is expected to end `"not confirmed"` at long-only ladder volatility ~0.25–0.50; its primary empirical value is prospective measurement of fill-model fidelity (layer 2), volatility transport (CS2.2), and entry reproduction (CS2.3) beside the reopened Earlier-Cutoff (`briefs/5-earlier-cutoff.md`) and Unhinted-Search (`briefs/6-unhinted-search-dsl.md`) tracks.
+
+3. **Python Extinction (`python-extinction.md`):**
+   - Brought in Revision 3 (`2941cad`) and re-sequenced remaining Python → OCaml ports (`mmdata`, `mmops`) to **Phase 2** (after Study 2 freezes and Phase 1's urgent live fixes — including the immediate in-place GDELT retry fix in `ingest/datalayer.py` — deploy), with direct spec+test builds and zero multi-round architect churn.
