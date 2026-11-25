@@ -6,6 +6,7 @@ import json
 import signal
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -267,3 +268,262 @@ def test_a_repair_killed_after_any_step_is_on_the_record_with_its_damaged_bytes(
     assert datalayer.body(tmp_path, fetch_again(tmp_path)["sha256"]) == BODY
     repairs = list(live.read(tmp_path, "repairs"))
     assert repairs and all((raw.parent / r["kept"]).read_bytes() == bad for r in repairs)
+
+
+def _gdelt_feed() -> dict[str, Any]:
+    feed: dict[str, Any] = next(f for f in datalayer.feeds()["feeds"] if f["name"] == "gdelt-events")
+    return feed
+
+
+def test_discover_retries_404_until_200_and_logs_both_in_order(tmp_path: Path) -> None:
+    feed = _gdelt_feed()
+    index_body = b"1 ab http://data.gdeltproject.org/gdeltv2/20261023184500.export.CSV.zip\n"
+    release_url = "https://data.gdeltproject.org/gdeltv2/20261023184500.export.CSV.zip"
+    release_responses = iter([httpx.Response(404, content=b"missing"), httpx.Response(200, content=b"zip")])
+
+    def respond(req: httpx.Request) -> httpx.Response:
+        if req.url.path == "/gdeltv2/lastupdate.txt":
+            return httpx.Response(200, content=index_body)
+        return next(release_responses)
+
+    http = httpx.Client(transport=httpx.MockTransport(respond))
+    pending: dict[str, tuple[str, int]] = {}
+    rec = datalayer.poll_with_retries(http, feed, tmp_path, {}, pending)
+    assert rec["status"] == 404
+    assert pending == {"gdelt-events": (release_url, datalayer.MAX_DISCOVER_RETRIES)}
+
+    datalayer.retry_pending(http, [feed], tmp_path, {}, pending)
+    assert pending == {}
+
+    rows = list(live.read(tmp_path, "datalayer"))
+    assert [(r["feed"], r["url"], r["status"]) for r in rows] == [
+        ("gdelt-events/index", feed["discover"]["url"], 200),
+        ("gdelt-events", release_url, 404),
+        ("gdelt-events", release_url, 200),
+    ]
+    assert datalayer.body(tmp_path, rows[2]["sha256"]) == b"zip"
+
+
+def test_discover_retries_exhaust_max_attempts_and_stop(tmp_path: Path) -> None:
+    feed = _gdelt_feed()
+    index_body = b"1 ab http://data.gdeltproject.org/gdeltv2/20261023190000.export.CSV.zip\n"
+    release_url = "https://data.gdeltproject.org/gdeltv2/20261023190000.export.CSV.zip"
+    release_fetches = 0
+
+    def respond(req: httpx.Request) -> httpx.Response:
+        nonlocal release_fetches
+        if req.url.path == "/gdeltv2/lastupdate.txt":
+            return httpx.Response(200, content=index_body)
+        release_fetches += 1
+        return httpx.Response(404, content=b"missing")
+
+    http = httpx.Client(transport=httpx.MockTransport(respond))
+    pending: dict[str, tuple[str, int]] = {}
+    datalayer.poll_with_retries(http, feed, tmp_path, {}, pending)
+    assert release_fetches == 1
+
+    for left in range(datalayer.MAX_DISCOVER_RETRIES, 0, -1):
+        assert pending == {"gdelt-events": (release_url, left)}
+        datalayer.retry_pending(http, [feed], tmp_path, {}, pending)
+
+    assert pending == {}
+    assert release_fetches == 1 + datalayer.MAX_DISCOVER_RETRIES
+    datalayer.retry_pending(http, [feed], tmp_path, {}, pending)
+    assert release_fetches == 1 + datalayer.MAX_DISCOVER_RETRIES
+
+
+def test_newer_index_discovery_supersedes_older_pending_url(tmp_path: Path) -> None:
+    feed = _gdelt_feed()
+    url1 = "https://data.gdeltproject.org/gdeltv2/20261023191500.export.CSV.zip"
+    url2 = "https://data.gdeltproject.org/gdeltv2/20261023193000.export.CSV.zip"
+    url3 = "https://data.gdeltproject.org/gdeltv2/20261023194500.export.CSV.zip"
+    index_replies = iter(
+        [
+            httpx.Response(200, content=b"1 ab http://data.gdeltproject.org/gdeltv2/20261023191500.export.CSV.zip\n"),
+            httpx.Response(503, content=b"down"),
+            httpx.Response(200, content=b"no match here"),
+            httpx.Response(200, content=b"1 ab http://data.gdeltproject.org/gdeltv2/20261023193000.export.CSV.zip\n"),
+            httpx.Response(200, content=b"1 ab http://data.gdeltproject.org/gdeltv2/20261023194500.export.CSV.zip\n"),
+        ]
+    )
+    release_replies = {
+        "/gdeltv2/20261023191500.export.CSV.zip": httpx.Response(404, content=b"missing"),
+        "/gdeltv2/20261023193000.export.CSV.zip": httpx.Response(404, content=b"missing"),
+        "/gdeltv2/20261023194500.export.CSV.zip": httpx.Response(200, content=b"zip3"),
+    }
+
+    def respond(req: httpx.Request) -> httpx.Response:
+        if req.url.path == "/gdeltv2/lastupdate.txt":
+            return next(index_replies)
+        return release_replies[req.url.path]
+
+    http = httpx.Client(transport=httpx.MockTransport(respond))
+    pending: dict[str, tuple[str, int]] = {}
+
+    datalayer.poll_with_retries(http, feed, tmp_path, {}, pending)
+    assert pending == {"gdelt-events": (url1, datalayer.MAX_DISCOVER_RETRIES)}
+
+    datalayer.poll_with_retries(http, feed, tmp_path, {}, pending)
+    assert pending == {"gdelt-events": (url1, datalayer.MAX_DISCOVER_RETRIES)}
+
+    datalayer.poll_with_retries(http, feed, tmp_path, {}, pending)
+    assert pending == {"gdelt-events": (url1, datalayer.MAX_DISCOVER_RETRIES)}
+
+    datalayer.poll_with_retries(http, feed, tmp_path, {}, pending)
+    assert pending == {"gdelt-events": (url2, datalayer.MAX_DISCOVER_RETRIES)}
+
+    rec = datalayer.poll_with_retries(http, feed, tmp_path, {}, pending)
+    assert rec["url"] == url3 and rec["status"] == 200
+    assert pending == {}
+
+
+@pytest.mark.parametrize("status", [400, 403])
+def test_non_retryable_status_does_not_queue_or_keep_pending(tmp_path: Path, status: int) -> None:
+    feed = _gdelt_feed()
+    url1 = "https://data.gdeltproject.org/gdeltv2/20261023200000.export.CSV.zip"
+
+    def respond_poll(req: httpx.Request) -> httpx.Response:
+        if req.url.path == "/gdeltv2/lastupdate.txt":
+            return httpx.Response(
+                200, content=b"1 ab http://data.gdeltproject.org/gdeltv2/20261023200000.export.CSV.zip\n"
+            )
+        return httpx.Response(status, content=b"refused")
+
+    http = httpx.Client(transport=httpx.MockTransport(respond_poll))
+    pending: dict[str, tuple[str, int]] = {
+        "gdelt-events": ("https://data.gdeltproject.org/gdeltv2/old.export.CSV.zip", 4)
+    }
+    rec = datalayer.poll_with_retries(http, feed, tmp_path, {}, pending)
+    assert rec["status"] == status
+    assert pending == {}
+
+    pending["gdelt-events"] = (url1, 5)
+    datalayer.retry_pending(http, [feed], tmp_path, {}, pending)
+    assert pending == {}
+
+
+def test_network_error_is_retried_and_succeeds_on_200(tmp_path: Path) -> None:
+    feed = _gdelt_feed()
+    release_url = "https://data.gdeltproject.org/gdeltv2/20261023201500.export.CSV.zip"
+    attempts = 0
+
+    def respond(req: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        if req.url.path == "/gdeltv2/lastupdate.txt":
+            return httpx.Response(
+                200, content=b"1 ab http://data.gdeltproject.org/gdeltv2/20261023201500.export.CSV.zip\n"
+            )
+        attempts += 1
+        if attempts == 1:
+            raise httpx.ReadTimeout("timed out", request=req)
+        return httpx.Response(200, content=b"zip-after-timeout")
+
+    http = httpx.Client(transport=httpx.MockTransport(respond))
+    pending: dict[str, tuple[str, int]] = {}
+    rec = datalayer.poll_with_retries(http, feed, tmp_path, {}, pending)
+    assert rec["status"] is None
+    assert pending == {"gdelt-events": (release_url, datalayer.MAX_DISCOVER_RETRIES)}
+
+    datalayer.retry_pending(http, [feed], tmp_path, {}, pending)
+    assert pending == {}
+    rows = list(live.read(tmp_path, "datalayer"))
+    assert [r["status"] for r in rows] == [200, None, 200]
+    assert datalayer.body(tmp_path, rows[2]["sha256"]) == b"zip-after-timeout"
+
+
+def test_uncertified_discovered_url_raises_before_fetching(tmp_path: Path) -> None:
+    seen: list[str] = []
+
+    def respond(req: httpx.Request) -> httpx.Response:
+        seen.append(str(req.url))
+        return httpx.Response(200, content=b"x")
+
+    http = httpx.Client(transport=httpx.MockTransport(respond))
+    feed = {
+        "name": "x",
+        "source": "gdelt",
+        "every_h": 1,
+        "discover": {"url": "https://data.gdeltproject.org/i", "pattern": "(x)", "template": "https://example.org/{}"},
+    }
+    pending: dict[str, tuple[str, int]] = {}
+    with pytest.raises(PermissionError):
+        datalayer.poll_with_retries(http, feed, tmp_path, {}, pending)
+    assert seen == ["https://data.gdeltproject.org/i"]
+    assert pending == {}
+
+    seen.clear()
+    pending["x"] = ("https://example.org/x", 3)
+    with pytest.raises(PermissionError):
+        datalayer.retry_pending(http, [feed], tmp_path, {}, pending)
+    assert seen == []
+
+
+def test_main_retries_pending_on_ticks_without_delaying_index_schedule_or_other_feeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gdelt = _gdelt_feed()
+    ecb = {"name": "ecb-exr", "source": "ecb", "every_h": 6, "url": "https://data-api.ecb.europa.eu/service/data/EXR/x"}
+    fake_now = 1_000_000_000
+
+    class FakeStop(threading.Event):
+        def __init__(self) -> None:
+            super().__init__()
+            self.ticks = 0
+
+        def wait(self, timeout: float | None = None) -> bool:
+            nonlocal fake_now
+            if timeout is not None:
+                fake_now += int(timeout * 1000)
+                if timeout == datalayer.TICK:
+                    self.ticks += 1
+                    if self.ticks >= 16:
+                        self.set()
+            return self.is_set()
+
+    index_calls = 0
+    url1 = "https://data.gdeltproject.org/gdeltv2/20261023203000.export.CSV.zip"
+    url2 = "https://data.gdeltproject.org/gdeltv2/20261023204500.export.CSV.zip"
+    url1_attempts = 0
+
+    def respond(req: httpx.Request) -> httpx.Response:
+        nonlocal index_calls, url1_attempts
+        if req.url.path == "/gdeltv2/lastupdate.txt":
+            index_calls += 1
+            if index_calls == 1:
+                return httpx.Response(
+                    200, content=b"1 ab http://data.gdeltproject.org/gdeltv2/20261023203000.export.CSV.zip\n"
+                )
+            return httpx.Response(
+                200, content=b"1 ab http://data.gdeltproject.org/gdeltv2/20261023204500.export.CSV.zip\n"
+            )
+        if req.url.path == "/gdeltv2/20261023203000.export.CSV.zip":
+            url1_attempts += 1
+            return httpx.Response(404, content=b"missing") if url1_attempts < 3 else httpx.Response(200, content=b"z1")
+        if req.url.path == "/gdeltv2/20261023204500.export.CSV.zip":
+            return httpx.Response(200, content=b"z2")
+        return httpx.Response(200, content=b"<ecb/>")
+
+    client = httpx.Client(transport=httpx.MockTransport(respond))
+    monkeypatch.setattr(datalayer, "now_ms", lambda: fake_now)
+    monkeypatch.setattr(datalayer, "recording", lambda _out: FakeStop())
+    monkeypatch.setattr(datalayer, "feeds", lambda: {"user_agent": "test", "feeds": [gdelt, ecb]})
+    monkeypatch.setattr(datalayer, "secrets", dict)
+    monkeypatch.setattr(httpx, "Client", lambda **_kwargs: client)
+
+    datalayer.main(tmp_path)
+
+    rows = list(live.read(tmp_path, "datalayer"))
+    assert [(r["feed"], r["url"], r["status"]) for r in rows] == [
+        ("gdelt-events/index", gdelt["discover"]["url"], 200),
+        ("gdelt-events", url1, 404),
+        ("ecb-exr", ecb["url"], 200),
+        ("gdelt-events", url1, 404),
+        ("gdelt-events", url1, 200),
+        ("gdelt-events/index", gdelt["discover"]["url"], 200),
+        ("gdelt-events", url2, 200),
+    ]
+    assert rows[1]["sent"] < rows[2]["sent"] < rows[3]["sent"] < rows[4]["sent"] < rows[5]["sent"]
+    assert rows[5]["sent"] - rows[1]["sent"] >= 900_000
+    assert rows[5]["sent"] - rows[1]["sent"] < 960_000
+    assert datalayer.body(tmp_path, rows[4]["sha256"]) == b"z1"
+    assert datalayer.body(tmp_path, rows[6]["sha256"]) == b"z2"
