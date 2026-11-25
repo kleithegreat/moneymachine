@@ -1,0 +1,23 @@
+(executable
+ (name gen)
+ (modules gen)
+ (libraries unix)
+ (lint
+  (pps ppx_js_style)))
+
+(rule
+ (targets embedded.ml)
+ (deps
+  (universe)
+  (env_var MM2_ENGINE_LIB))
+ (action
+  (with-stdout-to
+   embedded.ml
+   (run ./gen.exe))))
+
+(library
+ (name mm2_identity)
+ (modules mm2_identity embedded)
+ (libraries mm2_lean digestif yojson)
+ (lint
+  (pps ppx_js_style)))
