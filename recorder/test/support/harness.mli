@@ -56,6 +56,9 @@ val raw_channel_data : root:string -> channel:string -> string
 (** [(coin, tid)] of the first trade of every line of the [trades] channel, in order. *)
 val trade_ids : root:string -> (string * int) list
 
+(** Sends SIGKILL to a process that has not exited and waits for it, so a failed test leaves no recorder running. *)
+val kill_if_running : Process.t -> unit Deferred.t
+
 (** Sends SIGTERM and waits for exit: the status and the seconds it took. *)
 val sigterm_and_wait : Process.t -> (Core_unix.Exit_or_signal.t * float) Deferred.t
 

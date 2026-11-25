@@ -1,5 +1,9 @@
 open Core
 
+exception Error of string
+
+let () = Stdlib.Callback.register_exception "mmrec.zstd.error" (Error "")
+
 type compressor
 type decompressor
 
@@ -14,6 +18,7 @@ external compress_step
   = "mmrec_zstd_compress_step"
 
 external decompressor : unit -> decompressor = "mmrec_zstd_dctx_create"
+external dstream_out_size : unit -> int = "mmrec_zstd_dstream_out_size"
 
 external decompress_step
   :  decompressor
@@ -39,14 +44,14 @@ type reading =
   }
 
 let reader () = { dctx = decompressor (); at_frame_end = true }
+let out_cap = dstream_out_size ()
 
 let feed t input ~f =
-  let cap = 131072 in
   let rec go pos =
     let pos, chunk, hint = decompress_step t.dctx input pos in
     if not (String.is_empty chunk) then f chunk;
     t.at_frame_end <- hint = 0;
-    if pos < String.length input || String.length chunk = cap then go pos
+    if pos < String.length input || String.length chunk = out_cap then go pos
   in
   if not (String.is_empty input) then go 0
 ;;

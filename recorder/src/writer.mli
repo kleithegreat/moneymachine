@@ -3,9 +3,12 @@
 
 type t
 
-(** [create ~root ~now_ms] writes under [root]; the clock's reading now names this run's files, and decides when a
-    buffer is due. *)
+(** [create ~root ~now_ms] writes under [root]; its run id is [max (now_ms ()) (max_existing_run + 1)] across
+    existing recording filenames under [root], so runs stay strictly monotonic even if the wall clock steps back. *)
 val create : root:string -> now_ms:(unit -> int) -> t
+
+(** The strictly monotonic run id chosen for this writer. *)
+val run : t -> int
 
 (** A buffer reaching this many bytes is flushed at once: 1 MiB. *)
 val max_buffer_bytes : int

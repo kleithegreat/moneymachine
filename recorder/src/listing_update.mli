@@ -11,6 +11,9 @@ type action =
       }
   | Record of Event.t
 
+(** The dex of a coin: the part of its name before [:], [""] for the main dex. *)
+val dex_of : string -> string
+
 (** [first_read planner coins] is the read after a start: every coin is added to the planner ([Subscribe] for each of its
     subscriptions (two, or three on the main dex), or a [refused] event with a [coin] field if refused) and ONE [listing] event records each
     dex's count of perps (RECORDER.md, Storage: "Events"). The dex of a coin is the part of its name before [:],

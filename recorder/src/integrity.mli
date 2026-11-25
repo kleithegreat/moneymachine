@@ -7,8 +7,8 @@ type entry =
   ; hour : string (** [YYYYMMDDHH] *)
   ; bytes : int (** the compressed size of the hour's files *)
   ; files : int
-  ; lines : int (** the whole lines of the files *)
-  ; truncated : bool (** whether any file is *)
+  ; lines : int (** the whole lines of the non-corrupt files *)
+  ; state : Recording.state (** the worst stream state across the hour's files *)
   }
 [@@deriving sexp_of, equal]
 
@@ -37,6 +37,7 @@ val hour_and_run_of_name : string -> (string * int) option
 (** The report for the hours [from_] to [to_] inclusive, each [YYYYMMDDHH], for every channel under [root]. *)
 val check : root:string -> from_:string -> to_:string -> report
 
-(** The text [mmrec check] prints, tab-separated: per entry [hour channel bytes files lines truncated] with
-    truncated [yes] or [no], then per gap [gap conn from_ms to_ms] with [to_ms] empty if never reopened. *)
+(** The text [mmrec check] prints, tab-separated: per entry [hour channel bytes files lines state] with
+    state [complete], [cut], [malformed] or [corrupt], then per gap [gap conn from_ms to_ms] with [to_ms] empty
+    if never reopened. *)
 val render : report -> string

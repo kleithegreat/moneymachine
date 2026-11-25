@@ -6,12 +6,32 @@ let sanitize s =
     | c -> c)
 ;;
 
+let date_json date =
+  Option.value_map date ~default:"null" ~f:(fun d -> Yojson.Safe.to_string (`String d))
+;;
+
 let of_frame ~recv_ms ~conn frame =
   sprintf {|{"recv":%d,"conn":%d,"msg":%s}|} recv_ms conn (sanitize frame) ^ "\n"
 ;;
 
-let of_response ~recv_ms ~request response =
-  sprintf {|{"recv":%d,"request":%s,"msg":%s}|} recv_ms request (sanitize response) ^ "\n"
+let of_response ~recv_ms ~request ?date response =
+  sprintf
+    {|{"recv":%d,"request":%s,"date":%s,"msg":%s}|}
+    recv_ms
+    request
+    (date_json date)
+    (sanitize response)
+  ^ "\n"
+;;
+
+let of_listing ~recv_ms ~request ?date response =
+  sprintf
+    {|{"recv":%d,"conn":null,"request":%s,"date":%s,"msg":%s}|}
+    recv_ms
+    request
+    (date_json date)
+    (sanitize response)
+  ^ "\n"
 ;;
 
 let envelope line =
@@ -22,7 +42,10 @@ let envelope line =
     done;
     if !stop = from
     then None
-    else Some (Int.of_string (String.sub line ~pos:from ~len:(!stop - from)), !stop)
+    else
+      Option.map
+        (Int.of_string_opt (String.sub line ~pos:from ~len:(!stop - from)))
+        ~f:(fun n -> n, !stop)
   in
   let recv_key = {|{"recv":|} in
   let conn_key = {|,"conn":|} in

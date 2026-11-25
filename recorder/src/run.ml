@@ -39,8 +39,6 @@ let record t ?conn event =
   File_writer.add t.writer Route.Events ~recv_ms (Event.to_line ~recv_ms ~conn event)
 ;;
 
-let reason_field exn = "reason", `String (Exn.to_string exn)
-
 let sub_fields = function
   | Sub.All_dexs_asset_ctxs -> [ "channel", `String "allDexsAssetCtxs" ]
   | Sub.Trades coin -> [ "channel", `String "trades"; "coin", `String coin ]
@@ -195,46 +193,71 @@ let rec keep_connected t conn backoff =
       keep_connected t conn backoff))
 ;;
 
-let read_listings t =
-  let ask body =
-    let%map response = Net.post t.config.rest_url ~body in
+let ask t ~request ~check =
+  match%map Rest.post t.config.rest_url ~body:request with
+  | Error failure -> Error (request, failure)
+  | Ok response ->
     let recv_ms = now_ms () in
     File_writer.add
       t.writer
       Route.Listings
       ~recv_ms
-      (Line.of_frame ~recv_ms ~conn:0 response);
-    response
-  in
-  let%bind dexes = ask {|{"type":"perpDexs"}|} in
-  let%bind universes =
-    Deferred.List.map ~how:`Sequential (Listings.dex_names dexes) ~f:(fun dex ->
-      ask (Yojson.Safe.to_string (`Assoc [ "type", `String "meta"; "dex", `String dex ])))
-  in
-  let%map (_ : string) = ask {|{"type":"spotMeta"}|} in
-  List.concat_map universes ~f:(fun meta -> Listings.active (Listings.perps meta))
+      (Line.of_listing ~recv_ms ~request ?date:response.date response.body);
+    (match check response.body with
+     | checked -> Ok checked
+     | exception Failure reason ->
+       Error
+         (request, { Rest.stage = "shape"; bytes = response.bytes; reason; status = None }))
 ;;
 
-let rec watch_listings t ~before =
+let meta_request dex =
+  Yojson.Safe.to_string (`Assoc [ "type", `String "meta"; "dex", `String dex ])
+;;
+
+let rec read_metas t dexes ~read =
+  match dexes with
+  | [] -> return (Ok (List.rev read))
+  | dex :: later ->
+    (match%bind ask t ~request:(meta_request dex) ~check:(Listings.dex_perps ~dex) with
+     | Ok perps -> read_metas t later ~read:(perps :: read)
+     | Error _ as failed -> return failed)
+;;
+
+let read_listings t =
+  let open Deferred.Result.Let_syntax in
+  let%bind dexes = ask t ~request:{|{"type":"perpDexs"}|} ~check:Listings.dex_names in
+  let%bind universes = read_metas t dexes ~read:[] in
+  let%map () = ask t ~request:{|{"type":"spotMeta"}|} ~check:Listings.check_spot_meta in
+  List.concat universes
+;;
+
+let retry_ms ~interval_ms ~failures =
+  let base_ms = Float.of_int (60_000 * (1 lsl Int.min failures 20)) in
+  let jittered = base_ms *. (0.8 +. (0.4 *. Random.float 1.)) in
+  Int.min interval_ms (Float.to_int jittered)
+;;
+
+let rec watch_listings t ~before ~failures =
   if stopped t
   then return ()
   else (
-    let%bind coins = try_with (fun () -> read_listings t) in
+    let%bind read = read_listings t in
     let interval_ms = t.config.listings_interval_s * 1000 in
-    match coins with
-    | Error exn ->
-      record t (Event.make "error" [ reason_field exn ]);
-      let%bind () = wait_ms t (Int.min interval_ms 10_000) in
-      watch_listings t ~before
-    | Ok coins ->
+    match read with
+    | Error (request, failure) ->
+      record t (Rest.error_event ~request failure);
+      let%bind () = wait_ms t (retry_ms ~interval_ms ~failures) in
+      watch_listings t ~before ~failures:(failures + 1)
+    | Ok perps ->
+      let held = Listings.held ~before:(Option.value before ~default:[]) perps in
       let actions =
         match before with
-        | None -> Listing_update.first_read t.planner coins
-        | Some before -> Listing_update.apply t.planner ~before ~after:coins
+        | None -> Listing_update.first_read t.planner held
+        | Some before -> Listing_update.apply t.planner ~before ~after:held
       in
       apply_actions t actions;
       let%bind () = wait_ms t interval_ms in
-      watch_listings t ~before:(Some coins))
+      watch_listings t ~before:(Some held) ~failures:0)
 ;;
 
 let run config =
@@ -260,7 +283,7 @@ let run config =
     List.map (Array.to_list t.conns) ~f:(fun conn ->
       keep_connected t conn (Backoff.create ~random:(fun () -> Random.float 1.)))
   in
-  let listings = watch_listings t ~before:None in
+  let listings = watch_listings t ~before:None ~failures:0 in
   let%bind () = Ivar.read t.stop in
   let%bind () =
     Clock_ns.with_timeout

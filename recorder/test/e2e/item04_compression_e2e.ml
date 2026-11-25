@@ -123,13 +123,13 @@ let cut_files () =
   in
   let%bind full_row = check_row full in
   (match full_row with
-   | Some [ _; _; _; "1"; "20000"; "no" ] -> ()
-   | _ ->
-     failwith "an uncut file is not reported as one file of 20000 lines, not truncated");
+   | Some [ _; _; _; "1"; "20000"; "complete" ] -> ()
+   | _ -> failwith "an uncut file is not reported as one file of 20000 lines, complete");
   Deferred.List.iter cuts ~how:`Sequential ~f:(fun bytes ->
     let root = H.tmp_dir () in
     H.cut_copy ~src:(path_in full) ~dst:(path_in root) ~bytes;
-    let%bind _, cat = H.run_cli [ "cat"; path_in root ] in
+    let%bind status_cat, cat = H.run_cli [ "cat"; path_in root ] in
+    H.check (Result.is_ok status_cat) (sprintf "cut at %d: cat did not exit 0" bytes);
     H.check
       (String.is_empty cat || String.is_suffix cat ~suffix:"\n")
       (sprintf "cut at %d: cat does not end on a whole line" bytes);
@@ -138,7 +138,7 @@ let cut_files () =
       (sprintf "cut at %d: cat is not a prefix of the lines written" bytes);
     let%map row = check_row root in
     match row with
-    | Some [ _; _; size_field; "1"; lines_field; "yes" ] ->
+    | Some [ _; _; size_field; "1"; lines_field; "cut" ] ->
       H.check
         (Int.of_string size_field = bytes)
         (sprintf "cut at %d: bytes %s" bytes size_field);
@@ -149,7 +149,7 @@ let cut_files () =
            bytes
            lines_field
            (List.length (String.split_lines cat)))
-    | _ -> failwithf "cut at %d: check does not report the cut file as truncated" bytes ())
+    | _ -> failwithf "cut at %d: check does not report the cut file as cut" bytes ())
 ;;
 
 let flush_end_cut () =
@@ -184,7 +184,8 @@ let flush_end_cut () =
   H.cut_copy ~src:path ~dst:cut_path ~bytes:flushed_bytes;
   H.send_signal process Signal.kill;
   let%bind (_ : Core_unix.Exit_or_signal.t) = Process.wait process in
-  let%bind _, cat = H.run_cli [ "cat"; cut_path ] in
+  let%bind status_cat, cat = H.run_cli [ "cat"; cut_path ] in
+  H.check (Result.is_ok status_cat) "cat did not exit 0 on flush cut";
   H.check (not (String.is_empty cat)) "nothing read from the file cut at a flush";
   H.check
     (String.is_suffix cat ~suffix:"\n")
@@ -210,11 +211,11 @@ let flush_end_cut () =
       "a line received long before the flush is missing from the file cut there");
   let%bind row = check_row cut_root in
   (match row with
-   | Some [ _; _; _; "1"; lines_field; "yes" ] ->
+   | Some [ _; _; _; "1"; lines_field; "cut" ] ->
      H.check
        (Int.of_string lines_field = List.length (String.split_lines cat))
        "check's line count differs from cat's"
-   | _ -> failwith "check does not report the flush-cut file as truncated");
+   | _ -> failwith "check does not report the flush-cut file as cut");
   F.stop fake
 ;;
 
@@ -252,11 +253,82 @@ let kill9 () =
   let rows = H.parse_check out in
   H.check
     (List.exists rows ~f:(function
-       | _ :: channel :: _ :: _ :: _ :: truncated :: _ ->
-         String.equal channel "trades" && String.equal truncated "yes"
+       | _ :: channel :: _ :: _ :: _ :: state :: _ ->
+         String.equal channel "trades" && String.equal state "cut"
        | _ -> false))
-    "check does not report the killed run's trades file as truncated";
+    "check does not report the killed run's trades file as cut";
   F.stop fake
+;;
+
+let exit_code_of = function
+  | Ok () -> 0
+  | Error (`Exit_non_zero n) -> n
+  | Error (`Signal _) -> -1
+;;
+
+let four_stream_states () =
+  let lines = numbered_lines 50 in
+  let text = String.concat lines in
+  let path_in root = Filename.concat root "trades/20261114/10.jsonl.zst" in
+  let empty_root = H.tmp_dir () in
+  let empty_path = path_in empty_root in
+  Core_unix.mkdir_p (Filename.dirname empty_path);
+  Out_channel.write_all empty_path ~data:"";
+  let%bind status, cat = H.run_cli [ "cat"; empty_path ] in
+  H.check
+    (exit_code_of status = 0 && String.is_empty cat)
+    "0-byte file must exit 0 with empty stdout";
+  let%bind row = check_row empty_root in
+  H.check
+    (match row with
+     | Some [ _; _; "0"; "1"; "0"; "cut" ] -> true
+     | _ -> false)
+    "0-byte file must be reported cut";
+  let malformed_root = H.tmp_dir () in
+  let malformed_path = path_in malformed_root in
+  H.write_stream ~path:malformed_path [ text ^ "{\"partial\":true" ];
+  let%bind status, _cat = H.run_cli [ "cat"; malformed_path ] in
+  H.check (exit_code_of status = 2) "malformed stream must exit 2";
+  let%bind row = check_row malformed_root in
+  H.check
+    (match row with
+     | Some [ _; _; _; "1"; "50"; "malformed" ] -> true
+     | _ -> false)
+    "malformed stream must be reported malformed";
+  let full_root = H.tmp_dir () in
+  let full_path = path_in full_root in
+  H.write_stream ~path:full_path [ text ];
+  let good = H.read_file full_path in
+  let corrupt_variants =
+    [ ( "bad checksum"
+      , let b = Bytes.of_string good in
+        let last = Bytes.length b - 1 in
+        Bytes.set b last (Char.of_int_exn (Char.to_int (Bytes.get b last) lxor 0x01));
+        Bytes.to_string b )
+    ; ( "bad block byte"
+      , let b = Bytes.of_string good in
+        let mid = Bytes.length b / 2 in
+        Bytes.set b mid (Char.of_int_exn (Char.to_int (Bytes.get b mid) lxor 0xff));
+        Bytes.to_string b )
+    ; "bad magic", "\xff\xff\xff\xff" ^ String.drop_prefix good 4
+    ]
+  in
+  Deferred.List.iter corrupt_variants ~how:`Sequential ~f:(fun (label, data) ->
+    let root = H.tmp_dir () in
+    let p = path_in root in
+    Core_unix.mkdir_p (Filename.dirname p);
+    Out_channel.write_all p ~data;
+    let%bind status, cat = H.run_cli [ "cat"; p ] in
+    H.check (exit_code_of status = 2) (sprintf "%s: cat did not exit 2" label);
+    H.check
+      (String.is_empty cat)
+      (sprintf "%s: cat printed lines from a corrupt stream" label);
+    let%map row = check_row root in
+    H.check
+      (match row with
+       | Some [ _; _; _; "1"; "0"; "corrupt" ] -> true
+       | _ -> false)
+      (sprintf "%s: check did not report 0 lines and corrupt" label))
 ;;
 
 let () =
@@ -266,5 +338,6 @@ let () =
       ; "cut at any byte", cut_files
       ; "cut where a flush ended", flush_end_cut
       ; "kill -9", kill9
+      ; "four stream states", four_stream_states
       ])
 ;;

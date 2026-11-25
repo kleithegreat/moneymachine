@@ -6,7 +6,7 @@ type entry =
   ; bytes : int
   ; files : int
   ; lines : int
-  ; truncated : bool
+  ; state : Recording.state
   }
 [@@deriving sexp_of, equal]
 
@@ -23,34 +23,14 @@ type report =
   }
 [@@deriving sexp_of, equal]
 
-let suffix = ".jsonl.zst"
-
 let list_dir path =
   match Sys_unix.is_directory path with
   | `Yes -> Sys_unix.ls_dir path |> List.sort ~compare:String.compare
-  | _ -> []
+  | `No | `Unknown -> []
 ;;
 
-let hour_and_run_of_name name =
-  let open Option.Let_syntax in
-  let%bind stem = String.chop_suffix name ~suffix in
-  let hh = String.prefix stem 2 in
-  let rest = String.drop_prefix stem 2 in
-  let%bind () =
-    Option.some_if (String.length hh = 2 && String.for_all hh ~f:Char.is_digit) ()
-  in
-  let%map run =
-    match String.chop_prefix rest ~prefix:"." with
-    | _ when String.is_empty rest -> Some (-1)
-    | Some digits
-      when (not (String.is_empty digits)) && String.for_all digits ~f:Char.is_digit ->
-      Some (Int.of_string digits)
-    | _ -> None
-  in
-  hh, run
-;;
+let hour_and_run_of_name = Hour_path.hour_and_run_of_name
 
-(** The files of the range in recording order: by hour, then run. *)
 let files_in_range ~root ~from_ ~to_ =
   List.concat_map (list_dir root) ~f:(fun channel ->
     List.concat_map
@@ -73,14 +53,24 @@ type fact =
   ; event : string
   }
 
+let field name = function
+  | `Assoc fields -> List.Assoc.find fields ~equal:String.equal name
+  | _ -> None
+;;
+
 let event_fact line =
-  let open Yojson.Safe.Util in
   match Yojson.Safe.from_string line with
   | exception Yojson.Json_error _ -> None
   | json ->
-    (match member "conn" json, member "recv" json, member "event" (member "msg" json) with
-     | `Int conn, `Int recv_ms, `String event -> Some { recv_ms; conn = Some conn; event }
-     | `Null, `Int recv_ms, `String event -> Some { recv_ms; conn = None; event }
+    (match
+       ( field "conn" json
+       , field "recv" json
+       , Option.bind (field "msg" json) ~f:(field "event") )
+     with
+     | Some (`Int conn), Some (`Int recv_ms), Some (`String event) ->
+       Some { recv_ms; conn = Some conn; event }
+     | Some `Null, Some (`Int recv_ms), Some (`String event) ->
+       Some { recv_ms; conn = None; event }
      | _ -> None)
 ;;
 
@@ -89,7 +79,7 @@ type scan =
   ; hour : string
   ; bytes : int
   ; lines : int
-  ; truncated : bool
+  ; state : Recording.state
   ; last_line : (int * int) list
   ; facts : fact list
   }
@@ -111,13 +101,13 @@ let scan (channel, hour, path) =
     in
     lines + 1, facts
   in
-  let (lines, facts), truncated = Recording.fold_lines path ~init:(0, []) ~f:note_line in
+  let (lines, facts), state = Recording.fold_lines path ~init:(0, []) ~f:note_line in
   let facts = List.rev facts in
   { channel
   ; hour
   ; bytes = (Core_unix.stat path).st_size |> Int64.to_int_exn
   ; lines
-  ; truncated
+  ; state
   ; last_line = Hashtbl.to_alist last
   ; facts
   }
@@ -176,14 +166,14 @@ let entries_of scans =
         ; bytes = s.bytes
         ; files = 1
         ; lines = s.lines
-        ; truncated = s.truncated
+        ; state = s.state
         }
       | Some e ->
         { e with
           bytes = e.bytes + s.bytes
         ; files = e.files + 1
         ; lines = e.lines + s.lines
-        ; truncated = e.truncated || s.truncated
+        ; state = Recording.worst_state e.state s.state
         }));
   Hashtbl.data by_hour_channel
 ;;
@@ -211,7 +201,7 @@ let render report =
       ; Int.to_string e.bytes
       ; Int.to_string e.files
       ; Int.to_string e.lines
-      ; (if e.truncated then "yes" else "no")
+      ; Recording.state_to_string e.state
       ]
   in
   let gap_line (g : gap) =

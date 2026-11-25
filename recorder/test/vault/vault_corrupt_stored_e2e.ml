@@ -106,7 +106,7 @@ let corrupt_before_end () =
     (List.for_all errors ~f:(fun e ->
        String.is_substring (Yojson.Safe.to_string e.V.json) ~substring:planted_name))
     "corrupt frame before the end: the error event does not name the file";
-  pulled_and_stored ~root ~expected_new:3 events outcome "corrupt frame before the end";
+  pulled_and_stored ~root ~expected_new:6 events outcome "corrupt frame before the end";
   V.stop fake
 ;;
 

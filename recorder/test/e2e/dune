@@ -5,6 +5,8 @@
   item03_hours_e2e
   item04_compression_e2e
   item06_listings_e2e
+  item06_whole_listings_e2e
+  item06_retries_e2e
   item07_reconnect_e2e
   item07_backoff_e2e
   item07_item09_churn_e2e
@@ -20,7 +22,8 @@
   item17_tls_fd_leak_e2e
   item18_stall_closes_e2e
   item19_tls_stalls_e2e
-  item20_tls_after_handshake_e2e)
+  item20_tls_after_handshake_e2e
+  item21_whole_responses_e2e)
  (libraries
   core
   core_unix

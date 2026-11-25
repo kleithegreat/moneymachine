@@ -98,7 +98,7 @@ let () =
       run_measured [ "check"; root; "2026111410"; "2026111410" ] ~consume:Reader.contents
     in
     (match H.parse_check out with
-     | [ [ "2026111410"; "trades"; bytes; "1"; lines; "no" ] ] ->
+     | [ [ "2026111410"; "trades"; bytes; "1"; lines; "complete" ] ] ->
        H.check
          (Int.of_string bytes = Int64.to_int_exn (Core_unix.stat path).st_size)
          "check's byte count";

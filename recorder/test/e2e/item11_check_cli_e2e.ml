@@ -83,10 +83,10 @@ let counts_and_gaps () =
   let%bind _, out = check_hours root ~from_:"2026111410" ~to_:"2026111411" in
   let expected =
     [ sprintf
-        "2026111410\ttrades\t%d\t3\t9\tno"
+        "2026111410\ttrades\t%d\t3\t9\tcomplete"
         (file_size trades_a + file_size trades_b + file_size trades_old)
-    ; sprintf "2026111410\tevents\t%d\t1\t10\tno" (file_size events_a)
-    ; sprintf "2026111411\ttrades\t%d\t1\t5\tyes" (file_size trades_11)
+    ; sprintf "2026111410\tevents\t%d\t1\t10\tcomplete" (file_size events_a)
+    ; sprintf "2026111411\ttrades\t%d\t1\t5\tcut" (file_size trades_11)
     ; sprintf "gap\t1\t%d\t%d" (t0 + 5_000) (t0 + 9_000)
     ; sprintf "gap\t2\t%d\t%d" (t0 + 4_000) (t0 + 7_000)
     ; sprintf "gap\t3\t%d\t" (t0 + 20_000)

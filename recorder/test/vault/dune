@@ -6,7 +6,8 @@
   vault_corrupt_stored_e2e
   vault_nothing_printed_e2e
   vault_stalled_handshake_e2e
-  vault_stray_entries_e2e)
+  vault_stray_entries_e2e
+  vault_whole_response_e2e)
  (libraries
   core
   core_unix
