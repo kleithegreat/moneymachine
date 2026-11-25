@@ -4,11 +4,11 @@ day-JSONL poll log {"feed", "url", "sent", "recv", "status", "sha256", "bytes"}.
 reused: a damaged one is moved aside, never deleted, and rewritten, on a day-JSONL `repairs` log. A body is known no earlier than
 its poll's recv; parsing into point-in-time revisions is offline, per source. A feed whose file name changes per
 release declares `discover`: an index URL, a pattern with one group, and a template the group fills; the index is
-logged as `<feed>/index`. A feed may declare `auth`, `{"param" | "header": NAME, "env": VAR}`: the value of VAR in
-`.keys.env` (one `NAME=value` per line, gitignored) is sent as that query parameter or header, never logged, and
-replaced by `<credential>` in the stored body before it is hashed (some APIs echo it). A host without a feed's key does not
-poll that feed. Every
-URL fetched, discovered ones included, needs certified terms for its host under the feed's source in
+logged as `<feed>/index`, and transient failures on the discovered URL are retried on later ticks up to
+`MAX_DISCOVER_RETRIES` times, each attempt logged separately. A feed may declare `auth`, `{"param" | "header": NAME, "env": VAR}`:
+the value of VAR in `.keys.env` (one `NAME=value` per line, gitignored) is sent as that query parameter or header, never logged,
+and replaced by `<credential>` in the stored body before it is hashed (some APIs echo it). A host without a feed's key does not
+poll that feed. Every URL fetched, discovered ones included, needs certified terms for its host under the feed's source in
 `venue/sources.toml`, so adding a feed is a JSON entry and a terms record, no code.
 """
 
@@ -17,7 +17,9 @@ import hashlib
 import json
 import os
 import re
+import threading
 import zlib
+from collections.abc import Collection
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -33,12 +35,16 @@ KEYS = REPO / ".keys.env"
 REDACTED = b"<credential>"
 TICK = 60
 SPACING = 1  # seconds after each poll, so a burst of due feeds never hammers one host
+RETRY_STATUSES: frozenset[int | None] = frozenset({None, 404, 429, 500, 502, 503, 504})
+MAX_DISCOVER_RETRIES = 10
 
 
 def certify(feed: dict[str, Any], url: str) -> None:
     u = urlsplit(url)
     if u.scheme != "https" or not terms.admits(terms.allowlist(feed["source"]), u.hostname, u.path):
-        raise PermissionError(f"{feed['name']}: {u.hostname}{u.path} has no certified terms for source {feed['source']}")
+        raise PermissionError(
+            f"{feed['name']}: {u.hostname}{u.path} has no certified terms for source {feed['source']}"
+        )
 
 
 def feeds(path: str | Path = FEEDS) -> dict[str, Any]:
@@ -84,8 +90,20 @@ def quarantine(raw: Path, out_dir: str | Path, name: str, url: str) -> None:
     bad = raw.read_bytes()
     damaged = hashlib.sha256(bad).hexdigest()
     kept = f"{raw.name}.damaged-{damaged}"
-    append(out_dir, "repairs", t, {"t": t, "feed": name, "url": url, "sha256": raw.name.removesuffix(".gz"), "kept": kept,
-                                   "damaged_sha256": damaged, "bytes": len(bad)})
+    append(
+        out_dir,
+        "repairs",
+        t,
+        {
+            "t": t,
+            "feed": name,
+            "url": url,
+            "sha256": raw.name.removesuffix(".gz"),
+            "kept": kept,
+            "damaged_sha256": damaged,
+            "bytes": len(bad),
+        },
+    )
     os.replace(raw, raw.with_name(kept))
 
 
@@ -94,7 +112,9 @@ def last_polls(out_dir: str | Path) -> dict[str, int]:
     return {p["feed"].removesuffix("/index"): p["sent"] for p in read(out_dir, "datalayer")}
 
 
-def poll(http: httpx.Client, feed: dict[str, Any], out_dir: str | Path, keys: dict[str, str] | None = None) -> dict[str, Any]:
+def poll(
+    http: httpx.Client, feed: dict[str, Any], out_dir: str | Path, keys: dict[str, str] | None = None
+) -> dict[str, Any]:
     """Fetch the feed once (its index first, if it declares one); returns the last record."""
     auth = credentials(feed, secrets() if keys is None else keys)
     if "discover" not in feed:
@@ -109,8 +129,14 @@ def poll(http: httpx.Client, feed: dict[str, Any], out_dir: str | Path, keys: di
     return get(http, feed["name"], url, feed.get("accept"), out_dir, auth)
 
 
-def get(http: httpx.Client, name: str, url: str, accept: str | None, out_dir: str | Path,
-        auth: tuple[dict[str, str], dict[str, str]] = ({}, {})) -> dict[str, Any]:
+def get(
+    http: httpx.Client,
+    name: str,
+    url: str,
+    accept: str | None,
+    out_dir: str | Path,
+    auth: tuple[dict[str, str], dict[str, str]] = ({}, {}),
+) -> dict[str, Any]:
     """One GET of `url`, logged and stored without the credential `auth` adds."""
     params, headers = auth
     sent = now_ms()
@@ -133,9 +159,67 @@ def get(http: httpx.Client, name: str, url: str, accept: str | None, out_dir: st
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp, raw)
-    rec = {"feed": name, "url": url, "sent": sent, "recv": now_ms(), "status": status, "sha256": digest, "bytes": len(body)}
+    rec = {
+        "feed": name,
+        "url": url,
+        "sent": sent,
+        "recv": now_ms(),
+        "status": status,
+        "sha256": digest,
+        "bytes": len(body),
+    }
     append(out_dir, "datalayer", sent, rec)
     return rec
+
+
+def poll_with_retries(
+    http: httpx.Client,
+    feed: dict[str, Any],
+    out_dir: str | Path,
+    keys: dict[str, str] | None,
+    pending: dict[str, tuple[str, int]],
+) -> dict[str, Any]:
+    """Poll `feed` once and track transient failures on discovered releases in `pending`."""
+    rec = poll(http, feed, out_dir, keys)
+    if "discover" in feed and rec["feed"] == feed["name"]:
+        if rec["status"] in RETRY_STATUSES and MAX_DISCOVER_RETRIES > 0:
+            pending[feed["name"]] = (rec["url"], MAX_DISCOVER_RETRIES)
+        else:
+            pending.pop(feed["name"], None)
+    return rec
+
+
+def retry_pending(
+    http: httpx.Client,
+    held: Collection[dict[str, Any]],
+    out_dir: str | Path,
+    keys: dict[str, str] | None,
+    pending: dict[str, tuple[str, int]],
+    polled: Collection[str] = (),
+    stop: threading.Event | None = None,
+) -> None:
+    """Retry pending discovered URLs once for feeds not polled in the current tick."""
+    if not pending:
+        return
+    resolved_keys = secrets() if keys is None else keys
+    for f in held:
+        if stop is not None and stop.is_set():
+            break
+        name = f["name"]
+        if name in polled or name not in pending:
+            continue
+        url, left = pending[name]
+        if left <= 0:
+            pending.pop(name, None)
+            continue
+        certify(f, url)
+        rec = get(http, name, url, f.get("accept"), out_dir, credentials(f, resolved_keys))
+        if rec["status"] == 200 or rec["status"] not in RETRY_STATUSES or left <= 1:
+            pending.pop(name, None)
+        else:
+            pending[name] = (url, left - 1)
+        if stop is not None:
+            stop.wait(SPACING)
 
 
 def main(out_dir: str | Path) -> None:
@@ -144,12 +228,16 @@ def main(out_dir: str | Path) -> None:
     held = [f for f in spec["feeds"] if f.get("auth", {}).get("env", "") in keys or "auth" not in f]
     print("not polled here, no key:", [f["name"] for f in spec["feeds"] if f not in held], flush=True)
     last = last_polls(out_dir)
+    pending: dict[str, tuple[str, int]] = {}
     with httpx.Client(timeout=120, follow_redirects=False, headers={"User-Agent": spec["user_agent"]}) as http:
         while not stop.is_set():
+            polled: set[str] = set()
             for f in held:
                 if stop.is_set():
                     break
                 if now_ms() - last.get(f["name"], 0) >= f["every_h"] * 3_600_000:
-                    last[f["name"]] = poll(http, f, out_dir, keys)["sent"]
+                    last[f["name"]] = poll_with_retries(http, f, out_dir, keys, pending)["sent"]
+                    polled.add(f["name"])
                     stop.wait(SPACING)
+            retry_pending(http, held, out_dir, keys, pending, polled, stop)
             stop.wait(TICK)
