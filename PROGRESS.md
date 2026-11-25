@@ -7,28 +7,26 @@ Current state only; history is in git. The pilot's code is at `archive/pilot` (2
 ### Running, and how to inspect it
 
 - **Cluster, live** (`prodesk7`, namespace `moneymachine-live`; `KUBECONFIG=~/.kube/moneymachine-live.yaml kubectl -n moneymachine-live get pods,jobs,cronjobs`; `CLUSTER.md`):
-  - Recorders: StatefulSets `ws` (OCaml `mmrec`, `recorder/RECORDER.md`), `sources`, `datalayer`; CronJob `vault` (`mmvault`, hourly). `hl` retired 2026-11-22 (PVC kept). **No live deploy ran in the 2026-11-25 18:18 UTC (13:18 EST) Project Reset** — local `main` holds hardened `mmrec`/`mmvault` and `datalayer.py` ready to push and apply.
-  - The mirror CronJobs; `prodesk7` also acts as a remote Nix builder (`CLUSTER.md` §6; use `--max-jobs 1` for heavy `kernel2/` Lean+OCaml checks to avoid overloading builders).
+  - Recorders: StatefulSets `ws` (OCaml `mmrec`, `recorder/RECORDER.md`) and `datalayer`, plus CronJob `vault` (`mmvault`, hourly) **deployed live at `d8bbc35`** (`sha256:a30690f1b9f7a24f5c74c8dac22d0538ffaa333c0d00beeb549a9ca17695c430`, pushed & applied `2026-11-25 21:22 UTC (16:22 EST)` via `nix run .#push` / `.#apply`, `ws-0` & `datalayer-0` `1/1 Running`); `sources` (`sha256:8ad0b655...`), `mirror`, and `mirror-verify` (`sha256:5e81095e...`) remain unchanged and healthy. `hl` retired 2026-11-22 (PVC kept).
+  - The mirror CronJobs; `prodesk7` also acts as a remote Nix builder (`CLUSTER.md` §6; pass `--max-jobs 1` or `--builders ""` locally for heavy `kernel2/` Lean+OCaml builds so `gmktec`/`prodesk7` are not overloaded).
 - **Oracle VM:** terminated 2026-11-22 after verification; forward-window days embargoed in `~/embargo/oci-forward-window/` (integrity only until window ends).
-- **This PC** records nothing; `data/live`, `data/sources_live`, `data/datalayer`, `data/live-oci` are closed hosts kept as evidence.
+- **This PC** records nothing; `data/live`, `data/sources_live`, `data/datalayer`, `data/live-oci` are closed hosts kept as evidence. Clean checkout on `main` synced with `origin/main` (legacy worktrees & 6 merged branches removed `2026-11-25 21:23 UTC (16:23 EST)`).
 - **Process (`CLAUDE.md`):** Stateless coordinator sessions (never long-lived multi-compaction advisor threads), **honest-but-buggy** threat model, **Bounded Review Protocol** (< 50 KB bundles, Blocker vs Non-Blocker grading, max 2 rounds, Prototype-Before-Spec), and functional-first stack (Lean 4, OCaml, Nix, pinned MPFR; zero new Python).
-- **Legacy worktrees:** `../mm-program`, `../mm-program-s2` (had stalled R21 merge of `e9f2e8c`, superseded by freeze), `../mm-k2-step5`, `../mm-rec-urgent`, `../mm-python-plan` remain outside `main` for optional human cleanup.
 
 ### Work in progress
 
-Roles and laws: [`CLAUDE.md`](CLAUDE.md). Academic research system: no live trading. Project Reset recorded at `2026-11-25 18:18 UTC (13:18 EST)` (`audit/decisions.md`).
+Roles and laws: [`CLAUDE.md`](CLAUDE.md). Academic research system: no live trading. Project Reset recorded at `2026-11-25 18:18 UTC (13:18 EST)` and live rollout at `2026-11-25 21:23 UTC (16:23 EST)` (`audit/decisions.md`).
 
 1. **Kernel v2 & Study 2 (`audit/program/kernel-v2.md`, `kernel2/`, `briefs/3-kernel-v2.md`, `briefs/4-study-2.md`):**
-   - **Specs FROZEN:** 20-round specification loop closed cleanly (`audit/program/ledger.md` Project Reset entry); compiler-replay sandbox dropped in favor of `kernel2/lean/check-proofs.sh` under the honest-but-buggy threat model; Round 20 midnight-end / registration-fixed `meta` (`TON` excluded) and single-host deterministic monthly replay folded into `4-study-2.md` and `kernel2/KERNEL.md` (committed `CS2.1`–`CS2.3` untouched).
-   - **Kernel v2 Steps 0–5 landed on `main` (`kernel2/`):** decoupled sub-flake (`kernel2/flake.nix` + `kernel2/flake.lock`, sha256 `415c302c...`), pinned `pkgs.mpfr` `exp`/`log` (`c/mpfr_ops.c`; `test12` in 1m 16.3s vs 15 CPU-days), `check-proofs.sh` + negative fixtures. **Next:** execute Kernel v2 Steps 5a → 6 → 7 → 8 → 9 → 10, then Study 2 Steps 1–6 and freeze.
-2. **Urgent live capture hardening (on `main`, pending human deploy):**
-   - `recorder/` hardened (`libcurl` + `jsont`, RFC 6455 `Sec-WebSocket-Accept`, 3-state TLS probe cache, zero-alloc `route.ml`, D369 4-state streams, monotonic run IDs, `zstd` GC tracking, zero wildcard `with _`/`exception _` catch-alls).
-   - `ingest/datalayer.py` fixed in-place for GDELT ~40% 404 misses (up to 10 fixed-tick retries without shifting `every_h`, plus `last_polls` `/index` restart fix).
-3. **Parallel reopened research tracks (active, not blocked behind Study 2):**
-   - **Earlier-Cutoff LLM Arm (`audit/program/briefs/5-earlier-cutoff.md`):** cutoff `<= 2024-06-30` unlocking 760-day pre-embargo holdout (`[2024-10-01, 2026-10-31)`), 80%-power Sharpe ~2.07; Prototype 0 (archive coverage, 0/20 canary probe, `libcurl` + `bwrap` OCaml harness) next.
-   - **Study 1 Diagnostic, Unhinted Cell 2 & Agent DSL (`audit/program/briefs/6-unhinted-search-dsl.md`):** zero-cost OCaml offline diagnostic of Study 1's 24/42 failures (`median 9.5` evals), followed by microbenchmark + Cell 2 A/B.
-4. **The paper (`docs/whitepaper.tex`, `docs/whitepaper.pdf`):** updated for write-denied reading-agent defect, honest-but-buggy MPFR Kernel v2, and active earlier cutoffs; PDF rebuilt cleanly.
-5. **Python's extinction (`audit/program/python-extinction.md`):** Revision 3 on `main` + Reset Sequencing (**Phase 2**: `mmdata`, `mmops`, and deployer retirement `1c` follow live deploy and Study 2 freeze; `python-left` ratchet active).
+   - **Specs FROZEN:** 20-round specification loop closed cleanly (`audit/program/ledger.md`); compiler-replay sandbox replaced by `kernel2/lean/check-proofs.sh` under the honest-but-buggy threat model; Round 20 quiet-day midnight coin-end, registration-fixed `meta` (`TON` excluded), and single-host deterministic monthly replay folded into `4-study-2.md` and `kernel2/KERNEL.md` (committed `CS2.1`–`CS2.3` untouched).
+   - **Kernel v2 Steps 0–5 landed on `main` (`kernel2/`):** decoupled sub-flake (`kernel2/flake.nix` + `kernel2/flake.lock`, sha256 `415c302c...`), pinned `pkgs.mpfr` `exp`/`log` (`c/mpfr_ops.c`), shared `mm2-engine-static`, `check-proofs.sh` + negative fixtures. **Next pickup:** execute Kernel v2 Steps 5a → 6 → 7 → 8 → 9 → 10, then Study 2 Steps 1–6 and freeze.
+2. **Urgent live capture hardening (DEPLOYED LIVE `2026-11-25 21:22 UTC (16:22 EST)`):**
+   - Hardened `recorder/` (`libcurl` + `jsont`, RFC 6455 `Sec-WebSocket-Accept`, 3-state TLS probe cache, zero-alloc `route.ml`, D369 4-state streams, monotonic run IDs, `zstd` GC tracking, zero wildcard `with _`/`exception _` catch-alls) and `ingest/datalayer.py` (in-place GDELT 10-tick retry without shifting `every_h`, plus `last_polls` `/index` restart fix) are running live on `prodesk7`.
+3. **Parallel reopened research tracks (ready to start in fresh session):**
+   - **Earlier-Cutoff LLM Arm (`audit/program/briefs/5-earlier-cutoff.md`):** cutoff `<= 2024-06-30` unlocking 760-day pre-embargo holdout (`[2024-10-01, 2026-10-31)`), 80%-power Sharpe ~2.07. **Next pickup:** run Prototype 0 (archive coverage, 0/20 canary probe, `libcurl` + `bwrap` OCaml harness).
+   - **Study 1 Diagnostic, Unhinted Cell 2 & Agent DSL (`audit/program/briefs/6-unhinted-search-dsl.md`):** **Next pickup:** run Part A zero-cost OCaml offline diagnostic of Study 1's 24/42 failures (`median 9.5` evals), then microbenchmark + Cell 2 A/B.
+4. **The paper (`docs/whitepaper.tex`, `docs/whitepaper.pdf`):** updated with Opus 5.5 (`d8bbc35`) for frozen specs vs foundation Steps 0–5 built, Round 20 quiet-day rules, 5 bar assumptions, single-host replay, write-denied reading-agent defect, and honest-but-buggy MPFR Kernel v2; PDF rebuilt cleanly.
+5. **Python's extinction (`audit/program/python-extinction.md`):** Revision 3 + Reset Sequencing (**Phase 2**: `mmdata` & `mmops` follow Study 2 freeze; step `1c` deleting `ops/live.py`'s deployer half is now unblocked after live deploy; `python-left` ratchet active).
 
 ### Finished
 
@@ -43,9 +41,8 @@ None else blocks the program. Failed source certificates stay in `venue/sources.
 
 ## Decisions awaiting the human's review
 
-- **Ready to deploy live fixes (no cluster mutations ran):** verify image + rollout on `prodesk7` when ready via `nix run .#push` then `nix run .#apply`, then retire `ops/live.py`'s deployer half (`python-extinction` step 1c).
-- **Hardware checklist (`prodesk7`):** inspect power-loss root cause, enable BIOS AC-power-recovery auto-boot, verify PSU/UPS, and provision 2 TB NVMe storage before the 300 GiB recorder volume fills (~April 2027).
-- **Optional cleanup:** remove legacy sibling worktrees (`../mm-program`, `../mm-program-s2`, `../mm-k2-step5`, `../mm-rec-urgent`, `../mm-python-plan`) once satisfied with `main`.
+- **Hardware checklist (`prodesk7`):** inspect the 2026-11-22 power-loss root cause, enable BIOS AC-power-recovery auto-boot, verify PSU/UPS, and provision 2 TB NVMe storage before the 300 GiB recorder volume fills (~April 2027).
+- **Retire `ops/live.py`'s deployer half (`python-extinction` step 1c):** now unblocked after the `d8bbc35` live rollout via `nix run .#push` / `.#apply`.
 
 ## Qualifications
 
