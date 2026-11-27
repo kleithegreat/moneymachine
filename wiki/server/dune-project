@@ -1,0 +1,15 @@
+(lang dune 3.0)
+
+(package
+ (name mmwiki)
+ (synopsis "OCaml markdown wiki and documentation HTTP/JSON server")
+ (depends
+  (ocaml
+   (>= 5.4.1))
+  core
+  core_unix
+  cmarkit
+  tiny_httpd
+  yojson
+  ppx_jane
+  ppx_expect))

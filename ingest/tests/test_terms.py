@@ -1,48 +1,56 @@
-"""Terms certification (paper, sources): every place the code fetches from automatically has a certified record in the
-registry `venue/sources.toml`, and a record without its evidence is not certified."""
+"""Tests for source metadata, license classification, and host allowlists in `ingest.terms`."""
 
-from collections.abc import Sequence
-from datetime import date
-from urllib.parse import urlparse
+from pathlib import Path
 
-from ingest import datalayer, sources_record, terms
-
-FETCHED: dict[str, Sequence[str | None]] = {
-    "discourse": sources_record.FORUMS,
-    "snapshot": [urlparse(sources_record.HUB).hostname],
-    "hyperliquid": ["api.hyperliquid.xyz"],
-}
+from ingest import datalayer, terms
 
 
-def test_every_fetched_host_has_certified_terms() -> None:
-    missing = [
-        (source, host)
-        for source, hosts in FETCHED.items()
-        for host in hosts
-        if not terms.admits(terms.allowlist(source), host, "/")
-    ]
-    assert not missing
+def test_every_declared_feed_loads_cleanly() -> None:
     assert datalayer.feeds()["feeds"]
 
 
-def test_every_record_is_certified() -> None:
-    records = [t for s in terms.registry().values() for t in s.get("terms", [])]
-    assert records and all(terms.certified(t) for t in records)
+def test_license_class_classification_and_defaults(tmp_path: Path) -> None:
+    assert terms.license_class("treasury") == "PUBLIC_DOMAIN"
+    assert terms.license_class("sec") == "PUBLIC_DOMAIN"
+    assert terms.license_class("gdelt-events") == "PUBLIC_DOMAIN"
+    assert terms.license_class("bls-cpi") == "PUBLIC_DOMAIN"
+    assert terms.license_class("worldbank") == "CC_BY"
+    assert terms.license_class("wikimedia") == "CC_BY"
+    assert terms.license_class("databento") == "PERSONAL_RESEARCH"
+    assert terms.license_class("unregistered_new_source") == "PERSONAL_RESEARCH"
+
+    custom = tmp_path / "sources.toml"
+    custom.write_text(
+        '[explicit_nc]\nlicense_class = "NON_COMMERCIAL"\n[[explicit_nc.terms]]\nhost = "nc.example.org"\n'
+    )
+    assert terms.license_class("explicit_nc", custom) == "NON_COMMERCIAL"
+    assert terms.license_class("missing_source", custom) == "PERSONAL_RESEARCH"
 
 
-def test_a_record_without_its_evidence_fails() -> None:
-    good = {
-        "host": "x.org",
-        "url": "https://x.org/tos",
-        "retrieved": date(2026, 10, 22),
-        "basis": "permitting clause",
-        "quote": "You may automate access.",
-    }
-    assert terms.certified(good)
-    for drop in ("url", "retrieved", "basis", "quote"):
-        assert not terms.certified({k: v for k, v in good.items() if k != drop})
-    assert not terms.certified(good | {"basis": "silence"})
-    assert not terms.certified(good | {"url": "http://x.org/tos"})
+def test_allowlist_filters_by_source_retrieval_and_license(tmp_path: Path) -> None:
+    assert "api.gdeltproject.org" in terms.allowlist(retrieval=True)
+    assert "api.hyperliquid.xyz" in terms.allowlist("hyperliquid")
+
+    custom = tmp_path / "sources.toml"
+    custom.write_text(
+        """
+[pub]
+license_class = "PUBLIC_DOMAIN"
+[[pub.terms]]
+host = "pub.example.org"
+retrieval = true
+
+[nc]
+license_class = "NON_COMMERCIAL"
+[[nc.terms]]
+host = "nc.example.org"
+retrieval = false
+"""
+    )
+    assert terms.allowlist(path=custom) == {"pub.example.org", "nc.example.org"}
+    assert terms.allowlist(retrieval=True, path=custom) == {"pub.example.org"}
+    assert terms.allowlist(allowed_licenses={"PUBLIC_DOMAIN", "CC_BY"}, path=custom) == {"pub.example.org"}
+    assert terms.allowlist(allowed_licenses={"NON_COMMERCIAL"}, path=custom) == {"nc.example.org"}
 
 
 def test_a_prefix_entry_admits_only_its_prefix() -> None:

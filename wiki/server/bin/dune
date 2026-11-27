@@ -1,0 +1,10 @@
+(executable
+ (name mmwiki)
+ (public_name mmwiki)
+ (package mmwiki)
+ (modules mmwiki)
+ (libraries mmwiki core core_unix core_unix.command_unix yojson)
+ (preprocess
+  (pps ppx_jane))
+ (lint
+  (pps ppx_js_style)))

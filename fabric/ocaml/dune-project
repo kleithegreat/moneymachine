@@ -1,0 +1,15 @@
+(lang dune 3.0)
+
+(package
+ (name mmfabric)
+ (synopsis "OCaml data fabric CAS, PIT core, and CLI")
+ (depends
+  (ocaml
+   (>= 5.4.1))
+  core
+  core_unix
+  digestif
+  yojson
+  ppx_jane
+  ppx_expect
+  base_quickcheck))

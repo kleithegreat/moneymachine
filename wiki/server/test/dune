@@ -1,0 +1,8 @@
+(library
+ (name mmwiki_tests)
+ (libraries core core_unix core_unix.sys_unix mmwiki tiny_httpd yojson)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane))
+ (lint
+  (pps ppx_js_style)))

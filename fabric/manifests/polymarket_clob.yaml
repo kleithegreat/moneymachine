@@ -1,0 +1,18 @@
+source_id: "polymarket_clob"
+domain: "prediction_markets"
+modality: "event_log"
+storage_tier: "local_hot_ducklake"
+temporal_semantics: "append_only"
+temporal_polarity: "FCST"
+license_class: "PERSONAL_RESEARCH"
+retroactive_history_start: "2022-01-01T00:00:00Z"
+live_collection_start: "2026-11-27T00:00:00Z"
+cadence: "realtime_ws"
+entity_resolvers:
+  - local_key: "condition_id"
+    target_node_type: "PREDICTION_MARKET"
+    resolver_pipeline: "deterministic_polymarket_condition"
+quality_sla:
+  max_freshness_lag_hours: 1
+  require_raw_cas_hash: true
+  reject_future_known_at: true

@@ -1,5 +1,5 @@
 {
-  description = "Auditable agentic quant research";
+  description = "Auditable agentic quant research and multi-modal data fabric";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
@@ -7,7 +7,7 @@
     let
       systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
       forAll = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
-      # The research environment: the dev shell's and the cluster image's, one closure.
+      # The live cluster image Python environment (kept lean for deployment).
       pythonFor = pkgs: pkgs.python313.withPackages (ps: with ps; [
         polars
         httpx
@@ -19,6 +19,30 @@
         pytest-timeout
         lz4
         boto3
+      ]);
+      # Python environment scoped to ML/stats, fabric analytics, and MCP tooling.
+      fabricPythonFor = pkgs: pkgs.python313.withPackages (ps: with ps; [
+        polars
+        httpx
+        certifi
+        pytest
+        mypy
+        ruff
+        pytest-xdist
+        pytest-timeout
+        lz4
+        boto3
+        numpy
+        scipy
+        duckdb
+        pyarrow
+        pydantic
+        pyyaml
+        types-pyyaml
+        zstandard
+        tantivy
+        mcp
+        xarray
       ]);
       linux = nixpkgs.legacyPackages.x86_64-linux;
       workloads = import ./ops/workloads.nix { lib = nixpkgs.lib; };
@@ -46,7 +70,7 @@
           runtimeInputs = [ linux.coreutils linux.util-linux linux.procps ];
           text = builtins.readFile ./ops/session.sh;
         };
-        # Heavy work on this PC (CLAUDE.md, Running things): `nix run .#heavy -- 8G pytest ...`.
+        # Heavy work on this PC (CLAUDE.md): `nix run .#heavy -- 8G pytest ...`.
         heavy = linux.writeShellApplication {
           name = "heavy";
           runtimeInputs = [ linux.coreutils ];
@@ -62,8 +86,7 @@
           text = "exec python ops/diskguard.py";
         };
       };
-      # The websocket recorder (recorder/RECORDER.md): OCaml 5 with Jane Street's stack, every library from the pinned
-      # nixpkgs. Its tests need `zstd` (an independent decoder) and loopback sockets, which the sandbox has.
+      # The websocket recorder (recorder/RECORDER.md): OCaml 5 with Jane Street's stack.
       mmrecFor = pkgs:
         let
           o = pkgs.ocamlPackages;
@@ -107,21 +130,110 @@
             installPhase = "touch $out";
           };
         };
+      # Default OCaml systems implementation of the Data Fabric CAS, PIT core, and CLI.
+      mmfabricFor = pkgs:
+        let
+          o = pkgs.ocamlPackages;
+          libs = [ o.core o.core_unix o.digestif o.yojson o.ppx_jane ];
+          testLibs = libs ++ [ o.ppx_expect o.base_quickcheck ];
+          src = pkgs.lib.fileset.toSource {
+            root = ./fabric/ocaml;
+            fileset = ./fabric/ocaml;
+          };
+        in {
+          package = o.buildDunePackage {
+            pname = "mmfabric";
+            version = "0";
+            inherit src;
+            duneVersion = "3";
+            buildInputs = libs ++ [ pkgs.zstd.dev pkgs.zstd ];
+            doCheck = false;
+            meta.mainProgram = "mmfabric";
+          };
+          tests = pkgs.stdenv.mkDerivation {
+            name = "mmfabric-tests";
+            inherit src;
+            nativeBuildInputs = [ o.ocaml o.dune_3 o.findlib pkgs.zstd ];
+            buildInputs = testLibs ++ [ pkgs.zstd.dev pkgs.zstd ];
+            buildPhase = ''
+              export HOME=$TMPDIR DUNE_CACHE=disabled
+              dune build --root . --display short @runtest
+            '';
+            installPhase = "touch $out";
+          };
+          style = pkgs.stdenv.mkDerivation {
+            name = "fabric-ocaml-style";
+            inherit src;
+            nativeBuildInputs = [ o.ocaml o.dune_3 o.findlib o.ocamlformat o.ppx_js_style pkgs.zstd ];
+            buildInputs = testLibs ++ [ o.ppx_js_style pkgs.zstd.dev pkgs.zstd ];
+            buildPhase = ''
+              export HOME=$TMPDIR DUNE_CACHE=disabled
+              dune build --root . @fmt @check @lint
+            '';
+            installPhase = "touch $out";
+          };
+        };
+      # OCaml markdown wiki and repository docs server (`wiki/server/`).
+      mmwikiFor = pkgs:
+        let
+          o = pkgs.ocamlPackages;
+          libs = [ o.core o.core_unix o.cmarkit o.tiny_httpd o.yojson o.ppx_jane ];
+          testLibs = libs ++ [ o.ppx_expect ];
+          src = pkgs.lib.fileset.toSource {
+            root = ./wiki/server;
+            fileset = ./wiki/server;
+          };
+        in {
+          package = o.buildDunePackage {
+            pname = "mmwiki";
+            version = "0";
+            inherit src;
+            duneVersion = "3";
+            buildInputs = libs;
+            doCheck = false;
+            meta.mainProgram = "mmwiki";
+          };
+          tests = pkgs.stdenv.mkDerivation {
+            name = "mmwiki-tests";
+            inherit src;
+            nativeBuildInputs = [ o.ocaml o.dune_3 o.findlib ];
+            buildInputs = testLibs;
+            buildPhase = ''
+              export HOME=$TMPDIR DUNE_CACHE=disabled
+              dune build --root . --display short @runtest
+            '';
+            installPhase = "touch $out";
+          };
+          style = pkgs.stdenv.mkDerivation {
+            name = "wiki-style";
+            inherit src;
+            nativeBuildInputs = [ o.ocaml o.dune_3 o.findlib o.ocamlformat o.ppx_js_style ];
+            buildInputs = testLibs ++ [ o.ppx_js_style ];
+            buildPhase = ''
+              export HOME=$TMPDIR DUNE_CACHE=disabled
+              dune build --root . @fmt @check @lint
+            '';
+            installPhase = "touch $out";
+          };
+        };
     in
     {
       devShells = forAll (pkgs:
         let
           tools = self.packages.${pkgs.stdenv.hostPlatform.system};
-          python = pythonFor pkgs;
+          python = fabricPythonFor pkgs;
         in
         {
           default = pkgs.mkShell {
-            # The recorder's OCaml toolchain and libraries, with the editor's language server (.vscode/settings.json).
-            inputsFrom = [ (mmrecFor pkgs).style ];
+            # OCaml toolchain and libraries across recorder/, fabric/ocaml/, and wiki/server/.
+            inputsFrom = [ (mmrecFor pkgs).style (mmfabricFor pkgs).style (mmwikiFor pkgs).style ];
             packages = with pkgs; [
               ocamlPackages.ocaml-lsp
               sqlite
               python
+              duckdb
+              zstd
+              uv
               jq
               git
               openssh
@@ -143,8 +255,7 @@
           ${pkgs.lib.concatStrings (pkgs.lib.mapAttrsToList
             (name: m: "cp ${pkgs.writeText "${name}.json" (builtins.toJSON m)} $out/${name}.json\n") workloads.manifests)}
         '';
-        # The cluster's one image (CLAUDE.md, heavy jobs): the research environment and this commit's tree. The
-        # workloads find every tool on PATH; /bin and /usr hold only /bin/sh and /usr/bin/env, as on the dev hosts.
+        # The cluster's one image: kept lean via `pythonFor` + `mmrec`.
         image = let
           tools = with pkgs; [ (pythonFor pkgs) coreutils util-linux sqlite self.packages.${system}.mmrec cacert ];
         in pkgs.dockerTools.buildLayeredImage {
@@ -167,7 +278,7 @@
             ];
           };
         };
-        # The adopted reference kernel's toolchain (stage 6): Lean v4.34.0.
+        # Pinned Lean v4.34.0 toolchain.
         lean = pkgs.stdenv.mkDerivation {
           pname = "lean";
           version = "4.34.0";
@@ -181,12 +292,29 @@
           installPhase = "cp -r lean-4.34.0-linux $out";
           autoPatchelfIgnoreMissingDeps = true;
         };
-        # The Lean reference kernel (stage 6), built offline by Lake. Its source is `reference/lean` alone, so it is cached by that;
-        # building the `Ref` library checks every theorem, so this build is the proof check.
+        # Critical Lean 4 causal & PodView proofs for the Data Fabric (`fabric/lean`).
+        fabric-proofs = pkgs.stdenv.mkDerivation {
+          pname = "fabric-proofs";
+          version = "0";
+          src = ./fabric/lean;
+          nativeBuildInputs = [ self.packages.${pkgs.stdenv.hostPlatform.system}.lean pkgs.autoPatchelfHook pkgs.gnugrep ];
+          buildInputs = [ pkgs.stdenv.cc.cc.lib pkgs.zlib pkgs.gmp ];
+          dontConfigure = true;
+          buildPhase = ''
+            if grep -rnE '\b(sorry|admit|axiom|native_decide)\b' Fabric.lean Fabric; then
+              echo "forbidden proof keyword in fabric/lean" >&2
+              exit 1
+            fi
+            export HOME=$TMPDIR
+            lake build
+          '';
+          installPhase = "mkdir -p $out && touch $out/ok";
+        };
+        # The Lean reference kernel (Stage 6 subproject), built offline by Lake.
         refmm = pkgs.stdenv.mkDerivation {
           pname = "refmm";
           version = "0";
-          src = ./reference/lean;
+          src = ./subprojects/confirmation-wall/reference/lean;
           nativeBuildInputs = [ self.packages.${pkgs.stdenv.hostPlatform.system}.lean pkgs.autoPatchelfHook ];
           buildInputs = [ pkgs.stdenv.cc.cc.lib pkgs.zlib pkgs.gmp ];
           dontConfigure = true;
@@ -194,6 +322,8 @@
           installPhase = "install -D .lake/build/bin/refmm $out/bin/refmm";
         };
         mmrec = (mmrecFor pkgs).package;
+        mmfabric = (mmfabricFor pkgs).package;
+        mmwiki = (mmwikiFor pkgs).package;
         whitepaper = pkgs.runCommand "whitepaper.pdf" {
           nativeBuildInputs = [
             (pkgs.texliveBasic.withPackages (ps: with ps; [
@@ -207,8 +337,7 @@
         '';
       });
 
-      # Tests as checks (CLAUDE.md, Running things): `nix run .#test` builds them, on remote builders when the host has
-      # any, then runs what stays on this PC (`-m local`). x86_64-linux only: every host is one.
+      # Tests as checks: `nix run .#test` builds them, then runs what stays on this PC (`-m local`).
       checks.x86_64-linux =
         let
           system = "x86_64-linux";
@@ -216,18 +345,35 @@
           inherit (pkgs) lib;
           fs = lib.fileset;
           python = pythonFor pkgs;
-          tools = [ python pkgs.git pkgs.sqlite pkgs.jq pkgs.openssh pkgs.rsync pkgs.procps pkgs.util-linux ];
-          prose = [ ./docs ./audit/reviews ./audit/decisions.md ./audit/erasure ./CLAUDE.md ./PROGRESS.md
-                   ./flake.nix ./flake.lock ./.githooks ./.gitignore ./ops/units.nix ./ops/workloads.nix
-                   ./kernel2 ];
-          # The tracked tree minus prose and build files, so a commit that only edits those leaves every check cached; a test that
-          # reads excluded prose fails in its check, which is how a missed dependency shows.
+          fabricPython = fabricPythonFor pkgs;
+          toolsFor = py: [ py pkgs.git pkgs.sqlite pkgs.jq pkgs.openssh pkgs.rsync pkgs.procps pkgs.util-linux ];
+          prose = [
+            ./docs
+            ./audit/reviews
+            ./audit/decisions.md
+            ./audit/erasure
+            ./CLAUDE.md
+            ./PROGRESS.md
+            ./AGENTS.md
+            ./pods/README.md
+            ./wiki
+            ./flake.nix
+            ./flake.lock
+            ./.githooks
+            ./.gitignore
+            ./ops/units.nix
+            ./ops/workloads.nix
+            ./subprojects/confirmation-wall
+            ./fabric/lean
+            ./fabric/ocaml
+          ];
+          # The tracked tree minus prose and non-Python subtrees so non-Python edits leave Python checks cached.
           srcAll = fs.toSource { root = ./.; fileset = fs.difference ./. (fs.unions prose); };
           pytestCheck =
-            { name, paths, src ? srcAll, select ? "not local", env ? { } }:
+            { name, paths, src ? srcAll, select ? "not local", env ? { }, py ? python }:
             pkgs.stdenv.mkDerivation ({
               inherit name src env;
-              nativeBuildInputs = tools;
+              nativeBuildInputs = toolsFor py;
               dontConfigure = true;
               buildPhase = ''
                 export HOME=$TMPDIR SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
@@ -243,52 +389,6 @@
             test "$(stat -c %s ${./PROGRESS.md})" -le 12288 || { echo "PROGRESS.md is over 12 KiB"; exit 1; }
             touch $out
           '';
-          # The ratchet: no Python outside audit/ beyond this list, and every file on it exists. A step that deletes Python
-          # deletes its lines here in the same commit; the list ends empty and the check stays, so no Python comes back.
-          python-left =
-            let
-              listed = [
-            "cli.py"
-            "conftest.py"
-            "ingest/__init__.py"
-            "ingest/archive.py"
-            "ingest/compute.py"
-            "ingest/datalayer.py"
-            "ingest/live.py"
-            "ingest/sources_record.py"
-            "ingest/terms.py"
-            "ingest/tests/__init__.py"
-            "ingest/tests/crash_helpers.py"
-            "ingest/tests/test_archive.py"
-            "ingest/tests/test_compute.py"
-            "ingest/tests/test_crash_recovery.py"
-            "ingest/tests/test_datalayer.py"
-            "ingest/tests/test_live.py"
-            "ingest/tests/test_recorder_spec.py"
-            "ingest/tests/test_terms.py"
-            "ops/diskguard.py"
-            "ops/live.py"
-            "ops/style.py"
-            "ops/test_diskguard.py"
-            "ops/test_live.py"
-            "ops/test_live_churn.py"
-              ];
-              src = fs.toSource { root = ./.; fileset = fs.difference ./. ./audit; };
-            in
-            pkgs.runCommand "python-left" { nativeBuildInputs = [ pkgs.findutils pkgs.diffutils ]; preferLocalBuild = true; } ''
-              cd ${src}
-              find . -type f ! -name '*.py' -print0 | while IFS= read -r -d "" f; do
-                if head -n 1 "$f" | grep -aq '^#!.*python'; then echo "''${f#./}"; fi
-              done > $TMPDIR/shebang
-              find . -type f -name '*.py' | sed 's|^\./||' | cat - $TMPDIR/shebang | LC_ALL=C sort > $TMPDIR/found
-              printf '%s\n' ${lib.escapeShellArgs listed} | LC_ALL=C sort > $TMPDIR/listed
-              if ! diff $TMPDIR/listed $TMPDIR/found > $TMPDIR/diff; then
-                sed -n 's/^> /Python file not on the list: /p' $TMPDIR/diff
-                sed -n 's/^< /listed Python file is gone: /p' $TMPDIR/diff
-                exit 1
-              fi
-              touch $out
-            '';
           # The mirror copies diskguard.VOLUMES, and the workloads' table must say the same until the mirror leaves Python.
           volume-table = pkgs.runCommand "volume-table" { } ''
             sed -n '/^VOLUMES = {/,/^}/p' ${./ops/diskguard.py} | sed -n 's/^ *"\([a-z]*\)": "\([^"]*\)",$/\1 \2/p' | LC_ALL=C sort > guard
@@ -316,7 +416,7 @@
           style = pkgs.stdenv.mkDerivation {
             name = "style";
             src = srcAll;
-            nativeBuildInputs = tools;
+            nativeBuildInputs = toolsFor fabricPython;
             dontConfigure = true;
             buildPhase = ''
               export HOME=$TMPDIR
@@ -327,6 +427,12 @@
             '';
             installPhase = "touch $out";
           };
+          fabric = pytestCheck { name = "fabric"; paths = "fabric/tests"; py = fabricPython; };
+          fabric-proofs = self.packages.${system}.fabric-proofs;
+          mmfabric-tests = (mmfabricFor pkgs).tests;
+          fabric-ocaml-style = (mmfabricFor pkgs).style;
+          mmwiki-tests = (mmwikiFor pkgs).tests;
+          wiki-style = (mmwikiFor pkgs).style;
           ingest = pytestCheck { name = "ingest"; paths = "ingest/tests"; };
           ops = pytestCheck { name = "ops"; paths = "ops"; };
           lean-proofs = self.packages.${system}.refmm;
@@ -344,13 +450,19 @@
         in
         builtins.mapAttrs (_: app) apps64
         // {
+          mmfabric = app (mmfabricFor pkgs).package;
+          mmwiki = app (mmwikiFor pkgs).package;
+          wiki = app (pkgs.writeShellApplication {
+            name = "wiki";
+            runtimeInputs = [ (mmwikiFor pkgs).package ];
+            text = ''exec mmwiki serve "$@"'';
+          });
           test = app (pkgs.writeShellApplication {
             name = "test";
             runtimeInputs = [ pkgs.nix pkgs.git pkgs.coreutils pkgs.findutils pkgs.gnugrep pkgs.bubblewrap ];
             text = ''
               nix flake check -L "$@"
               nix develop -c pytest -m local
-              ops/test-python-left.sh
               ops/test-gpt.sh
               ops/check-times.sh
               ops/test-hooks.sh

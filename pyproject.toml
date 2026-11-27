@@ -1,6 +1,6 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
-testpaths = ["ingest", "ops"]
+testpaths = ["fabric", "ingest", "ops"]
 addopts = "-n auto --dist worksteal"
 markers = ["local: needs this PC (real data/, user namespaces, a killed process, git history); `nix flake check` skips it, `nix run .#test` runs it"]
 timeout = 600
@@ -19,9 +19,9 @@ strict = true
 follow_imports = "skip"
 
 [[tool.mypy.overrides]]
-module = ["pytest.*", "_pytest.*"]
+module = ["pytest.*", "_pytest.*", "pydantic.*", "pydantic_core.*"]
 follow_imports = "normal"
 
 [[tool.mypy.overrides]]
-module = ["polars.*"]
+module = ["polars.*", "pyarrow.*", "scipy.*"]
 ignore_missing_imports = true

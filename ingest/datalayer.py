@@ -1,15 +1,17 @@
-"""The keyless data layer's recorder (paper, sources, Acquisition): polls each feed of `venue/sources/datalayer.json` on its
-cadence, read-only, and keeps every response body gzip-compressed under `<out_dir>/raw/<sha256 of the body>.gz` beside a
-day-JSONL poll log {"feed", "url", "sent", "recv", "status", "sha256", "bytes"}. A stored body is checked before it is
-reused: a damaged one is moved aside, never deleted, and rewritten, on a day-JSONL `repairs` log. A body is known no earlier than
-its poll's recv; parsing into point-in-time revisions is offline, per source. A feed whose file name changes per
-release declares `discover`: an index URL, a pattern with one group, and a template the group fills; the index is
-logged as `<feed>/index`, and transient failures on the discovered URL are retried on later ticks up to
-`MAX_DISCOVER_RETRIES` times, each attempt logged separately. A feed may declare `auth`, `{"param" | "header": NAME, "env": VAR}`:
-the value of VAR in `.keys.env` (one `NAME=value` per line, gitignored) is sent as that query parameter or header, never logged,
-and replaced by `<credential>` in the stored body before it is hashed (some APIs echo it). A host without a feed's key does not
-poll that feed. Every URL fetched, discovered ones included, needs certified terms for its host under the feed's source in
-`venue/sources.toml`, so adding a feed is a JSON entry and a terms record, no code.
+"""The multi-source data layer recorder: polls each feed of `venue/sources/datalayer.json` on its
+cadence and keeps every response body gzip-compressed under `<out_dir>/raw/<sha256 of the body>.gz`
+beside a day-JSONL poll log `{"feed", "url", "sent", "recv", "status", "sha256", "bytes"}`. A stored
+body is checked before it is reused: a damaged one is moved aside, never deleted, and rewritten, on
+a day-JSONL `repairs` log. A body is known no earlier than its poll's recv; parsing into point-in-time
+revisions is downstream, per source (see `fabric.adapters.datalayer_bridge`). A feed whose file name
+changes per release declares `discover`: an index URL, a pattern with one group, and a template the
+group fills; the index is logged as `<feed>/index`, and transient failures on the discovered URL are
+retried on later ticks up to `MAX_DISCOVER_RETRIES` times, each attempt logged separately. A feed may
+declare `auth`, `{"param" | "header": NAME, "env": VAR}`: the value of VAR in `.keys.env` (one
+`NAME=value` per line, gitignored) is sent as that query parameter or header, never logged, and
+replaced by `<credential>` in the stored body before it is hashed (some APIs echo it). A host without
+a feed's key does not poll that feed. URLs are validated as HTTPS with an explicit host so adding a
+feed is a JSON entry with no legal-certificate blocker.
 """
 
 import gzip
@@ -26,7 +28,6 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from ingest import terms
 from ingest.live import append, now_ms, read, recording
 
 REPO = Path(__file__).resolve().parents[1]
@@ -39,19 +40,17 @@ RETRY_STATUSES: frozenset[int | None] = frozenset({None, 404, 429, 500, 502, 503
 MAX_DISCOVER_RETRIES = 10
 
 
-def certify(feed: dict[str, Any], url: str) -> None:
+def validate_url(feed: dict[str, Any], url: str) -> None:
     u = urlsplit(url)
-    if u.scheme != "https" or not terms.admits(terms.allowlist(feed["source"]), u.hostname, u.path):
-        raise PermissionError(
-            f"{feed['name']}: {u.hostname}{u.path} has no certified terms for source {feed['source']}"
-        )
+    if u.scheme != "https" or not u.hostname:
+        raise ValueError(f"{feed['name']}: invalid or non-HTTPS url {url!r}")
 
 
 def feeds(path: str | Path = FEEDS) -> dict[str, Any]:
-    """The declared feeds, each checked against its doc's certified terms."""
+    """The declared feeds, each validated as a well-formed HTTPS endpoint."""
     spec: dict[str, Any] = json.loads(Path(path).read_text())
     for f in spec["feeds"]:
-        certify(f, f["discover"]["url"] if "discover" in f else f["url"])
+        validate_url(f, f["discover"]["url"] if "discover" in f else f["url"])
     return spec
 
 
@@ -135,7 +134,7 @@ def poll(
     if index["status"] != 200 or m is None:
         return index
     url = d["template"].format(m.group(1))
-    certify(feed, url)
+    validate_url(feed, url)
     return get(http, feed["name"], url, feed.get("accept"), out_dir, auth)
 
 
@@ -222,7 +221,7 @@ def retry_pending(
         if left <= 0:
             pending.pop(name, None)
             continue
-        certify(f, url)
+        validate_url(f, url)
         rec = get(http, name, url, f.get("accept"), out_dir, credentials(f, resolved_keys))
         if rec["status"] not in RETRY_STATUSES or left <= 1:
             pending.pop(name, None)

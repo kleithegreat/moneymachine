@@ -1,42 +1,51 @@
-# Future work
+# Research Agenda & Strategy Pods (`docs/future-work.md`)
 
-Ideas outside the program (`docs/whitepaper.tex`, "Two positive controls"), none approved, scheduled or tested. An idea enters only as a study with its own criteria and source certificates, and only if it beats what is running on the wall's arithmetic: independent observations per unit of calendar time (paper, "The confirmation wall"). For any strategy a 2026 model proposes, history before that model's cutoff cannot judge it, so "backtestable" below means "has data", not "can be confirmed".
+`moneymachine` is structured as an open, multi-modal quantitative experimentation platform anchored by the causal data fabric (`fabric/`) and verified execution subprojects (`kernel2/`). Rather than writing off broad asset classes or data modalities a priori, every hypothesis gets a dedicated pod, clean PIT inputs, and honest out-of-sample grading.
 
-## Directions (the human, 2026-10-23 to 2026-11-07)
+## 5 Exploratory Strategy Pods
 
-- **A research arm with an earlier knowledge cutoff** (2026-10-23; active design [`audit/program/briefs/5-earlier-cutoff.md`](../audit/program/briefs/5-earlier-cutoff.md)): using models with a verified cutoff <= 2024-06 plus >= 3-month margin unlocks >= 2 years of untouched post-cutoff data, moving the exact confirmer's 80%-power Sharpe benchmark from ~5–27.6 down to ~2 with zero calendar wait; reads only one way (paper, "How the wall moves").
-- **An automated quant shop**: the kernel one tool among many; later "any data, any market". The source declarations already generalize to any data; any market needs an execution model per venue, where backtests usually fail.
-- **Harnesses for non-Anthropic models**: needed for the earlier-cutoff arm (`audit/program/briefs/5-earlier-cutoff.md`), sketched in OCaml using pinned `libcurl` + `bubblewrap` without new Python.
-- **Observability**: a price-free operations dashboard is cheap; one showing unread post-cutoff prices spends a holdout.
-- **Agent memory across campaigns**: does it raise discovery without raising false discoveries? Measurable as a second arm of the positive control; study 1 has reported. Its reuse is counted in N (`audit/decisions.md`, 2026-11-02).
-- **Data purchases** (Norgate, Massive, Databento's Core Indices): none, indefinitely (the human, 2026-11-02).
-- **An event-contract venue**: none is certified. Kalshi's and Polymarket US's terms permit trading use only without written consent (`audit/decisions.md`, 2026-11-11). A reading-agent study reopens on a certificate and a measured count of at least 33 near-independent bets a week (paper, "How the wall moves").
-- **Study 1's second cell (unhinted plant) and a DSL designed for agents** (reopened 2026-11-24; [`audit/program/briefs/6-unhinted-search-dsl.md`](../audit/program/briefs/6-unhinted-search-dsl.md)): Study 1 crossed its upper boundary with a brief naming funding dislocations and a strategy guide opening with a line-10 `fade-extreme-funding` example, yet still failed on 24 of 42 completed markets while stopping early at median 9.5 of 100 evaluations (`audit/control-1/`), and `DSL.md` advertised inputs missing from N2 (`forum_posts`, `gov_proposals`, 13 of 325 evaluations in C4.5 v3). Reopened via (a) a zero-cost offline diagnostic of Study 1's 42 kept sessions and (b) Study 1 Cell 2 on a plant not named in the brief or `DSL.md`, paired with an agent-facing DSL surface A/B keeping identical kernel semantics (`audit/reviews/2026-11-08-sonnet-research-dsl.md`).
-- **The paired reading design** (an agent with filings against the same agent without): fair, and it needs 859 to 3,437 discordant forecasts (paper, "What stays closed, and what would reopen it").
+### Pod A — Cross-Asset Macro Vintage & Revision Alpha
+- **Hypotheses:** Real-time economic surprise and revision velocity ($\Delta_t^{\text{rev}}$ between `ORIGINAL` and `RESTATED` vintages in FRED/ALFRED, BLS, Treasury auctions, and BIS liquidity series) create systematic drifts across sovereign yields, FX pairs, gold, and crypto beta.
+- **Fabric Inputs:** `macro_datalayer` (`core.fact_observations` + `revision_diff_observations`), macro announcement calendars (`SCHED`), GDELT policy event velocity.
+- **Evaluation:** `bitemporal_asof_join` pairing macro vintage arrivals with high-frequency price reactions; out-of-sample IR and drawdowns net of realistic spreads.
 
-## Crypto-native and on-chain ideas (the advisor and GPT, 2026-11-06)
+### Pod B — Biotech Regulatory & Clinical Trial Catalyst Graph
+- **Hypotheses:** Changes between successive ClinicalTrials.gov v2 snapshots (`snapshot_diff` across recruitment status, target enrollment, primary completion dates, site additions/removals) combined with SEC Form 8-K/10-K risk-factor redlines anticipate regulatory approvals, delays, or buyout catalysts better than market consensus.
+- **Fabric Inputs:** `clinicaltrials_v2`, `sec_edgar`, OpenFDA adverse-event surges, company-to-compound entity graph $G(t)$ (`core.pit_edges`), and implied odds in `fact_expectations`.
+- **Evaluation:** Entity-blinded agent reasoning (`BLINDED_ENTITIES` mode) scored on `ForecastLedger` against crowd baselines (`brier_skill_vs_crowd`).
 
-Each needs a new feed with its certificate, and most need engine extensions (a spot hedge, lending, redemption queues). Under the wall each is a frozen rule, confirmable forward only at a Sharpe near 2 within two years (paper, "How the wall moves").
+### Pod C — Supply-Chain & Geospatial Chokepoint Nowcasting
+- **Hypotheses:** Physical constraints—maritime rerouting around Suez/Panama, port dwell anomalies, refinery weather/temperature spikes, grid load stress, and TSMC/semiconductor supplier concentration disclosed in filings—propagate with measurable lag into sector earnings revisions and commodity crack/time spreads.
+- **Fabric Inputs:** `core.pit_edges` multi-hop supply dependency graph, `sample_spatial_tensor` environmental/shipping summaries, SEC 10-K/20-F customer-concentration redlines.
+- **Evaluation:** Sector relative-value baskets and event probabilities tracked on the prospective ledger.
 
-1. Governance changes that move token-holder cash flows (buybacks, fee switches, issuance cuts), counted when implemented on chain.
-2. Funding carry on large, persistent dislocations, hedged.
-3. Verified treasury or vesting sales, not unlock calendars.
-4. Lending-market migration after cap, rate-model or incentive changes.
-5. Liquid-staking discounts against redemption-queue costs.
-6. Recovery after forced deleveraging ends, not front-running liquidations.
-7. Liquidity-incentive expirations.
-8. Organic protocol revenue after subsidies and dilution, where the token has an enforceable accrual channel.
-9. Cross-chain capital migration with an explicit economic link to the traded asset.
+### Pod D — Information-Flow & Prediction-Market Calibration
+- **Hypotheses:** Prediction market CLOBs (Polymarket/Kalshi/Manifold) under-react or over-extrapolate slowly diffusing primary-source evidence (dockets, trial amendments, central-bank minutes, legislative markups) and exhibit exploitable term-structure/liquidity skew.
+- **Fabric Inputs:** `polymarket_clob` (`temporal_polarity = 'FCST'` stored strictly separately in `core.fact_expectations`) paired with `PitSearchIndex` primary documents (`OBS`).
+- **Evaluation:** Proper scoring rules (`mean_brier`, `mean_log_loss`, `brier_skill_vs_crowd` vs `crowd_baseline`) and calibration curves across horizon buckets.
 
-## Rejected, and why
+### Pod E — Microstructure & Cross-Venue Funding / Liquidity Regimes
+- **Hypotheses:** Order-book imbalance, liquidity replenishment decay, cross-venue perp funding dispersion, and macro volatility shocks define conditional regimes where execution edge or basis carry outweighs conservative fill/fee drag.
+- **Fabric Inputs:** `hyperliquid_ws` (`fabric/adapters/hyperliquid_bridge.py`) + macro regime flags joined causally via `bitemporal_asof_join`.
+- **Evaluation:** Graduated through [`fabric/adapters/kernel2_pod.py`](../fabric/adapters/kernel2_pod.py) into `subprojects/confirmation-wall/kernel2` verified A18 Bar Markets (pessimistic fill + fee + staleness accounting). See also [`pods/README.md`](../pods/README.md).
 
-- **Forecasting already-resolved events with date-restricted reading**: retrieval leaks, and leakage only flatters the forecaster. At most a futility screen (paper, "The knowledge cutoff bounds the judged span").
-- **Sportsbook arbitrage**: books limit winners and their terms generally forbid automation. Event exchanges with official APIs are a separate case.
-- **Airdrop farming at scale**: many wallets posing as distinct users is Sybil deception against the protocol's terms.
-- **Token sniping, MEV, sandwiching, mempool front-running**: latency races against faster bots and adversarial deployers; an agent holding keys against hostile contracts.
-- **Copying top wallets**: selection on survivors, hidden hedges.
-- **"Stablecoins minted, so buy crypto"; buying every depeg; farming the highest APY**: weak causal story, or short records hiding catastrophic tails.
-- **LLM sentiment backtests over historical news or governance**: the model may know the outcomes.
-- **Mining indicators across hundreds of tokens**: data snooping (Sullivan, Timmermann and White); correlated tokens are not fresh evidence.
-- **HIP-3 venue effects judged on the underlying's long history**: that history never saw the venue's mechanism.
-- **CEX-DEX arbitrage, social-platform meme prediction**: the weakest of the 2026-11-01 directions.
+## Cross-Cutting Agentic Research Questions
+
+1. **Blinding Sensitivity:** Does `BLINDED_ENTITIES` mode degrade agent accuracy (revealing ticker memorization/contamination) or preserve alpha (indicating genuine causal document/series reasoning)?
+2. **Dynamic Graph Weighting ($G(t)$):** How should `rel_entity_edge.confidence` decay across restatements and stale disclosures?
+3. **Structured Diff Compression:** Which filing/trial diff representations give highest signal-to-token efficiency for agentic MCP loops (`diff_document_versions`)?
+4. **Ensemble Aggregation & Meta-Calibration:** How should independent Pod A–E forecasts be combined and recalibrated online using historical `ForecastLedger` Brier residuals?
+
+## Verified Execution Subproject (`subprojects/confirmation-wall`)
+
+The Lean-verified A18 Bar Market kernel ([`subprojects/confirmation-wall/kernel2/KERNEL.md`](../subprojects/confirmation-wall/kernel2/KERNEL.md)) and completed intraday confirmation-wall baseline ([`docs/findings.md`](findings.md), [`docs/whitepaper.pdf`](whitepaper.pdf)) remain active as the **execution & statistical verification layer** inside the broader platform. Any strategy generated by Pods A–E that expresses risk via discrete asset bars plugs directly into `kernel2` through `export_kernel2_bar_market`.
+
+## Known Pitfalls & Structural Fabric Defenses
+
+| Classical Pitfall | Fabric Defense |
+| --- | --- |
+| Revised-data look-ahead | Separate `event_time` from `known_at`; mandatory `known_at <= as_of` in `core.pit_latest` and `PitSearchIndex` |
+| Resurrecting retracted points | `row_number() OVER (...)` ranks revisions BEFORE filtering `revision_state <> 'RETRACTED'` |
+| `OBS` vs `FCST` label bleed | `polarity` constraint blocks `known_at < event_time` on `OBS` and separates forecasts into `fact_expectations` |
+| Backtest name memorization | Salted HMAC `EntityBlinder` masks IDs, aliases, extra terms, and calendar dates |
+| Multiple testing / post-hoc editing | Trigger-locked, SHA-256 hash-chained SQLite `ForecastLedger` + append-only `audit/` logs |

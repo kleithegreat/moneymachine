@@ -1,0 +1,7 @@
+(library
+ (name mmwiki)
+ (libraries core core_unix core_unix.sys_unix cmarkit tiny_httpd yojson)
+ (preprocess
+  (pps ppx_jane))
+ (lint
+  (pps ppx_js_style)))

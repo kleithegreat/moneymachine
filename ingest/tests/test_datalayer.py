@@ -1,4 +1,4 @@
-"""The data layer fetches only feeds whose hosts have certified terms, and keeps every body with its poll times."""
+"""The data layer validates HTTPS endpoints and keeps every body with its poll times."""
 
 import gzip
 import hashlib
@@ -17,18 +17,29 @@ import pytest
 from ingest import datalayer, live
 
 
-def test_every_declared_feed_has_certified_terms() -> None:
+def test_every_declared_feed_has_valid_https_url() -> None:
     assert datalayer.feeds()["feeds"]
 
 
-def test_a_feed_without_certified_terms_is_refused(tmp_path: Path) -> None:
+def test_unregistered_source_with_valid_https_url_is_accepted(tmp_path: Path) -> None:
     spec = {
         "user_agent": "x",
-        "feeds": [{"name": "x", "source": "ecb", "every_h": 1, "url": "https://example.org/data"}],
+        "feeds": [{"name": "x", "source": "unregistered_source", "every_h": 1, "url": "https://example.org/data"}],
     }
     (tmp_path / "f.json").write_text(json.dumps(spec))
-    with pytest.raises(PermissionError):
-        datalayer.feeds(tmp_path / "f.json")
+    loaded = datalayer.feeds(tmp_path / "f.json")
+    assert loaded["feeds"][0]["name"] == "x"
+
+
+def test_non_https_or_malformed_feed_url_is_refused(tmp_path: Path) -> None:
+    for bad_url in ("http://example.org/data", "ftp://example.org/data", "https:///no-host"):
+        spec = {
+            "user_agent": "x",
+            "feeds": [{"name": "x", "source": "ecb", "every_h": 1, "url": bad_url}],
+        }
+        (tmp_path / "f.json").write_text(json.dumps(spec))
+        with pytest.raises(ValueError):
+            datalayer.feeds(tmp_path / "f.json")
 
 
 def test_poll_keeps_the_body_content_addressed_with_its_times(tmp_path: Path) -> None:
@@ -55,15 +66,15 @@ def test_discover_fetches_the_index_then_the_release_it_names(tmp_path: Path) ->
     assert set(datalayer.last_polls(tmp_path)) == {"gdelt-events"}
 
 
-def test_a_discovered_url_without_certified_terms_is_refused(tmp_path: Path) -> None:
+def test_a_discovered_non_https_url_is_refused(tmp_path: Path) -> None:
     http = httpx.Client(transport=httpx.MockTransport(lambda req: httpx.Response(200, content=b"x")))
     feed = {
         "name": "x",
         "source": "gdelt",
         "every_h": 1,
-        "discover": {"url": "https://data.gdeltproject.org/i", "pattern": "(x)", "template": "https://example.org/{}"},
+        "discover": {"url": "https://data.gdeltproject.org/i", "pattern": "(x)", "template": "http://example.org/{}"},
     }
-    with pytest.raises(PermissionError):
+    with pytest.raises(ValueError):
         datalayer.poll(http, feed, tmp_path)
 
 
@@ -203,7 +214,7 @@ def test_an_intact_body_is_left_alone_with_nothing_to_record(tmp_path: Path) -> 
     assert raw.stat().st_mtime_ns == before and list(live.read(tmp_path, "repairs")) == []
 
 
-def test_a_damaged_discovery_index_does_not_stop_the_poll(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_damaged_discovery_index_does_not_stop_the_poll(tmp_path: Path) -> None:
     index = b'<a href="file-7.csv">'
     raw = tmp_path / "raw" / f"{hashlib.sha256(index).hexdigest()}.gz"
     raw.parent.mkdir(parents=True)
@@ -223,7 +234,6 @@ def test_a_damaged_discovery_index_does_not_stop_the_poll(tmp_path: Path, monkey
             "template": "https://api.example.org/file-{}.csv",
         },
     }
-    monkeypatch.setattr(datalayer, "certify", lambda feed, url: None)
     assert datalayer.poll(http, feed, tmp_path, {})["url"].endswith("file-7.csv")
 
 
@@ -431,7 +441,7 @@ def test_network_error_is_retried_and_succeeds_on_200(tmp_path: Path) -> None:
     assert datalayer.body(tmp_path, rows[2]["sha256"]) == b"zip-after-timeout"
 
 
-def test_uncertified_discovered_url_raises_before_fetching(tmp_path: Path) -> None:
+def test_invalid_discovered_url_raises_before_fetching(tmp_path: Path) -> None:
     seen: list[str] = []
 
     def respond(req: httpx.Request) -> httpx.Response:
@@ -443,17 +453,17 @@ def test_uncertified_discovered_url_raises_before_fetching(tmp_path: Path) -> No
         "name": "x",
         "source": "gdelt",
         "every_h": 1,
-        "discover": {"url": "https://data.gdeltproject.org/i", "pattern": "(x)", "template": "https://example.org/{}"},
+        "discover": {"url": "https://data.gdeltproject.org/i", "pattern": "(x)", "template": "http://example.org/{}"},
     }
     pending: dict[str, tuple[str, int]] = {}
-    with pytest.raises(PermissionError):
+    with pytest.raises(ValueError):
         datalayer.poll_with_retries(http, feed, tmp_path, {}, pending)
     assert seen == ["https://data.gdeltproject.org/i"]
     assert pending == {}
 
     seen.clear()
-    pending["x"] = ("https://example.org/x", 3)
-    with pytest.raises(PermissionError):
+    pending["x"] = ("http://example.org/x", 3)
+    with pytest.raises(ValueError):
         datalayer.retry_pending(http, [feed], tmp_path, {}, pending)
     assert seen == []
 

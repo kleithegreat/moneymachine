@@ -130,9 +130,9 @@ nix develop -c pytest -m local   # the tests marked `local`, here
 A flake sees only tracked files, so `git add` new ones first. `nix build -L .#checks.x86_64-linux.<name>` runs one group
 and `nix log <drv>` shows a failure's full output.
 
-- **The checks** (`flake.nix`, `checks.x86_64-linux`): `style`, `progress-cap`, `ingest`, `ops`,
-  `mmrec-tests` and `lean-proofs`. Each runs `pytest -m "not local"`
-  over its paths in a Nix sandbox, so it is rebuilt only when its inputs (its source subset) change. Prose (`docs`, `CLAUDE.md`,
+- **The checks** (`flake.nix`, `checks.x86_64-linux`): `style`, `progress-cap`, `fabric`, `fabric-proofs`, `mmfabric-tests`,
+  `fabric-ocaml-style`, `mmwiki-tests`, `wiki-style`, `ingest`, `ops`, `mmrec-tests`, `recorder-style`, and `lean-proofs`. Each runs in a Nix sandbox,
+  so it is rebuilt only when its inputs (its source subset) change. Prose (`docs`, `wiki`, `CLAUDE.md`,
   `PROGRESS.md`, ...) is outside every source subset, so a prose-only commit leaves all of them cached.
 - **The `local` marker** (`pyproject.toml`): tests that need this PC, because they read the real `data/` (link `data/` into a
   worktree, never commit it), kill a process, or read git history. `nix flake check` skips them and

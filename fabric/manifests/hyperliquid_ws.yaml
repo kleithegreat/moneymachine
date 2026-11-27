@@ -1,0 +1,18 @@
+source_id: "hyperliquid_ws"
+domain: "onchain_perps"
+modality: "l3_book"
+storage_tier: "local_hot_ducklake"
+temporal_semantics: "append_only"
+temporal_polarity: "OBS"
+license_class: "PERSONAL_RESEARCH"
+retroactive_history_start: "2023-04-15T00:00:00Z"
+live_collection_start: "2026-11-14T00:00:00Z"
+cadence: "realtime_ws"
+entity_resolvers:
+  - local_key: "coin"
+    target_node_type: "PERP_CONTRACT"
+    resolver_pipeline: "hyperliquid_meta_universe"
+quality_sla:
+  max_freshness_lag_hours: 1
+  require_raw_cas_hash: true
+  reject_future_known_at: true

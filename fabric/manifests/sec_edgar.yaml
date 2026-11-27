@@ -1,0 +1,18 @@
+source_id: "sec_edgar"
+domain: "fundamentals_filings"
+modality: "document"
+storage_tier: "local_hot_ducklake"
+temporal_semantics: "restatable_vintage"
+temporal_polarity: "OBS"
+license_class: "PUBLIC_DOMAIN"
+retroactive_history_start: "1994-01-01T00:00:00Z"
+live_collection_start: "2026-10-26T00:00:00Z"
+cadence: "continuous_rss_and_nightly_bulk"
+entity_resolvers:
+  - local_key: "cik"
+    target_node_type: "ORGANIZATION"
+    resolver_pipeline: "deterministic_sec_cik"
+quality_sla:
+  max_freshness_lag_hours: 24
+  require_raw_cas_hash: true
+  reject_future_known_at: true

@@ -26,107 +26,30 @@ The one exception is the audit record (§3): pre-registered criteria, the experi
 
 ## 3. This project
 
-The human directs the project and is sometimes present: ask when it matters. **The coordinator (advisor role) runs in stateless sessions**, never one long-lived multi-compaction session: every coordinator session reads `PROGRESS.md`, `CLAUDE.md`, and primary records directly (`audit/decisions.md`, `audit/criteria.md`, `docs/whitepaper.tex`, specs), rotating fresh at major milestones rather than relying on compacted session memory to defend closed lines. Builders are fresh, self-contained sessions or subagents; every session reads `PROGRESS.md` first, and a builder ends by updating it (or reporting its result to the coordinator). Some work runs unattended (oftentimes overnight); then nobody answers, so write what you would have asked under Blockers, commit, and carry on with whatever does not depend on it.
+`moneymachine` is an open, polyglot **Unified Multi-Modal Quantitative Data Fabric & Agentic Quant Experiment Platform** (architecture: `docs/quantitative_multi_modal_data_fabric_architecture.md`; source playbook: `docs/Data Fabric Source Implementation.pdf`). Start at `wiki/index.md` (or serve locally via `nix run .#wiki`), `PROGRESS.md`, `AGENTS.md`, `wiki/quirks.md`, `wiki/adrs/index.md`, `pods/README.md`, and `audit/decisions.md`. There is intentionally no root `README.md`.
 
-The spec is `docs/whitepaper.tex`, the source of truth for intent; its roadmap sets the studies. The project is academic: a study of what can and cannot be confirmed about an agent's edge, in which the research system is an aim and not only a means; no live trading (the human, 2026-11-11). If the paper and reality disagree, §1 applies: re-derive, and if the paper is wrong, record that under Blockers before changing it. After a paper change, commit the rebuilt PDF (`nix build .#whitepaper`, copy `result` to `docs/whitepaper.pdf`).
+### Mission & Research Posture
 
-### The advisor
+- **Open hypothesis generation:** Think like a curious junior researcher who assumes discoverable structure exists across macro revisions, corporate/clinical filings, spatial streams, prediction markets, and order-book microstructure until clean out-of-sample evidence settles each question. Never artificially narrow project scope or kill exploration prematurely before testing.
+- **Causal discipline:** Exploration freedom rests on non-negotiable bitemporal integrity across `fabric/`: `known_at <= as_of`, `OBS` vs `FCST` polarity separation, non-resurrecting `RETRACTED` revisions, content-addressable `raw_hash` provenance, optional blinded `PodView` isolation, and forward-only scoring in `fabric/ledger.py`.
+- **Plug-in subprojects:** Prior verified microstructure and execution work lives under `subprojects/confirmation-wall/` (`kernel2/` A18 Bar Markets, `reference/lean/`, `kernel-v1/`, linked with `docs/findings.md` and `docs/whitepaper.pdf`) and plugs into the fabric via `fabric/adapters/kernel2_pod.py` alongside live collectors (`recorder/` and `ingest/`).
 
-When the human asks something or proposes an idea, catch every case where it has already been studied, solved or argued at length. Say exactly "this has been talked about extensively you're just 21", name the work and what it found, and build on that. Say it only when it is true, checking when unsure.
+### Pragmatic Licensing
 
-### Where information lives
+- `ingest/terms.py` (`license_class`, `allowlist`, `admits`) and `fabric/manifest.py` (`SourceManifest.license_class`) classify source terms as descriptive metadata (`PUBLIC_DOMAIN`, `CC_BY`, `PERSONAL_RESEARCH`, `NON_COMMERCIAL`, `COMMERCIAL_API`, `RESTRICTED_INTERNAL`) rather than blocking exploratory collection or research with hard runtime permission gates.
+- Carry `license_class` and `raw_hash` on ingested artifacts so production/redistribution views can filter via `PodView.allowed_licenses` cleanly.
 
-One authoritative home per kind of information; anything elsewhere is a summary that links to it.
-- **Intent, derivations and findings:** the paper. Every load-bearing number and nontrivial choice is derived there, or stated there as a choice with its reason; every completed study's result is synthesized there. The paper stands alone, written as for a conference or journal (the human, 2026-11-16): no repository paths, internal labels (criterion, decision or finding ids) or cluster operations, and findings as an argument, not a digest of `audit/`. Specs and criteria say what, and cite the paper for why.
-- **Process:** this file.
-- **Findings index:** `docs/findings.md`, one row per completed study, each linking the paper's section and the audit record: the only bridge between them, since the paper names no file. It holds no number of its own.
-- **The live system:** `CLUSTER.md`.
-- **Status:** `PROGRESS.md`, current state only: Now, Blockers, Decisions awaiting the human's review, Qualifications. Prune it to stay under its cap (the flake check `progress-cap`), leaving history to git.
-- **Audit record:** `audit/`, centred on `audit/criteria.md` and `audit/decisions.md`. Append-only, never pruned.
-- **Source certificates:** `venue/sources.toml`, read by the terms tests.
-- **Outside research:** `docs/research/`, deep-research reports kept verbatim; their citations are leads until checked.
-- **Specs for independent implementers:** the upper-case `.md` beside the code it defines (`recorder/RECORDER.md`, `ingest/ARCHIVE.md`), complete enough to implement from alone.
-- **History:** `ctx view | zoom | grep`, a retrieval aid and never evidence: before relying on a summary, read the leaf (`ctx zoom <ref>`) and the audit record.
+### Polyglot Language Hierarchy
 
-### Frozen identities
+Everything runs reproducibly through the Nix flake (`nix develop -c <cmd>`); new dependencies belong in `flake.nix`.
 
-Erasure (§2) also never touches what a frozen identity hashes (the stage 3 harness and the kernel of the pilot's judged runs at `archive/pilot`, the parked thesis track's manifest at `archive/thesis`), unless the change is meant to fork it. A fork never gets to rerun what it judged on the same evidence: a changed harness needs fresh null campaign ids, and a real arm needs a new, later holdout. Check first: `audit/criteria.md`.
+- **OCaml 5 (`recorder/`, `fabric/ocaml/`, `wiki/server/`) — Default Systems Language:** Default for collectors, CLI tools, storage/CAS utilities (`mmfabric`), the markdown wiki/docs server (`mmwiki`), and systems infrastructure (`ocamlformat` janestreet profile, `ppx_js_style`, `-warn-error +a`).
+- **Lean 4 (`fabric/lean/`, `subprojects/confirmation-wall/{kernel2,reference}/`) — Critical Proofs Without Rabbit Holes:** Prove high-leverage causal and accounting invariants directly in clean, fast, `warningAsError`-enforced Lean without adversarial compiler theater.
+- **Python 3.13 (`fabric/`, `pods/`, `ingest/`, `ops/`) — ML, Stats, Data Analytics & MCP:** Use Python where its ecosystem excels (`numpy`, `scipy`, `polars`, `duckdb`, `pyarrow`, `xarray`, `tantivy`, `mcp`, Pydantic, Strategy Pods). Non-frozen Python passes `mypy --strict`, `ruff format --check`, and `ruff check`. Frozen recorder dependencies (`ingest/datalayer.py`, `ingest/live.py`, `ingest/sources_record.py`) remain lean stdlib modules for minimal live container images (`pythonFor`).
+- **Nix (`flake.nix`, `ops/`):** Reproducible dev shells, container builds, homelab cluster deployments (`CLUSTER.md`), and verification checks (`nix run .#test`).
 
-### Decisions
+### Audit Record & Git Hygiene
 
-One question sets the process: could this change a judged result, or can't it be undone? If not, one builder decides and logs one line in `audit/decisions.md`. If so, the advisor has it reviewed: an architect's design by its adversarial reviewers (Orchestration), anything else by two fresh reviewers, a Claude session and GPT (another model in GPT's place when GPT built the work), without giving them its conclusion. Then it decides and acts, logging in `audit/decisions.md` what, why, what reviewers said and how to reverse it; the human reviews it afterwards under "Decisions awaiting the human's review". Only the list below waits for the human.
-
-A new rule names the failure it prevents, and goes when that failure can no longer happen.
-
-Only the human may:
-- loosen a frozen threshold;
-- spend beyond an approved budget (`audit/decisions.md`);
-- overrule a terms or licence reading (the advisor settles them as reviewed decisions);
-- delete audit records.
-
-### Pre-registered criteria
-
-Pre-register only conditions that judge a number someone could game, such as a statistical claim. Operational readiness is a test suite, not a criterion (the failure this prevents: C3.2 and C4.5 v1 to v3, and C10.2's transcript mapping). Before any work on stage N, write its exit criteria in `audit/criteria.md`: measurable, with thresholds, fixed before you see any result they will judge. Derive each from the claim it supports: every condition names the outcome of the claim it detects, every number its derivation, and reviewers try to construct a run that passes while the claim is false and one that fails while it holds (the failure this prevents: C4.5 v1 and v2, `audit/decisions.md`, 2026-11-01 and 2026-11-02). Have them reviewed, then commit them alone as `criteria: stage N`. Those lines are never edited. A wrong criterion gets a dated revision beneath it, and the stage is judged only on evidence produced after it. After a failure, a criterion may be amended only if that cannot increase false discoveries, labeled as an amendment, never as a pass of the original. A stage is done when its criteria are met as written. Never redefine done.
-
-### Correctness
-
-Tests pass before every commit; one reporting a recorded criterion failure is `xfail(strict=True)`, its reason naming the record. Everything that can change a judged result or lose a recording is held to its spec, not only the kernel: the gate, the series, the studies, the recorders, the mirror. A different session writes its tests from the spec without reading the code, a different model where a judged result depends on them; a defect starts as a failing test, and failure paths are tested by killing the process. One fresh session hunts bugs in the code a stage rests on before its exit and before each refreeze (the failure this prevents: `audit/reviews/2026-11-02-gpt-hunt-*.md`).
-
-### Holdout
-
-Only the gate's holdout step reads `data/holdout/`, once per campaign, as the paper's statistical gate describes; a spent holdout is never reused. Nothing derived from an unreleased holdout, an embargo or the forward confirmation window [2026-11-01, 2027-01-31), live recordings included, reaches research, selection, or anyone reviewing unfrozen work. Anyone who can change a brief, strategy, universe, execution assumption or finalist inspects those recordings for integrity only (status, sizes, hashes, gaps), never prices or returns, and records any other access (`audit/criteria.md`, stage 3).
-
-### Reviewers
-
-**Threat model:** All checks, proofs, and reviews operate under an **honest-but-buggy threat model**: they guard against accidental implementation bugs, statistical or leakage invalidation, and recording loss — **not** a malicious compiler-exploit adversary inside our own build pipeline.
-
-**Consulting** means the whole repo and history: reviewers are as capable as the advisor. Only two things are withheld: the holdout material above, and raw rows of kernel-only sources, of which only the frozen aggregate reports cross (`audit/decisions.md`, licensing boundary, 2026-10-26; debugging views per `audit/stage8/scope-manifest.md`). Outside models run from a clean worktree, which holds no `data/` and no token files.
-
-**An independent check** is what a frozen criterion or the paper's sections on verified kernels and the statistical gate name (a red team, a differential implementation, a locked suite), plus a source-blind red team after each kernel milestone, whose every success becomes a permanent test, and the review of criteria before they are committed and of the evidence before a stage is marked done. Where its result depends on what the checker did not see, copy only the files it should see into a fresh directory under `~/.cache/mm-gpt`, never the repo, and run `timeout 3600 ops/gpt.sh <dir> <model> <prompt-file> <out-dir>` on it as a background task, taking the deliverable from `<out-dir>/reply.md`: the jail lets it read that directory and nothing else of `$HOME`. The model that built a piece never gives its independent review, and GPT does not build what a frozen criterion has it check.
-
-Work that could change a false-discovery or leakage outcome gets an independent review, whichever model wrote it. Research agents' models are frozen in their harnesses.
-
-**Adversarial review of a design** is for coverage: models cover each other's gaps and converge on a shared best answer, at the cost of time and usage. A design under review lives on a branch, so nothing it decides is beyond undoing. **Reviews of built work** are for consequential boundaries: what could change a judged result, leak protected data, lose a recording or can't be undone. Reversible work (housekeeping, tooling) gets targeted tests, not review rounds. Reviews take one round by default, and their output is evidence, not orders. Each finding names the outcome it could change: a score or judged result, a leak, a lost recording. Tripping an operational check is not one. A finding that can't change an outcome is noted, not acted on. Work that isn't active gets no review rounds. A review is evidence only when its reviewer could have failed it:
-- The reviewer runs things in its own worktree, and a slice's review runs the harness of every criterion the slice can break: read-only reviews missed what one run showed (C6.4's edge market after slice 5, `audit/stage7/edge-regression.md`).
-- The diff it reads is three-dot from the merge base: a two-dot diff against a moved `main` produced a false finding (2026-11-07).
-- A reviewer's suggested fix is a hypothesis: the builder fixes the cause it finds, from a failing test (Argon's read-only ledger became refreeze round two's worst regression).
-- **Bounded Review Protocol:**
-  - **Bundle cap (< 50 KB):** every review bundle MUST stay under 50 KB (targeted diff plus the affected invariant or derivation; never multi-hundred-KB dumps).
-  - **Finding grading:** grade every finding as a **Blocker** (breaks 5% Type-I validity under realistic execution, leaks protected data, loses or corrupts live recordings, or breaks accounting) vs **Non-Blocker** (style, or exotic compiler/adversary constructions outside the honest-but-buggy threat model).
-  - **Hard cap of 2 review rounds:** reviews take one round by default; **only Blockers** trigger a second review round (on another model where available, if a Blocker changed the design). If Blockers have not converged after Round 2, stop and escalate to the human with a concise ledger (what changed, what is agreed, what is disputed, and what assumption only the human can choose). Findings that keep landing on patches rather than converging mean the design is wrong (§1; `audit/reviews/2026-11-09-fable-meta-review.md`).
-  - **Prototype-Before-Spec:** whenever performance, toolchain behavior, or external venue API behavior is load-bearing, run a short empirical prototype before writing a multi-round specification.
-
-### Orchestration
-
-Plan usage is the binding cost, so roles follow each model's record here and the independence rules above (the human, 2026-11-09):
-- **The architect** is a fresh Claude Opus 5.5 session at maximum reasoning effort, never the advisor's own (the human, 2026-11-16, when access to Claude Fable ended), or Gemini 4 Neon when Claude usage is short (the human, 2026-11-19), which then cannot review that round: it designs studies, redesigns, derivations and criteria, and gives project-level reviews. It never builds. For each build it writes a plan of ordered steps, each stating the behaviour its tests must show.
-- **Claude Opus** orchestrates as the stateless coordinator (advisor role): it turns designs into builder briefs, routes work, reviews Sonnet's builds, and gives the last review before anything that can't be undone or changes a judged result (a freeze, a stage exit, a criteria commit), of work it did not build.
-- **Sonnet** builds the architect's plan exactly, as subagents. For each step:
-  - a session that does not build the step writes its tests from the plan, without reading the code;
-  - the builder makes them pass without editing them, in one commit;
-  - a wall the plan did not foresee goes back to the architect as a question and is never patched around (§1);
-  - Opus checks the commit against its step.
-
-  Sonnet does not review.
-- **Outside models** are the architect's adversarial reviewers: **GPT** (`codex` through `ops/gpt.sh`, from a self-contained clone with no `data/`; `gpt-6.2-sol`, which passed its blind calibration on 2026-11-21) and **Gemini 4 Neon** (`gemini-4-neon-xhigh`, which replaced Argon and passed its blind calibration on 2026-11-18; through `agy` from a clean folder, or a self-contained bundle in the Gemini web UI; one run at a time, never near its weekly limit, since a 429 discards the run). They get everything the architect had, its conclusions included, and try to break the design at the theoretical level rather than re-derive it. Only what Reviewers withholds stays withheld. Ask the Gemini reviewer for findings in parts: long web replies were cut off twice. Probe first (a one-line prompt through `ops/gpt.sh`); if an outside model is unavailable, never block: a fresh Opus session reviews, labeled as such, with the outside review queued, and an independent implementation waits unless its criterion says otherwise.
-- A model new to a role is calibrated blind on a settled case before its findings count.
-
-Builders commit each finished step and write long runs' output to disk, so a usage cutoff costs one step (GPT stopped mid-work four times, 2026-11-06 and 07). As a plan nears its limit, stop the least important Claude work first: the advisor shares the account.
-
-### Sources
-
-Fetch automatically only under a certificate that quotes a permitting clause, shows an official API allowing it, or records the human's specific operator decision (the paper's section on sources, `ingest/terms.py`); silence is not permission. A 403 or any access restriction goes under Blockers and is never worked around. Accounts and contact fields use the name and email in `SEC_USER_AGENT` in `.keys.env`.
-
-### Running things
-
-- **Live workloads:** on the cluster; read `CLUSTER.md` before touching one. Recordings can't be refetched: never delete or move them, nor a file a running process reads.
-- **Heavy jobs:** on this PC, `nix run .#heavy -- <memory> <command>`.
-- **Performance:** use every core while work is queued, with pools sized from measured peak memory and free memory (`ingest/compute.py`). An idle host with work waiting is a bug.
-- **Full test suites:** `nix run .#test` from the worktree (`CLUSTER.md` §6): the flake checks build on the remote builders, cached by their inputs, then the tests marked `local` run here. A flake sees only tracked files, so `git add` new ones first.
-- **Waiting:** heavy entry points block, so run them as background tasks. For an unattended wake-up, write its condition and action into Now and schedule `nix run .#session -- at <when> builder <task> [model]`. A wake-up still in Now after its time, with no start in `data/builder/log.tsv`, was missed (timers run only while logged in): do it. Claude builder sessions are named `builder: <task>`.
-
-### Tech
-
-Everything runs through the flake (`nix develop -c <cmd>`); new dependencies go in `flake.nix`. Strategies are data, a JSON AST the kernel type-checks and interprets, never host-language code. The ledger is SQLite whose triggers reject UPDATE and DELETE; data is Parquet under `data/`, gitignored.
-
-The pilot's engine (Rust), gate and harness are archived at `archive/pilot`, and every judged pilot result, and study 1, come from that one frozen kernel. On `main`, the stack is functional-first: **Lean 4** (`reference/lean`, and kernel version 2 on its branch) for the kernel core, exact accounting, and proved statistical and invariance laws, using IEEE-754 binary64 for `+ − × ÷` and `sqrt` with pinned **MPFR** rounded once to binary64 for deterministic `exp`/`log`; **OCaml** (`recorder/`, kernel plumbing) for recorders, readers, CLI, and ops tooling; and **Nix** (`flake.nix`, `ops/`) for builds, manifests, deployment, and checks. Prefer OCaml or Nix over complex `bash`/`jq`. Zero new Rust or Python is permitted (the human, 2026-11-12; 2026-11-22, `audit/decisions.md`), and the `python-left` flake ratchet stays enforced until the remaining Python survivors (`ingest/`, `ops/`) are retired or ported. **Sequencing Rule:** porting existing working Python glue to OCaml never preempts active empirical studies or urgent live recording fixes.
+- `audit/` (`decisions.md`, `criteria.md`, campaign logs, spent holdouts) and SQLite forecast ledgers are strictly append-only.
+- Every timestamp added to `PROGRESS.md` or `audit/` (outside `audit/reviews/`) pairs `HH:MM UTC` with `HH:MM EST` or `EDT` on the same line (`ops/check-times.sh`).
+- Keep `PROGRESS.md` concise (`<= 12,288` bytes). Never modify `data/` artifacts or `~/embargo/` holdouts in code commits, and verify `nix run .#test` passes before handoff.

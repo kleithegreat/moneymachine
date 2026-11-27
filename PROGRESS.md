@@ -1,6 +1,6 @@
 # Progress
 
-Current state only; history is in git. The pilot's code is at `archive/pilot` (2026-11-22); `main` holds the live hardened recorders and datalayer retry fix, the mirror and guard, `reference/lean`, the decoupled `kernel2/` sub-flake (Steps 0–5 with pinned MPFR), and the frozen Study 2 / reopened follow-on specs.
+Current state only; history is in git. `moneymachine` has pivoted to an open, polyglot **Unified Multi-Modal Quantitative Data Fabric & Agentic Quant Experiment Platform** (`fabric/`, `pods/`), while the original confirmation-wall and A18 Bar Market verification program plugs in as [`subprojects/confirmation-wall/`](subprojects/confirmation-wall/README.md) (`archive/pilot` holds the retired v1 code).
 
 ## Now
 
@@ -8,41 +8,39 @@ Current state only; history is in git. The pilot's code is at `archive/pilot` (2
 
 - **Cluster, live** (`prodesk7`, namespace `moneymachine-live`; `KUBECONFIG=~/.kube/moneymachine-live.yaml kubectl -n moneymachine-live get pods,jobs,cronjobs`; `CLUSTER.md`):
   - Recorders: StatefulSets `ws` (OCaml `mmrec`, `recorder/RECORDER.md`) and `datalayer`, plus CronJob `vault` (`mmvault`, hourly) **deployed live at `d8bbc35`** (`sha256:a30690f1b9f7a24f5c74c8dac22d0538ffaa333c0d00beeb549a9ca17695c430`, pushed & applied `2026-11-25 21:22 UTC (16:22 EST)` via `nix run .#push` / `.#apply`, `ws-0` & `datalayer-0` `1/1 Running`); `sources` (`sha256:8ad0b655...`), `mirror`, and `mirror-verify` (`sha256:5e81095e...`) remain unchanged and healthy. `hl` retired 2026-11-22 (PVC kept).
-  - The mirror CronJobs; `prodesk7` also acts as a remote Nix builder (`CLUSTER.md` §6; pass `--max-jobs 1` or `--builders ""` locally for heavy `kernel2/` Lean+OCaml builds so `gmktec`/`prodesk7` are not overloaded).
+  - The mirror CronJobs; `prodesk7` also acts as a remote Nix builder (`CLUSTER.md` §6; pass `--max-jobs 1` or `--builders ""` locally when needed).
 - **Oracle VM:** terminated 2026-11-22 after verification; forward-window days embargoed in `~/embargo/oci-forward-window/` (integrity only until window ends).
 - **This PC** records nothing; `data/live`, `data/sources_live`, `data/datalayer`, `data/live-oci` are closed hosts kept as evidence. Clean checkout on `main` synced with `origin/main` (legacy worktrees & 6 merged branches removed `2026-11-25 21:23 UTC (16:23 EST)`).
-- **Process (`CLAUDE.md`):** Stateless coordinator sessions (never long-lived multi-compaction advisor threads), **honest-but-buggy** threat model, **Bounded Review Protocol** (< 50 KB bundles, Blocker vs Non-Blocker grading, max 2 rounds, Prototype-Before-Spec), and functional-first stack (Lean 4, OCaml, Nix, pinned MPFR; zero new Python).
+- **Process & Language Roles ([`AGENTS.md`](AGENTS.md), [`CLAUDE.md`](CLAUDE.md), [`wiki/index.md`](wiki/index.md)):** Open hypothesis generation backed by strict causal hygiene; **OCaml 5** default for systems/collectors/CAS/wiki (`recorder/`, `fabric/ocaml/`, `wiki/server/` `mmwiki`); **Lean 4** for compact critical proofs without rabbit holes (`fabric/lean/`, `subprojects/confirmation-wall/`); **Python 3.13** scoped to ML/stats, DuckDB/PyArrow analytics, Tantivy bindings, and MCP agent pods (`fabric/`, `pods/`); pragmatic `license_class` metadata tagging in `ingest/terms.py`. No root `README.md`; docs live in `wiki/` and are served offline via `nix run .#wiki`.
 
 ### Work in progress
 
-Roles and laws: [`CLAUDE.md`](CLAUDE.md). Academic research system: no live trading. Project Reset recorded at `2026-11-25 18:18 UTC (13:18 EST)` and live rollout at `2026-11-25 21:23 UTC (16:23 EST)` (`audit/decisions.md`).
+Roles and laws: [`CLAUDE.md`](CLAUDE.md), [`AGENTS.md`](AGENTS.md). Academic/R&D platform: [`audit/decisions.md`](audit/decisions.md).
 
-1. **Kernel v2 & Study 2 (`audit/program/kernel-v2.md`, `kernel2/`, `briefs/3-kernel-v2.md`, `briefs/4-study-2.md`):**
-   - **Specs FROZEN:** 20-round specification loop closed cleanly (`audit/program/ledger.md`); compiler-replay sandbox replaced by `kernel2/lean/check-proofs.sh` under the honest-but-buggy threat model; Round 20 quiet-day midnight coin-end, registration-fixed `meta` (`TON` excluded), and single-host deterministic monthly replay folded into `4-study-2.md` and `kernel2/KERNEL.md` (committed `CS2.1`–`CS2.3` untouched).
-   - **Kernel v2 Steps 0–5 landed on `main` (`kernel2/`):** decoupled sub-flake (`kernel2/flake.nix` + `kernel2/flake.lock`, sha256 `415c302c...`), pinned `pkgs.mpfr` `exp`/`log` (`c/mpfr_ops.c`), shared `mm2-engine-static`, `check-proofs.sh` + negative fixtures. **Next pickup:** execute Kernel v2 Steps 5a → 6 → 7 → 8 → 9 → 10, then Study 2 Steps 1–6 and freeze.
-2. **Urgent live capture hardening (DEPLOYED LIVE `2026-11-25 21:22 UTC (16:22 EST)`):**
-   - Hardened `recorder/` (`libcurl` + `jsont`, RFC 6455 `Sec-WebSocket-Accept`, 3-state TLS probe cache, zero-alloc `route.ml`, D369 4-state streams, monotonic run IDs, `zstd` GC tracking, zero wildcard `with _`/`exception _` catch-alls) and `ingest/datalayer.py` (in-place GDELT 10-tick retry without shifting `every_h`, plus `last_polls` `/index` restart fix) are running live on `prodesk7`.
-3. **Parallel reopened research tracks (ready to start in fresh session):**
-   - **Earlier-Cutoff LLM Arm (`audit/program/briefs/5-earlier-cutoff.md`):** cutoff `<= 2024-06-30` unlocking 760-day pre-embargo holdout (`[2024-10-01, 2026-10-31)`), 80%-power Sharpe ~2.07. **Next pickup:** run Prototype 0 (archive coverage, 0/20 canary probe, `libcurl` + `bwrap` OCaml harness).
-   - **Study 1 Diagnostic, Unhinted Cell 2 & Agent DSL (`audit/program/briefs/6-unhinted-search-dsl.md`):** **Next pickup:** run Part A zero-cost OCaml offline diagnostic of Study 1's 24/42 failures (`median 9.5` evals), then microbenchmark + Cell 2 A/B.
-4. **The paper (`docs/whitepaper.tex`, `docs/whitepaper.pdf`):** updated with Opus 5.5 (`d8bbc35`) for frozen specs vs foundation Steps 0–5 built, Round 20 quiet-day rules, 5 bar assumptions, single-host replay, write-denied reading-agent defect, and honest-but-buggy MPFR Kernel v2; PDF rebuilt cleanly.
-5. **Python's extinction (`audit/program/python-extinction.md`):** Revision 3 + Reset Sequencing (**Phase 2**: `mmdata` & `mmops` follow Study 2 freeze; step `1c` deleting `ops/live.py`'s deployer half is now unblocked after live deploy; `python-left` ratchet active).
+1. **Unified Multi-Modal Data Fabric & Wiki (`fabric/`, `pods/`, `wiki/`, `docs/quantitative_multi_modal_data_fabric_architecture.md`, `docs/Data Fabric Source Implementation.pdf`):**
+   - **Phase 0 landed:** `fabric/ocaml/` (`mmfabric` Zstd CAS + PIT core), `fabric/lean/` (`Fabric.Causal` causal/non-resurrection/ASOF/PodView proofs), `fabric/manifests/` (5 declarative source manifests), DuckDB PIT catalog (`fabric/catalog.py`), Tantivy PIT lexical search (`fabric/search.py`), `PodView` entity blinding (`fabric/views.py`), 6-tool FastMCP service (`fabric/mcp_server.py`), hash-chained SQLite `ForecastLedger` (`fabric/ledger.py`), adapters (`fabric/adapters/`), and OCaml markdown wiki server (`wiki/` + `wiki/server/` `mmwiki`).
+   - **Unblocked tooling & licensing:** retired `ops/test-python-left.sh`; replaced `ingest/terms.py` & `ingest/datalayer.py` permission walls with descriptive `license_class` tagging; added `fabricPythonFor` (`numpy`, `scipy`, `duckdb`, `pyarrow`, `pydantic`, `zstandard`, `tantivy`, `mcp`, `xarray`), `mmfabric`, and `fabric-proofs` checks in `flake.nix`.
+   - **Next pickup:** bridge local `data/datalayer` & `data/snapshots` captures into a working Pod and launch the first end-to-end exploratory Strategy Pod (`docs/future-work.md`, `pods/README.md`).
+2. **Plug-in Verification Subproject (`subprojects/confirmation-wall/` — `kernel2/`, `reference/`, `kernel-v1/`):**
+   - **Specs & Steps 0–5 (`kernel2/`):** decoupled sub-flake (`subprojects/confirmation-wall/kernel2/flake.nix`, pinned MPFR `exp`/`log`, `check-proofs.sh`). Graduates discrete-bar strategies from `fabric` via `fabric.adapters.kernel2_pod`. Remaining build steps (5a–10) & Study 2 follow-on (`audit/program/briefs/`) run independently as subproject work.
+3. **Urgent live capture hardening (DEPLOYED LIVE `2026-11-25 21:22 UTC (16:22 EST)`):**
+   - Hardened `recorder/` (`libcurl` + `jsont`, RFC 6455, 3-state TLS probe, `zstd` GC accounting) and `ingest/datalayer.py` (GDELT retry + `last_polls` fix) running live on `prodesk7`.
+4. **The whitepaper (`docs/whitepaper.tex`, `docs/whitepaper.pdf`):** preserved intact for the confirmation-wall subproject (`docs/findings.md`).
 
 ### Finished
 
-- Stages 0–6 exited; study 1 done (CS1.1 met at market 43, 2026-11-22; `audit/control-1/`). Findings: the paper, linked to the record by `docs/findings.md`; qualifications below.
-- Deletion phases A, B and C done 2026-11-22 (`audit/erasure/2026-11-22-deletion-list.md`), with the cluster's cleanup (Homelab `780be55`: `moneymachine-live` enforces `restricted`, the agent sandbox and batch namespace gone) and the desktop's (dotfiles: no longer a k3s agent, only the `mirror` export stays; active after the human's next `nixos-rebuild switch`); style gates on `recorder/` and `reference/lean`.
+- Stages 0–6 exited; study 1 done (CS1.1 met at market 43, 2026-11-22; `audit/control-1/`). Findings: [`docs/whitepaper.pdf`](docs/whitepaper.pdf), indexed in [`docs/findings.md`](docs/findings.md); qualifications below.
+- Deletion phases A, B and C done 2026-11-22 (`audit/erasure/2026-11-22-deletion-list.md`) plus cluster hardening cleanup (`780be55`).
 
 ## Blockers
 
-- **prodesk7 powered off** 2026-11-22 13:00 to 17:06 UTC (08:00 to 12:06 EST); the recorders are back, with a gap of about 4 h 07 min (`audit/decisions.md`). Cause unknown — requires human physical/hardware check on the node.
-
-None else blocks the program. Failed source certificates stay in `venue/sources.toml` and `audit/decisions.md` (Kalshi, Polymarket, FRED/ALFRED, IMF, stage 8).
+- **prodesk7 powered off** 2026-11-22 13:00 to 17:06 UTC (08:00 to 12:06 EST); recorders are back, ~4 h 07 min gap (`audit/decisions.md`). Cause unknown — requires human physical/hardware check on the node.
 
 ## Decisions awaiting the human's review
 
 - **Hardware checklist (`prodesk7`):** inspect the 2026-11-22 power-loss root cause, enable BIOS AC-power-recovery auto-boot, verify PSU/UPS, and provision 2 TB NVMe storage before the 300 GiB recorder volume fills (~April 2027).
-- **Retire `ops/live.py`'s deployer half (`python-extinction` step 1c):** now unblocked after the `d8bbc35` live rollout via `nix run .#push` / `.#apply`.
+- **Retire `ops/live.py`'s deployer half (step 1c):** unblocked after `d8bbc35` live rollout via `nix run .#push` / `.#apply` (porting mirror/ops to OCaml can happen opportunistically without blocking experiments).
+- **Select first live Strategy Pod vertical (`docs/future-work.md`):** choose which of Pods A–E to populate first beyond the existing `datalayer` + Hyperliquid feeds.
 
 ## Qualifications
 

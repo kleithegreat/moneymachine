@@ -1,0 +1,17 @@
+source_id: "macro_datalayer"
+domain: "macro_and_regulatory"
+modality: "event_log"
+storage_tier: "local_hot_ducklake"
+temporal_semantics: "restatable_vintage"
+temporal_polarity: "OBS"
+license_class: "PUBLIC_DOMAIN"
+live_collection_start: "2026-10-28T00:00:00Z"
+cadence: "15m_to_weekly"
+entity_resolvers:
+  - local_key: "feed"
+    target_node_type: "DATA_FEED"
+    resolver_pipeline: "deterministic_feed_slug"
+quality_sla:
+  max_freshness_lag_hours: 48
+  require_raw_cas_hash: true
+  reject_future_known_at: true

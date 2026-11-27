@@ -1,0 +1,6 @@
+name = "fabric"
+defaultTargets = ["Fabric"]
+leanOptions = { warningAsError = true }
+
+[[lean_lib]]
+name = "Fabric"

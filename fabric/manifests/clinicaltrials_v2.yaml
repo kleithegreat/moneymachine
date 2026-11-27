@@ -1,0 +1,21 @@
+source_id: "clinicaltrials_gov_v2"
+domain: "biotech_clinical"
+modality: "document_and_structured_diff"
+storage_tier: "local_hot_ducklake"
+temporal_semantics: "snapshot_diff"
+temporal_polarity: "OBS"
+license_class: "PUBLIC_DOMAIN"
+retroactive_history_start: "2000-02-29T00:00:00Z"
+live_collection_start: "2026-11-27T00:00:00Z"
+cadence: "daily"
+entity_resolvers:
+  - local_key: "lead_sponsor_name"
+    target_node_type: "ORGANIZATION"
+    resolver_pipeline: "gleif_sec_fuzzy_v1"
+  - local_key: "nct_id"
+    target_node_type: "CLINICAL_TRIAL"
+    resolver_pipeline: "deterministic_nct"
+quality_sla:
+  max_freshness_lag_hours: 36
+  require_raw_cas_hash: true
+  reject_future_known_at: true
